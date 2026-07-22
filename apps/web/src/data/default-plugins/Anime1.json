@@ -1,0 +1,21 @@
+{
+  "api": "4",
+  "type": "anime",
+  "name": "Anime1",
+  "version": "1.0",
+  "muliSources": false,
+  "useWebview": false,
+  "useNativePlayer": true,
+  "usePost": false,
+  "useLegacyParser": false,
+  "adBlocker": false,
+  "userAgent": "",
+  "baseURL": "https://anime1.me/",
+  "searchURL": "https://anime1.me/?s=@keyword",
+  "searchList": "//article",
+  "searchName": "//h2",
+  "searchResult": "//a",
+  "chapterRoads": "//main",
+  "chapterResult": "//a",
+  "referer": "https://anime1.me/"
+}

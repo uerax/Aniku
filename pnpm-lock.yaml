@@ -25,6 +25,9 @@ importers:
       hono:
         specifier: ^4.7.5
         version: 4.12.31
+      opencc-js:
+        specifier: ^1.4.1
+        version: 1.4.1
       tsx:
         specifier: ^4.19.3
         version: 4.23.1
@@ -1036,6 +1039,9 @@ packages:
   nth-check@2.1.1:
     resolution: {integrity: sha512-lqjrjmaOoAnWfMmBPL+XNnynZh2+swxiX3WUE0s4yEHI6m+AwrK2UZOimIRl3X/4QctVqS8AiZjFqyOGrMXb/w==}
 
+  opencc-js@1.4.1:
+    resolution: {integrity: sha512-2lPLcrg7cnh1ATSduOxhnk/jq6KlR6w+5Ihl4wF7Z5e5Rva4vxTyugV5rZ7EiUCOZl+EDOLetIix+BhgYDCC+A==}
+
   parse5-htmlparser2-tree-adapter@7.1.0:
     resolution: {integrity: sha512-ruw5xyKs6lrpo9x9rCZqZZnIUntICjQAd0Wsmp396Ul9lN/h+ifgVV1x1gZHi8euej6wTfpqX8j+BFQxF0NS/g==}
 
@@ -1971,6 +1977,8 @@ snapshots:
   nth-check@2.1.1:
     dependencies:
       boolbase: 1.0.0
+
+  opencc-js@1.4.1: {}
 
   parse5-htmlparser2-tree-adapter@7.1.0:
     dependencies:

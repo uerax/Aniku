@@ -227,7 +227,7 @@ export function PlayPage() {
         if (cancelled || gen !== autoMatchGen.current) return
 
         if (!matchedEpisodeId) {
-          setDanmakuStatus('未匹配到弹幕库，可在播放器「幕」中手动搜索或导入')
+          setDanmakuStatus('未匹配到弹幕库，可在播放器「设置」中手动搜索或导入')
           return
         }
         await loadCommentsByEpisodeId(matchedEpisodeId)
@@ -448,6 +448,10 @@ export function PlayPage() {
           onDanmakuChange={setDanmaku}
           onPrev={() => goAdjacentEpisode(-1)}
           onNext={() => goAdjacentEpisode(1)}
+          onMediaAuthExpired={async (position) => {
+            if (position > 5) resumeRef.current = position
+            await resolve.refetch()
+          }}
           danmakuPanel={{
             status: danmakuStatus || poolsStatusLine(danmakuPools),
             commentsCount: loadedCount,
@@ -497,7 +501,7 @@ export function PlayPage() {
           <h3 className="font-medium">弹幕</h3>
           <div className="text-sm text-zinc-400">{danmakuStatus || '—'}</div>
           <p className="text-xs text-zinc-500">
-            控制栏「弹」开关 / 「幕」打开面板（搜索 · 设置 · 导入）。支持拖入
+            控制栏「弹」开关 / 「设置」打开面板（搜索 · 设置 · 导入）。支持拖入
             XML、B 站 BV。快捷键 D 开关弹幕，Alt+M 开关面板。
           </p>
           {resolve.data?.data.diagnostics && (

@@ -24,6 +24,8 @@ function originFromReferer(referer: string): string {
 mediaRoutes.get('/proxy', async (c) => {
   const url = c.req.query('url')
   const referer = c.req.query('referer') || ''
+  /** Optional upstream Cookie (e.g. anime1 path-scoped e/p/h). Not used by most sources. */
+  const cookie = c.req.query('cookie') || ''
   if (!url) return c.json({ error: 'bad_request', message: '缺少 url' }, 400)
 
   let target: URL
@@ -48,6 +50,9 @@ mediaRoutes.get('/proxy', async (c) => {
   if (referer) {
     headers.Referer = referer
     if (origin) headers.Origin = origin
+  }
+  if (cookie) {
+    headers.Cookie = cookie
   }
 
   // forward range for seeking
@@ -74,6 +79,20 @@ mediaRoutes.get('/proxy', async (c) => {
   }
 
   if (!upstream.ok && upstream.status !== 206) {
+    // Cookie / auth expired (anime1 and similar)
+    if (
+      cookie &&
+      (upstream.status === 403 || upstream.status === 401)
+    ) {
+      return c.json(
+        {
+          error: 'auth_expired',
+          message: `媒体鉴权失效 (${upstream.status})`,
+          hint: '播放凭证已过期，请重新解析本集',
+        },
+        403,
+      )
+    }
     // Retry once with a looser referer (some CDNs only care about site origin)
     if (origin && (upstream.status === 403 || upstream.status === 401)) {
       try {
@@ -143,7 +162,12 @@ mediaRoutes.get('/proxy', async (c) => {
           return line.replace(/URI="([^"]+)"/g, (_, u: string) => {
             try {
               const abs = new URL(u, base).toString()
-              const proxied = `/api/media/proxy?url=${encodeURIComponent(abs)}&referer=${encodeURIComponent(referer)}`
+              const q = new URLSearchParams({
+                url: abs,
+                referer,
+              })
+              if (cookie) q.set('cookie', cookie)
+              const proxied = `/api/media/proxy?${q.toString()}`
               return `URI="${proxied}"`
             } catch {
               return `URI="${u}"`
@@ -152,7 +176,9 @@ mediaRoutes.get('/proxy', async (c) => {
         }
         try {
           const abs = new URL(trimmed, base).toString()
-          return `/api/media/proxy?url=${encodeURIComponent(abs)}&referer=${encodeURIComponent(referer)}`
+          const q = new URLSearchParams({ url: abs, referer })
+          if (cookie) q.set('cookie', cookie)
+          return `/api/media/proxy?${q.toString()}`
         } catch {
           return line
         }

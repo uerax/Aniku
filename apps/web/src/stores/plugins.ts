@@ -8,7 +8,7 @@ import { migrateLocalStorageKey } from '../lib/storage'
 migrateLocalStorageKey('aniku-plugins', ['kazumi-web-plugins'])
 
 /** Bump when built-in rule set changes so empty/legacy stores re-seed */
-export const PLUGIN_DEFAULTS_VERSION = 3
+export const PLUGIN_DEFAULTS_VERSION = 5
 
 interface PluginState {
   plugins: PluginMeta[]
@@ -57,7 +57,7 @@ export function seedFromDefaults(): PluginMeta[] {
   if (!list.length) {
     console.warn('[plugins] DEFAULT_PLUGIN_RULES produced empty list')
   }
-  return list
+  return preferAnime1First(list)
 }
 
 function normalizePlugins(raw: unknown): PluginMeta[] {
@@ -66,6 +66,18 @@ function normalizePlugins(raw: unknown): PluginMeta[] {
     (p): p is PluginMeta =>
       Boolean(p && typeof p === 'object' && typeof (p as PluginMeta).name === 'string'),
   )
+}
+
+/** Keep Anime1 at front of the list (search fan-out / settings order). */
+function preferAnime1First(list: PluginMeta[]): PluginMeta[] {
+  const anime1: PluginMeta[] = []
+  const rest: PluginMeta[] = []
+  for (const p of list) {
+    if ((p.name || '').toLowerCase() === 'anime1') anime1.push(p)
+    else rest.push(p)
+  }
+  if (!anime1.length) return list
+  return [...anime1, ...rest]
 }
 
 export const usePluginStore = create<PluginState>()(
@@ -109,7 +121,9 @@ export const usePluginStore = create<PluginState>()(
           ),
         })),
       getEnabled: () =>
-        normalizePlugins(get().plugins).filter((p) => p.enabled !== false),
+        preferAnime1First(
+          normalizePlugins(get().plugins).filter((p) => p.enabled !== false),
+        ),
       getByName: (name) => {
         const key = name.toLowerCase()
         return normalizePlugins(get().plugins).find(
@@ -128,7 +142,14 @@ export const usePluginStore = create<PluginState>()(
           })
           return
         }
-        if (ver >= PLUGIN_DEFAULTS_VERSION) return
+        // Always keep Anime1 first when present (cheap reorder)
+        if (ver >= PLUGIN_DEFAULTS_VERSION) {
+          const ordered = preferAnime1First(plugins)
+          if (ordered !== plugins && ordered[0] !== plugins[0]) {
+            set({ plugins: ordered })
+          }
+          return
+        }
 
         // Replace legacy default names (DM84/enlie/old set) with current defaults
         // when the store only contains old built-in sources and nothing else.
@@ -150,7 +171,18 @@ export const usePluginStore = create<PluginState>()(
           })
           return
         }
-        set({ defaultsVersion: PLUGIN_DEFAULTS_VERSION })
+        // Merge any new built-in rules missing from store (e.g. Anime1)
+        const have = new Set(plugins.map((p) => p.name.toLowerCase()))
+        const missing = seedFromDefaults().filter(
+          (p) => !have.has(p.name.toLowerCase()),
+        )
+        let next = missing.length ? [...plugins, ...missing] : plugins
+        // Prefer Anime1 first when present (product default order)
+        next = preferAnime1First(next)
+        set({
+          plugins: next,
+          defaultsVersion: PLUGIN_DEFAULTS_VERSION,
+        })
       },
       resetToDefaults: () => {
         set({

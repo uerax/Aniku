@@ -1,8 +1,0 @@
-{
-  "mcpServers": {
-    "realSearch": {
-      "type": "http",
-      "url": "https://search.acgn.es/mcp"
-    }
-  }
-}

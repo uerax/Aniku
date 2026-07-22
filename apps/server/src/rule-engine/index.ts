@@ -704,6 +704,22 @@ export async function searchWithRule(
   const rule = parsePluginRule(ruleInput)
   const diagnostics: string[] = []
 
+  // Anime1.me — dedicated adapter (s2t search + category grouping)
+  {
+    const { isAnime1Rule, searchAnime1 } = await import('../lib/anime1')
+    if (isAnime1Rule(rule)) {
+      try {
+        return await searchAnime1(rule, keyword)
+      } catch (e) {
+        return {
+          pluginName: rule.name,
+          items: [],
+          diagnostics: [e instanceof Error ? e.message : String(e)],
+        }
+      }
+    }
+  }
+
   // API-mode rules (sorani / TvTFun): JSON API + searchApiConfig
   if (rule.searchMode === 'api') {
     try {
@@ -877,6 +893,21 @@ export async function chaptersWithRule(
 ): Promise<PluginChapterResult> {
   const rule = parsePluginRule(ruleInput)
   const diagnostics: string[] = []
+
+  {
+    const { isAnime1Rule, chaptersAnime1 } = await import('../lib/anime1')
+    if (isAnime1Rule(rule)) {
+      try {
+        return await chaptersAnime1(rule, source)
+      } catch (e) {
+        return {
+          pluginName: rule.name,
+          roads: [],
+          diagnostics: [e instanceof Error ? e.message : String(e)],
+        }
+      }
+    }
+  }
 
   // API-mode chapters: JSON API + chapterApiConfig (e.g. sorani)
   if (rule.chapterMode === 'api') {
@@ -1180,6 +1211,15 @@ export async function resolvePlay(
   pageUrl: string,
 ): Promise<ResolvePlayResult> {
   const rule = parsePluginRule(ruleInput)
+
+  // Anime1: API + cookie-gated progressive mp4 (not static HTML media)
+  {
+    const { isAnime1Rule, resolveAnime1 } = await import('../lib/anime1')
+    if (isAnime1Rule(rule)) {
+      return await resolveAnime1(rule, pageUrl)
+    }
+  }
+
   const abs = normalizeEpisodeUrl(rule.baseURL, pageUrl)
   const diagnostics: string[] = []
   const html = await fetchHtml(abs, rule, { referer: rule.baseURL })

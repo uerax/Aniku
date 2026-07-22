@@ -415,7 +415,7 @@ export function SubjectPage() {
         }
         if (!episodeId) {
           if (!cancelled) {
-            setDanmakuStatus('未匹配到弹幕，点「幕」手动搜索或导入')
+            setDanmakuStatus('未匹配到弹幕，点「设置」手动搜索或导入')
           }
           return
         }
@@ -759,6 +759,10 @@ export function SubjectPage() {
             onDanmakuChange={setDanmaku}
             onPrev={() => goAdjacentEpisode(-1)}
             onNext={() => goAdjacentEpisode(1)}
+            onMediaAuthExpired={async (position) => {
+              if (position > 5) resumeRef.current = position
+              await resolve.refetch()
+            }}
             danmakuPanel={{
               status: danmakuStatus || poolsStatusLine(danmakuPools),
               commentsCount: loadedCount,
@@ -803,7 +807,7 @@ export function SubjectPage() {
           <span className="text-zinc-400">
             {danmakuStatus ? `弹幕: ${danmakuStatus}` : '弹幕'}
             {' · '}
-            空格播放 · F 全屏 · D 弹幕 · Alt+M 面板 · P/N 上下集
+            空格播放 · F 全屏 · D 弹幕 · Alt+M 设置 · P/N 上下集
           </span>
           {resolve.data?.data.diagnostics?.length ? (
             <details className="text-zinc-600">

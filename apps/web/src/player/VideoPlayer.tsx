@@ -64,6 +64,11 @@ interface Props {
   embedded?: boolean
   hideHints?: boolean
   danmakuPanel?: DanmakuPanelState
+  /**
+   * Cookie / signed media expired (proxy 403 auth_expired or media error on cookie URL).
+   * Parent should re-resolve and pass a new src; return a Promise to await.
+   */
+  onMediaAuthExpired?: (position: number) => void | Promise<void>
 }
 
 const BASE_DANMAKU_SPEED = 130
@@ -167,6 +172,7 @@ export function VideoPlayer({
   onNext,
   embedded = false,
   danmakuPanel,
+  onMediaAuthExpired,
 }: Props) {
   const shellRef = useRef<HTMLDivElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -189,7 +195,9 @@ export function VideoPlayer({
   const onPlayerChangeRef = useRef(onPlayerChange)
   const onToggleDanmakuRef = useRef(onToggleDanmaku)
   const onDanmakuChangeRef = useRef(onDanmakuChange)
+  const onMediaAuthExpiredRef = useRef(onMediaAuthExpired)
   const initialTimeRef = useRef(initialTime)
+  const authRetryRef = useRef(false)
   const [offsetHint, setOffsetHint] = useState('')
   const offsetHintTimer = useRef(0)
 
@@ -203,6 +211,8 @@ export function VideoPlayer({
   const [paused, setPaused] = useState(true)
   const [current, setCurrent] = useState(0)
   const [duration, setDuration] = useState(0)
+  /** Progressive mp4 seek often waits on network — show feedback while seeking/waiting */
+  const [seekingUi, setSeekingUi] = useState(false)
   const [showBar, setShowBar] = useState(true)
   /** player shell Fullscreen API */
   const [playerFs, setPlayerFs] = useState(false)
@@ -222,6 +232,7 @@ export function VideoPlayer({
   onPlayerChangeRef.current = onPlayerChange
   onToggleDanmakuRef.current = onToggleDanmaku
   onDanmakuChangeRef.current = onDanmakuChange
+  onMediaAuthExpiredRef.current = onMediaAuthExpired
   initialTimeRef.current = initialTime
 
   function applyDanmaku() {
@@ -279,8 +290,10 @@ export function VideoPlayer({
 
     resumedRef.current = false
     skipBusyRef.current = false
+    authRetryRef.current = false
     setMediaError('')
     setLoading(true)
+    setSeekingUi(false)
     setPaused(true)
     setCurrent(0)
     setDuration(0)
@@ -406,10 +419,36 @@ export function VideoPlayer({
     } else {
       video.src = src
       video.addEventListener('loadedmetadata', onReady, { once: true })
+
+      const tryAuthRefresh = () => {
+        if (!alive() || authRetryRef.current) return false
+        // cookie-backed progressive sources (anime1 etc.)
+        if (!/[?&]cookie=/.test(src) || !onMediaAuthExpiredRef.current) {
+          return false
+        }
+        authRetryRef.current = true
+        const pos = video.currentTime || 0
+        setMediaError('')
+        setLoading(true)
+        setOffsetHint('播放凭证失效，正在重新获取…')
+        window.clearTimeout(offsetHintTimer.current)
+        offsetHintTimer.current = window.setTimeout(
+          () => setOffsetHint(''),
+          4000,
+        )
+        void Promise.resolve(onMediaAuthExpiredRef.current(pos)).catch(() => {
+          if (!alive()) return
+          setLoading(false)
+          setMediaError('凭证刷新失败，请重新选集')
+        })
+        return true
+      }
+
       video.addEventListener(
         'error',
         () => {
           if (!alive()) return
+          if (tryAuthRefresh()) return
           setLoading(false)
           setMediaError(
             video.error?.code
@@ -419,6 +458,39 @@ export function VideoPlayer({
         },
         { once: true },
       )
+
+      // Mid-play 403 often surfaces as stalled buffer; probe proxy once
+      const onStalled = () => {
+        if (!alive() || authRetryRef.current) return
+        if (!/[?&]cookie=/.test(src) || !onMediaAuthExpiredRef.current) return
+        const pos = video.currentTime || 0
+        // lightweight HEAD-ish GET with range to detect auth_expired JSON
+        void fetch(src, {
+          headers: { Range: 'bytes=0-1' },
+          credentials: 'same-origin',
+        }).then(async (r) => {
+          if (!alive() || authRetryRef.current) return
+          if (r.status === 403 || r.status === 401) {
+            try {
+              const j = (await r.json()) as { error?: string }
+              if (j?.error === 'auth_expired' || r.status === 403) {
+                tryAuthRefresh()
+              }
+            } catch {
+              tryAuthRefresh()
+            }
+            return
+          }
+          // if still ok, ignore stall
+          void pos
+        })
+      }
+      video.addEventListener('stalled', onStalled)
+      video.addEventListener('error', onStalled)
+
+      // cleanup extra listeners with effect teardown below via video events list
+      ;(video as HTMLVideoElement & { __a1Stalled?: () => void }).__a1Stalled =
+        onStalled
     }
 
     const onTime = () => {
@@ -490,11 +562,35 @@ export function VideoPlayer({
       onPlayerChangeRef.current?.({ speed: video.playbackRate })
     const onSeeking = () => {
       isSeekingRef.current = true
+      setSeekingUi(true)
     }
     const onSeeked = () => {
-      setTimeout(() => {
+      // Progressive files may still be waiting for data after seeked fires
+      const clearSeekUi = () => {
         isSeekingRef.current = false
-      }, 400)
+        setSeekingUi(false)
+      }
+      // If buffer covers currentTime, clear quickly; else keep spinner until canplay
+      try {
+        const t = video.currentTime
+        for (let i = 0; i < video.buffered.length; i++) {
+          if (t >= video.buffered.start(i) && t <= video.buffered.end(i) - 0.1) {
+            setTimeout(clearSeekUi, 120)
+            return
+          }
+        }
+      } catch {
+        /* ignore */
+      }
+      setTimeout(clearSeekUi, 800)
+    }
+    const onWaiting = () => {
+      // Network rebuffer (common after long seek on progressive mp4 via proxy)
+      if (!video.paused) setSeekingUi(true)
+    }
+    const onCanPlay = () => {
+      setSeekingUi(false)
+      isSeekingRef.current = false
     }
 
     video.addEventListener('timeupdate', onTime)
@@ -505,6 +601,9 @@ export function VideoPlayer({
     video.addEventListener('ratechange', onRate)
     video.addEventListener('seeking', onSeeking)
     video.addEventListener('seeked', onSeeked)
+    video.addEventListener('waiting', onWaiting)
+    video.addEventListener('canplay', onCanPlay)
+    video.addEventListener('playing', onCanPlay)
 
     const ro = new ResizeObserver(() => {
       try {
@@ -600,6 +699,18 @@ export function VideoPlayer({
       video.removeEventListener('ratechange', onRate)
       video.removeEventListener('seeking', onSeeking)
       video.removeEventListener('seeked', onSeeked)
+      video.removeEventListener('waiting', onWaiting)
+      video.removeEventListener('canplay', onCanPlay)
+      video.removeEventListener('playing', onCanPlay)
+      const stalled = (
+        video as HTMLVideoElement & { __a1Stalled?: () => void }
+      ).__a1Stalled
+      if (stalled) {
+        video.removeEventListener('stalled', stalled)
+        video.removeEventListener('error', stalled)
+        delete (video as HTMLVideoElement & { __a1Stalled?: () => void })
+          .__a1Stalled
+      }
       try {
         danmakuCoreRef.current?.destroy()
       } catch {
@@ -699,7 +810,31 @@ export function VideoPlayer({
   function seekRatio(ratio: number) {
     const v = videoRef.current
     if (!v || !Number.isFinite(v.duration) || v.duration <= 0) return
-    v.currentTime = Math.max(0, Math.min(v.duration, ratio * v.duration))
+    const target = Math.max(0, Math.min(v.duration, ratio * v.duration))
+    // Progressive MP4 (anime1 etc.) must re-Range from CDN via proxy — expect 0.5–2s lag.
+    // Scrubbing without waiting for keyframes looks "stuck" until data arrives.
+    setSeekingUi(true)
+    isSeekingRef.current = true
+    try {
+      v.currentTime = target
+    } catch {
+      setSeekingUi(false)
+      isSeekingRef.current = false
+    }
+    // If already buffered at target, clear UI on next frame
+    try {
+      for (let i = 0; i < v.buffered.length; i++) {
+        if (target >= v.buffered.start(i) && target <= v.buffered.end(i) - 0.15) {
+          requestAnimationFrame(() => {
+            setSeekingUi(false)
+            isSeekingRef.current = false
+          })
+          break
+        }
+      }
+    } catch {
+      /* ignore */
+    }
   }
 
   function handleDrop(e: DragEvent) {
@@ -803,9 +938,11 @@ export function VideoPlayer({
         }}
       />
 
-      {loading && !mediaError && (
+      {(loading || seekingUi) && !mediaError && (
         <div className="kz-status-layer">
-          <div className="kz-status-hint">加载视频中…</div>
+          <div className="kz-status-hint">
+            {loading ? '加载视频中…' : '跳转中…'}
+          </div>
         </div>
       )}
 
@@ -826,7 +963,7 @@ export function VideoPlayer({
       )}
 
       {/* Center play when paused */}
-      {paused && !loading && !mediaError && (
+      {paused && !loading && !seekingUi && !mediaError && (
         <button
           type="button"
           className="kz-big-play"
@@ -861,16 +998,18 @@ export function VideoPlayer({
             className="kz-ctrl"
             onClick={() => onPrev?.()}
             title="上一集 (P)"
+            aria-label="上一集"
           >
-            上
+            ⏮
           </button>
           <button
             type="button"
             className="kz-ctrl"
             onClick={() => onNext?.()}
             title="下一集 (N)"
+            aria-label="下一集"
           >
-            下
+            ⏭
           </button>
           <span className="kz-time">
             {formatTime(current)} / {formatTime(duration)}
@@ -888,14 +1027,25 @@ export function VideoPlayer({
           {danmakuPanel && (
             <button
               type="button"
-              className="kz-ctrl"
+              className="kz-ctrl kz-ctrl-icon"
+              data-active={panelOpen}
               onClick={() => {
                 setSpeedMenuOpen(false)
                 setPanelOpen((v) => !v)
               }}
               title="弹幕设置 (Alt+M)"
+              aria-label="设置"
             >
-              幕
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+                aria-hidden="true"
+              >
+                {/* simple gear */}
+                <path d="M19.14 12.94c.04-.31.06-.63.06-.94s-.02-.63-.06-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.49.49 0 0 0-.59-.22l-2.39.96a7.15 7.15 0 0 0-1.63-.94l-.36-2.54A.48.48 0 0 0 14 2h-4a.48.48 0 0 0-.48.41l-.36 2.54c-.59.24-1.13.56-1.63.94l-2.39-.96a.49.49 0 0 0-.59.22L2.25 8.87a.48.48 0 0 0 .12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94L2.37 14.5a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.39.3.59.22l2.39-.96c.5.38 1.04.7 1.63.94l.36 2.54c.05.24.25.41.48.41h4c.24 0 .44-.17.48-.41l.36-2.54c.59-.24 1.13-.56 1.63-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.49.49 0 0 0-.12-.61l-2.03-1.58zM12 15.5A3.5 3.5 0 1 1 12 8.5a3.5 3.5 0 0 1 0 7z" />
+              </svg>
             </button>
           )}
           <div className="kz-speed-wrap">
