@@ -1,0 +1,42 @@
+# Aniku — one-command deploy
+#   cp .env.example .env   # optional
+#   docker compose up -d --build
+# Open http://localhost:8787
+
+services:
+  aniku:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: aniku:local
+    container_name: aniku
+    ports:
+      - "${PORT:-8787}:8787"
+    environment:
+      PORT: "8787"
+      HOST: "0.0.0.0"
+      WEB_DIST: "public"
+      DANDAN_APP_ID: ${DANDAN_APP_ID:-}
+      DANDAN_APP_SECRET: ${DANDAN_APP_SECRET:-}
+      BANGUMI_USER_AGENT: ${BANGUMI_USER_AGENT:-aniku/0.1}
+      PRODUCT_USER_AGENT: ${PRODUCT_USER_AGENT:-aniku/0.1}
+      DEFAULT_USER_AGENT: ${DEFAULT_USER_AGENT:-Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36}
+      PLUGIN_SHOP: ${PLUGIN_SHOP:-}
+      PLUGIN_SHOP_MIRROR: ${PLUGIN_SHOP_MIRROR:-}
+    # Optional: also load a local .env if present (Compose interpolates above too)
+    env_file:
+      - path: .env
+        required: false
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:8787/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s

@@ -2,7 +2,9 @@ import type {
   DanmakuAnime,
   DanmakuEpisode,
   DanmakuSettings,
-} from '@kazumi-web/shared'
+} from '@aniku/shared'
+import type { DanmakuSourceChip } from '../lib/danmaku-pools'
+import type { DanmakuPoolId } from '../lib/danmaku-pools'
 
 export type DanmakuPanelTab = 'search' | 'settings' | 'import'
 
@@ -12,7 +14,10 @@ interface Props {
   onTabChange: (t: DanmakuPanelTab) => void
   onClose: () => void
   status: string
+  /** total loaded across all sources */
   commentsCount: number
+  /** currently drawn (enabled sources) */
+  visibleCount?: number
   danmaku: DanmakuSettings
   onDanmakuChange: (partial: Partial<DanmakuSettings>) => void
   keyword: string
@@ -36,7 +41,10 @@ interface Props {
   onFilterDraftChange: (v: string) => void
   onAddFilter: () => void
   onRemoveFilter: (rule: string) => void
-  /** Bottom offset so panel sits above Plyr controls */
+  /** Multi-source chips under panel content */
+  sources?: DanmakuSourceChip[]
+  onToggleSource?: (id: DanmakuPoolId) => void
+  /** Bottom offset so panel sits above player controls */
   bottomOffset?: number
 }
 
@@ -58,10 +66,16 @@ export function DanmakuPanel(props: Props) {
     onClose,
     status,
     commentsCount,
+    visibleCount,
     danmaku,
     onDanmakuChange,
+    sources,
+    onToggleSource,
     bottomOffset = 56,
   } = props
+
+  const shown =
+    typeof visibleCount === 'number' ? visibleCount : commentsCount
 
   return (
     <div
@@ -107,7 +121,10 @@ export function DanmakuPanel(props: Props) {
         <div className="text-xs text-zinc-400">
           {status || '—'}
           {commentsCount > 0 ? (
-            <span className="ml-2 text-sky-400/90">· {commentsCount} 条</span>
+            <span className="ml-2 text-sky-400/90">
+              · 共 {commentsCount} 条
+              {shown !== commentsCount ? ` · 显示 ${shown}` : ''}
+            </span>
           ) : null}
         </div>
 
@@ -117,6 +134,38 @@ export function DanmakuPanel(props: Props) {
         )}
         {tab === 'import' && <ImportTab {...props} />}
       </div>
+
+      {sources && sources.some((s) => s.loaded) && onToggleSource ? (
+        <div className="border-t border-zinc-800 px-3 py-2">
+          <div className="mb-1.5 text-[11px] text-zinc-500">
+            弹幕源 · 亮色显示 / 灰色关闭
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {sources
+              .filter((s) => s.loaded)
+              .map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => onToggleSource(s.id)}
+                  title={
+                    s.enabled
+                      ? `点击关闭「${s.label}」${s.meta ? ` · ${s.meta}` : ''}`
+                      : `点击显示「${s.label}」${s.meta ? ` · ${s.meta}` : ''}`
+                  }
+                  className={
+                    s.enabled
+                      ? 'rounded-full bg-sky-600/90 px-2.5 py-1 text-[11px] font-medium text-white shadow-sm ring-1 ring-sky-400/40 hover:bg-sky-500'
+                      : 'rounded-full bg-zinc-800 px-2.5 py-1 text-[11px] font-medium text-zinc-500 ring-1 ring-zinc-700 hover:bg-zinc-700 hover:text-zinc-300'
+                  }
+                >
+                  {s.label}
+                  <span className="ml-1 opacity-80">{s.count}</span>
+                </button>
+              ))}
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -187,7 +236,7 @@ function SearchTab(props: Props) {
       </label>
 
       <p className="text-[11px] leading-relaxed text-zinc-500">
-        弹幕由 弹弹play 提供。也可在「导入」中用 B 站 BV 或拖入 XML。
+        弹弹play 匹配会写入「弹弹」源。B 站 / XML 导入默认追加，不会覆盖弹弹；可在面板底部开关各源。
       </p>
     </div>
   )
@@ -316,9 +365,12 @@ function ImportTab(props: Props) {
             onClick={props.onLoadBilibili}
             className="rounded-lg bg-pink-600 px-3 py-1.5 text-xs hover:bg-pink-500 disabled:opacity-50"
           >
-            {props.bilibiliBusy ? '拉取中…' : '拉取 B 站弹幕'}
+            {props.bilibiliBusy ? '拉取中…' : '追加 B 站弹幕'}
           </button>
         </div>
+        <p className="text-[11px] text-zinc-500">
+          默认追加到现有弹幕，不会清空弹弹源。
+        </p>
       </div>
 
       <div className="space-y-1.5">
@@ -330,7 +382,7 @@ function ImportTab(props: Props) {
         >
           选择 XML（B 站 / pakku 导出）
           <div className="mt-1 text-[11px] text-zinc-500">
-            也可直接把 .xml 拖到播放器上
+            默认追加 · 也可把 .xml 拖到播放器上
           </div>
         </button>
       </div>

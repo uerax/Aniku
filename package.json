@@ -1,13 +1,16 @@
 {
-  "name": "kazumi-web",
+  "name": "aniku",
   "private": true,
   "version": "0.1.0",
-  "description": "Web client for anime browsing, plugin sources, danmaku and Bangumi collect — inspired by Kazumi & agefans-enhance",
+  "description": "Aniku — browser anime client: Bangumi metadata, plugin sources, danmaku, collections",
   "scripts": {
-    "dev": "pnpm -r --parallel --filter @kazumi-web/web --filter @kazumi-web/server dev",
-    "dev:web": "pnpm --filter @kazumi-web/web dev",
-    "dev:server": "pnpm --filter @kazumi-web/server dev",
+    "dev": "pnpm -r --parallel --filter @aniku/web --filter @aniku/server dev",
+    "dev:web": "pnpm --filter @aniku/web dev",
+    "dev:server": "pnpm --filter @aniku/server dev",
     "build": "pnpm -r build",
+    "build:web": "pnpm --filter @aniku/web build",
+    "start": "pnpm --filter @aniku/server start",
+    "start:prod": "pnpm build:web && pnpm start",
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck"
   },

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import type { PluginCatalogItem, PluginMeta } from '@kazumi-web/shared'
-import { catalogItemStatus } from '@kazumi-web/shared'
+import type { PluginCatalogItem, PluginMeta } from '@aniku/shared'
+import { catalogItemStatus } from '@aniku/shared'
 import { bangumiApi } from '../lib/bangumi'
 import { pluginApi } from '../lib/plugin-api'
 import { useSettingsStore } from '../stores/settings'
@@ -236,7 +236,7 @@ export function SettingsPage() {
             href="https://next.bgm.tv/demo/access-token"
             target="_blank"
             rel="noreferrer"
-            className="text-sky-400 hover:underline"
+            className="kz-link"
           >
             Bangumi 令牌页
           </a>{' '}
@@ -277,7 +277,7 @@ export function SettingsPage() {
           默认内置可用规则（7sefun / MXdm）。可本地导入 JSON，或从下方规则仓库安装。仓库：{' '}
           <a
             href="https://github.com/Predidit/KazumiRules"
-            className="text-sky-400 hover:underline"
+            className="kz-link"
             target="_blank"
             rel="noreferrer"
           >
@@ -419,7 +419,7 @@ export function SettingsPage() {
           从{' '}
           <a
             href="https://github.com/Predidit/KazumiRules"
-            className="text-sky-400 hover:underline"
+            className="kz-link"
             target="_blank"
             rel="noreferrer"
           >
@@ -762,21 +762,38 @@ export function SettingsPage() {
       <section className="space-y-2 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5 text-sm text-zinc-400">
         <h2 className="text-lg font-medium text-zinc-100">关于</h2>
         <p>
-          Kazumi Web 是浏览器端实现，功能参考{' '}
-          <a className="text-sky-400" href="https://github.com/Predidit/Kazumi">
+          <strong className="font-medium text-zinc-200">Aniku</strong>{' '}
+          是浏览器端番剧应用。规则格式兼容{' '}
+          <a
+            className="kz-link"
+            href="https://github.com/Predidit/KazumiRules"
+            target="_blank"
+            rel="noreferrer"
+          >
+            KazumiRules
+          </a>
+          ；早期设计曾参考{' '}
+          <a
+            className="kz-link"
+            href="https://github.com/Predidit/Kazumi"
+            target="_blank"
+            rel="noreferrer"
+          >
             Kazumi
           </a>{' '}
           与{' '}
           <a
-            className="text-sky-400"
+            className="kz-link"
             href="https://github.com/IronKinoko/agefans-enhance"
+            target="_blank"
+            rel="noreferrer"
           >
             agefans-enhance
           </a>
           。
         </p>
         <p>
-          元数据：Bangumi · 弹幕：弹弹play · 播放源：内置/导入/仓库规则。请在 24
+          元数据：Bangumi · 弹幕：弹弹play · 播放源：内置/导入/规则仓库。请在 24
           小时内清除缓存数据，并遵守当地法律法规。
         </p>
       </section>

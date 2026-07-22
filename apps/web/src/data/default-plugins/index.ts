@@ -1,4 +1,4 @@
-import type { PluginRule } from '@kazumi-web/shared'
+import type { PluginRule } from '@aniku/shared'
 import sefun from './7sefun.json'
 import mxdm from './MXdm.json'
 

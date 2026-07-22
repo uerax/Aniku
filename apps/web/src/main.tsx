@@ -5,6 +5,8 @@ import App from './App'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { bootstrapPlugins } from './stores/plugins'
 import './index.css'
+// Player frame / placeholder sizing shared by VideoPlayer, EmbedPlayer, SubjectPage
+import './player/plyr-overrides.css'
 
 // Seed built-in rules if localStorage is empty (legacy empty store, first visit)
 bootstrapPlugins()

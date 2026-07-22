@@ -1,0 +1,16 @@
+node_modules
+**/node_modules
+**/dist
+.git
+.claude
+.DS_Store
+*.log
+.env
+.env.*
+!.env.example
+**/*.tsbuildinfo
+.vite
+docs
+**/pnpm-lock.yaml.md
+README.md
+CLAUDE.md

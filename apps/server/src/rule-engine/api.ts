@@ -9,7 +9,7 @@ import type {
   PluginRule,
   Road,
   SearchItem,
-} from '@kazumi-web/shared'
+} from '@aniku/shared'
 import { config } from '../config'
 
 /** Local copy to avoid circular import with rule-engine/index.ts */

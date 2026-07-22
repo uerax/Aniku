@@ -5,8 +5,8 @@ import type {
   PluginSearchResult,
   PluginChapterResult,
   ResolvePlayResult,
-} from '@kazumi-web/shared'
-import { parsePluginRule } from '@kazumi-web/shared'
+} from '@aniku/shared'
+import { parsePluginRule } from '@aniku/shared'
 import * as cheerio from 'cheerio'
 import { DOMParser } from '@xmldom/xmldom'
 import xpath from 'xpath'
@@ -1282,7 +1282,7 @@ export async function resolvePlay(
     const hint = [
       '未能解析到可播放地址（静态 HTML 中无 m3u8/mp4）。',
       '常见原因：源站把真实地址放在 JS/WebView 里、Cloudflare 校验、或规则过期。',
-      '请换线路/换规则；桌面端 Kazumi 可用 WebView 拦截，成功率通常更高。',
+      '请换线路/换规则；带 WebView 媒体拦截的桌面客户端成功率通常更高。',
       diagnostics.length
         ? `诊断: ${diagnostics.slice(0, 6).join(' · ')}`
         : '',

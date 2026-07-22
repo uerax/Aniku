@@ -15,12 +15,18 @@ import {
   type DanmakuEpisode,
   type DanmakuSettings,
   type PlayerSettings,
-} from '@kazumi-web/shared'
+} from '@aniku/shared'
 import { DanmakuPanel, type DanmakuPanelTab } from './DanmakuPanel'
+import type {
+  DanmakuPoolId,
+  DanmakuSourceChip,
+} from '../lib/danmaku-pools'
 
 export interface DanmakuPanelState {
   status: string
   commentsCount: number
+  /** currently drawn after source toggles */
+  visibleCount?: number
   keyword: string
   onKeywordChange: (v: string) => void
   onSearch: () => void
@@ -38,6 +44,8 @@ export interface DanmakuPanelState {
   onLoadBilibili: () => void
   bilibiliBusy?: boolean
   onLoadXmlFile: (file: File) => void
+  sources?: DanmakuSourceChip[]
+  onToggleSource?: (id: DanmakuPoolId) => void
 }
 
 interface Props {
@@ -190,7 +198,6 @@ export function VideoPlayer({
   const [filterDraft, setFilterDraft] = useState('')
   const [dropActive, setDropActive] = useState(false)
   const [speedMenuOpen, setSpeedMenuOpen] = useState(false)
-  const [fsMenuOpen, setFsMenuOpen] = useState(false)
   const [mediaError, setMediaError] = useState('')
   const [loading, setLoading] = useState(true)
   const [paused, setPaused] = useState(true)
@@ -199,8 +206,6 @@ export function VideoPlayer({
   const [showBar, setShowBar] = useState(true)
   /** player shell Fullscreen API */
   const [playerFs, setPlayerFs] = useState(false)
-  /** documentElement Fullscreen API (whole browser chrome-less) */
-  const [browserFs, setBrowserFs] = useState(false)
   /** CSS fill viewport without Fullscreen API (agefans-style webpage FS) */
   const [webFs, setWebFs] = useState(false)
   const hideBarTimer = useRef(0)
@@ -578,7 +583,6 @@ export function VideoPlayer({
       } else if (k === 'escape') {
         setPanelOpen(false)
         setSpeedMenuOpen(false)
-        setFsMenuOpen(false)
         // web-fs exit (Fullscreen API escape is handled by browser)
         setWebFs(false)
       }
@@ -638,54 +642,33 @@ export function VideoPlayer({
 
   useEffect(() => {
     const onFs = () => {
-      const el = document.fullscreenElement
-      setPlayerFs(el === shellRef.current)
-      setBrowserFs(el === document.documentElement)
+      setPlayerFs(document.fullscreenElement === shellRef.current)
     }
     document.addEventListener('fullscreenchange', onFs)
     return () => document.removeEventListener('fullscreenchange', onFs)
   }, [])
 
-  /** Player container fullscreen (F key / 全屏) */
-  async function enterPlayerFs() {
+  /** Player container fullscreen (Fullscreen API on shell) */
+  async function togglePlayerFs() {
     setWebFs(false)
-    setFsMenuOpen(false)
     const shell = shellRef.current
     if (!shell) return
     try {
-      if (document.fullscreenElement && document.fullscreenElement !== shell) {
+      if (document.fullscreenElement === shell) {
+        await document.exitFullscreen()
+        return
+      }
+      if (document.fullscreenElement) {
         await document.exitFullscreen()
       }
-      if (document.fullscreenElement !== shell) {
-        await shell.requestFullscreen()
-      }
+      await shell.requestFullscreen()
     } catch (e) {
       console.warn('[player] player fullscreen failed', e)
     }
   }
 
-  /** Whole page / browser UI fullscreen */
-  async function enterBrowserFs() {
-    setWebFs(false)
-    setFsMenuOpen(false)
-    try {
-      if (
-        document.fullscreenElement &&
-        document.fullscreenElement !== document.documentElement
-      ) {
-        await document.exitFullscreen()
-      }
-      if (!document.fullscreenElement) {
-        await document.documentElement.requestFullscreen()
-      }
-    } catch (e) {
-      console.warn('[player] browser fullscreen failed', e)
-    }
-  }
-
   /** Expand player to viewport via CSS (no Fullscreen API) */
   function toggleWebFs() {
-    setFsMenuOpen(false)
     if (document.fullscreenElement) {
       void document.exitFullscreen()
     }
@@ -694,7 +677,6 @@ export function VideoPlayer({
 
   async function exitAnyFs() {
     setWebFs(false)
-    setFsMenuOpen(false)
     if (document.fullscreenElement) {
       try {
         await document.exitFullscreen()
@@ -704,18 +686,12 @@ export function VideoPlayer({
     }
   }
 
-  function toggleFsMenu() {
-    setSpeedMenuOpen(false)
-    setPanelOpen(false)
-    setFsMenuOpen((v) => !v)
-  }
-
-  /** F key: cycle exit → player FS */
+  /** F key: toggle player fullscreen (exit web-fs / any FS first) */
   function toggleFs() {
     if (webFs || document.fullscreenElement) {
       void exitAnyFs()
     } else {
-      void enterPlayerFs()
+      void togglePlayerFs()
     }
   }
   toggleFsRef.current = toggleFs
@@ -760,8 +736,8 @@ export function VideoPlayer({
           : embedded
             ? // fill parent without overflow-hidden (Chrome blacks out video otherwise)
               'kz-player-shell absolute inset-0'
-            : // border-radius on the shell is ok; avoid nested overflow-hidden wrappers above
-              'kz-player-shell relative aspect-video w-full rounded-2xl border border-zinc-800'
+            : // 16:9, capped by viewport so small laptop screens don't overflow
+              'kz-player-shell kz-player-frame relative rounded-2xl border border-zinc-800'
       }
       onMouseMove={bumpBar}
       onMouseLeave={() => {
@@ -873,6 +849,7 @@ export function VideoPlayer({
           max={1000}
           value={Math.round(progress * 10)}
           onChange={(e) => seekRatio(Number(e.target.value) / 1000)}
+          style={{ ['--kz-progress' as string]: `${progress}%` }}
           aria-label="进度"
         />
         <div className="kz-bar-row">
@@ -963,49 +940,29 @@ export function VideoPlayer({
               if (videoRef.current) videoRef.current.volume = vol
               onPlayerChange?.({ volume: vol })
             }}
+            style={{
+              ['--kz-progress' as string]: `${Math.round((player.volume ?? 0.7) * 100)}%`,
+            }}
             aria-label="音量"
           />
-          <div className="kz-speed-wrap">
-            <button
-              type="button"
-              className="kz-ctrl"
-              data-active={playerFs || browserFs || webFs}
-              onClick={toggleFsMenu}
-              title="全屏选项 (F 快速切换播放器全屏)"
-            >
-              {playerFs || browserFs || webFs ? '退出' : '全屏'}
-            </button>
-            {fsMenuOpen && (
-              <div className="kz-speed-menu kz-fs-menu">
-                <button
-                  type="button"
-                  data-active={playerFs}
-                  onClick={() => void enterPlayerFs()}
-                >
-                  播放器全屏
-                </button>
-                <button
-                  type="button"
-                  data-active={browserFs}
-                  onClick={() => void enterBrowserFs()}
-                >
-                  浏览器全屏
-                </button>
-                <button
-                  type="button"
-                  data-active={webFs}
-                  onClick={toggleWebFs}
-                >
-                  网页全屏
-                </button>
-                {(playerFs || browserFs || webFs) && (
-                  <button type="button" onClick={() => void exitAnyFs()}>
-                    退出全屏
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
+          <button
+            type="button"
+            className="kz-ctrl"
+            data-active={playerFs}
+            onClick={() => void togglePlayerFs()}
+            title="播放器全屏 (F)"
+          >
+            {playerFs ? '退出' : '全屏'}
+          </button>
+          <button
+            type="button"
+            className="kz-ctrl"
+            data-active={webFs}
+            onClick={toggleWebFs}
+            title="网页全屏（铺满视口，保留浏览器标签栏）"
+          >
+            {webFs ? '退出网页' : '网页全屏'}
+          </button>
         </div>
       </div>
 
@@ -1021,6 +978,7 @@ export function VideoPlayer({
             onClose={() => setPanelOpen(false)}
             status={danmakuPanel.status}
             commentsCount={danmakuPanel.commentsCount}
+            visibleCount={danmakuPanel.visibleCount}
             danmaku={danmaku}
             onDanmakuChange={(p) => onDanmakuChange?.(p)}
             keyword={danmakuPanel.keyword}
@@ -1048,6 +1006,8 @@ export function VideoPlayer({
                 filters: danmaku.filters.filter((r) => r !== rule),
               })
             }
+            sources={danmakuPanel.sources}
+            onToggleSource={danmakuPanel.onToggleSource}
             bottomOffset={72}
           />
         </div>

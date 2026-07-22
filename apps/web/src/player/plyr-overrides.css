@@ -9,6 +9,34 @@
   user-select: none;
 }
 
+/*
+ * 16:9 frame that fits small laptop viewports.
+ * Width-driven on large screens; height-capped so aspect-video doesn't push
+ * past the window (header + page chrome leave ~30–35vh unusable).
+ */
+.kz-player-frame {
+  width: 100%;
+  max-width: min(100%, calc((100dvh - 11rem) * 16 / 9));
+  aspect-ratio: 16 / 9;
+  max-height: min(100%, calc(100dvh - 11rem));
+  margin-inline: auto;
+}
+
+/* Placeholder shells on Play / Subject pages (same cap as live player) */
+.kz-player-placeholder {
+  display: flex;
+  width: 100%;
+  max-width: min(100%, calc((100dvh - 11rem) * 16 / 9));
+  aspect-ratio: 16 / 9;
+  max-height: min(100%, calc(100dvh - 11rem));
+  margin-inline: auto;
+  align-items: center;
+  justify-content: center;
+  border-radius: 1rem;
+  border: 1px solid #27272a;
+  background: #000;
+}
+
 /* Video must paint on its own layer, full size */
 .kz-native-video {
   position: absolute;
@@ -148,11 +176,89 @@
   pointer-events: auto;
 }
 
+/* Seek bar: Safari/macOS does not fill native range tracks with accent-color —
+   paint played portion via --kz-progress + WebKit/Moz pseudo elements. */
 .kz-seek {
+  --kz-progress: 0%;
+  --kz-seek-fill: #38bdf8;
+  --kz-seek-rest: #3f3f46;
+  --kz-seek-h: 6px;
+  display: block;
   width: 100%;
-  height: 6px;
+  height: var(--kz-seek-h);
   margin: 0 0 0.35rem;
-  accent-color: #38bdf8;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  accent-color: var(--kz-seek-fill);
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.kz-seek:focus {
+  outline: none;
+}
+
+.kz-seek:focus-visible {
+  outline: 2px solid rgba(56, 189, 248, 0.55);
+  outline-offset: 3px;
+}
+
+/* WebKit / Blink (Safari, Chrome) */
+.kz-seek::-webkit-slider-runnable-track {
+  height: var(--kz-seek-h);
+  border-radius: 999px;
+  background: linear-gradient(
+    to right,
+    var(--kz-seek-fill) 0%,
+    var(--kz-seek-fill) var(--kz-progress),
+    var(--kz-seek-rest) var(--kz-progress),
+    var(--kz-seek-rest) 100%
+  );
+}
+
+.kz-seek::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  margin-top: calc((var(--kz-seek-h) - 14px) / 2);
+  border: 0;
+  border-radius: 50%;
+  background: #fafafa;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+}
+
+.kz-seek:hover::-webkit-slider-thumb {
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.35);
+}
+
+/* Firefox */
+.kz-seek::-moz-range-track {
+  height: var(--kz-seek-h);
+  border: 0;
+  border-radius: 999px;
+  background: var(--kz-seek-rest);
+}
+
+.kz-seek::-moz-range-progress {
+  height: var(--kz-seek-h);
+  border: 0;
+  border-radius: 999px;
+  background: var(--kz-seek-fill);
+}
+
+.kz-seek::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border: 0;
+  border-radius: 50%;
+  background: #fafafa;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
   cursor: pointer;
 }
 
@@ -195,9 +301,69 @@
   flex: 1;
 }
 
+/* Volume: same Mac/Safari fill issue as seek */
 .kz-vol {
+  --kz-progress: 70%;
+  --kz-seek-fill: #38bdf8;
+  --kz-seek-rest: #3f3f46;
+  --kz-seek-h: 4px;
   width: 4.5rem;
-  accent-color: #38bdf8;
+  height: 1.25rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  accent-color: var(--kz-seek-fill);
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  vertical-align: middle;
+}
+
+.kz-vol::-webkit-slider-runnable-track {
+  height: var(--kz-seek-h);
+  border-radius: 999px;
+  background: linear-gradient(
+    to right,
+    var(--kz-seek-fill) 0%,
+    var(--kz-seek-fill) var(--kz-progress),
+    var(--kz-seek-rest) var(--kz-progress),
+    var(--kz-seek-rest) 100%
+  );
+}
+
+.kz-vol::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  margin-top: calc((var(--kz-seek-h) - 12px) / 2);
+  border: 0;
+  border-radius: 50%;
+  background: #fafafa;
+  cursor: pointer;
+}
+
+.kz-vol::-moz-range-track {
+  height: var(--kz-seek-h);
+  border: 0;
+  border-radius: 999px;
+  background: var(--kz-seek-rest);
+}
+
+.kz-vol::-moz-range-progress {
+  height: var(--kz-seek-h);
+  border: 0;
+  border-radius: 999px;
+  background: var(--kz-seek-fill);
+}
+
+.kz-vol::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border: 0;
+  border-radius: 50%;
+  background: #fafafa;
   cursor: pointer;
 }
 
@@ -249,21 +415,32 @@
   pointer-events: auto;
 }
 
+/* True Fullscreen API on shell — drop 16:9 caps so video fills display */
+.kz-player-shell:fullscreen,
+.kz-player-shell:-webkit-full-screen {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  max-height: none !important;
+  aspect-ratio: auto !important;
+  border-radius: 0 !important;
+  border: 0 !important;
+  margin: 0 !important;
+  background: #000 !important;
+}
+
 /* Webpage fullscreen (CSS fill viewport, no Fullscreen API) */
 .kz-player-shell.kz-web-fs {
   position: fixed !important;
   inset: 0 !important;
   z-index: 9999 !important;
   width: 100vw !important;
-  height: 100vh !important;
+  height: 100dvh !important;
   max-width: none !important;
   max-height: none !important;
   border-radius: 0 !important;
   border: 0 !important;
   aspect-ratio: auto !important;
+  margin: 0 !important;
   background: #000 !important;
-}
-
-.kz-fs-menu {
-  min-width: 7.5rem;
 }

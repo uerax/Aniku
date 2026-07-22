@@ -1,5 +1,5 @@
 {
-  "name": "@kazumi-web/web",
+  "name": "@aniku/web",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "@ironkinoko/danmaku": "^1.4.5",
-    "@kazumi-web/shared": "workspace:*",
+    "@aniku/shared": "workspace:*",
     "@tanstack/react-query": "^5.69.0",
     "clsx": "^2.1.1",
     "hls.js": "^1.5.20",

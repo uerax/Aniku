@@ -3,27 +3,27 @@
 面向后续维护者与协作者的**设计背景、架构约定与踩坑记录**。  
 日常上手见根目录 [README.md](../README.md)；给 AI 助手的精简约定见 [CLAUDE.md](../CLAUDE.md)。
 
-本仓库地址：https://github.com/uerax/Kazumi-web
+产品名：**Aniku**（包：`aniku` / `@aniku/*`）。
 
 ---
 
 ## 1. 这是什么
 
-**Kazumi Web** = 浏览器里的番剧应用：
+**Aniku** = 浏览器里的番剧应用：
 
 - 浏览 / 搜索 / 时间表（Bangumi）
-- 用户导入的 **Kazumi 兼容规则** 选源、解析、播放
+- 用户导入的 **兼容规则**（KazumiRules JSON）选源、解析、播放
 - 弹弹 play 弹幕 + 本地历史 / 追番
 
-它是 **React SPA + 本地 Hono API**，**不是** Flutter 桌面版 [Kazumi](https://github.com/Predidit/Kazumi) 的官方 Web 移植。
+它是 **React SPA + 本地 Hono API**，不是桌面客户端官方 Web 移植。
 
 | 仓库 | 角色 |
 |------|------|
-| 本仓库 `kazumi-web` | 完整读写 |
-| 工作区旁 `Kazumi/` | 只读参考（规则、搜索 UX、WebView 媒体） |
-| 工作区旁 `agefans-enhance/` | 只读参考（播放器 + ironkinoko 弹幕） |
+| 本仓库 `aniku` | 完整读写 |
+| 工作区旁 `Kazumi/`（若存在） | 只读参考 |
+| 工作区旁 `agefans-enhance/`（若存在） | 只读参考 |
 
-参考项目的模式可以抄，**不要整文件搬**，也不要改那两个目录。
+参考项目的模式可以抄，**不要整文件搬**。
 
 ---
 
@@ -47,10 +47,10 @@
 ## 3. 技术栈与 monorepo
 
 ```
-kazumi-web/
-  apps/web/          @kazumi-web/web     React 19 + Vite 6 + Tailwind 4 + TanStack Query + Zustand
-  apps/server/       @kazumi-web/server  Hono + @hono/node-server
-  packages/shared/   @kazumi-web/shared  类型与解析器（源码导出，无独立 build）
+aniku/
+  apps/web/          @aniku/web     React 19 + Vite 6 + Tailwind 4 + TanStack Query + Zustand
+  apps/server/       @aniku/server  Hono + @hono/node-server
+  packages/shared/   @aniku/shared  类型与解析器（源码导出，无独立 build）
   docs/              开发者文档（本文件等）
   .env.example
 ```
@@ -65,8 +65,8 @@ kazumi-web/
 pnpm install
 pnpm dev              # web :5173 + server :8787
 pnpm typecheck
-pnpm --filter @kazumi-web/web typecheck
-pnpm --filter @kazumi-web/server typecheck
+pnpm --filter @aniku/web typecheck
+pnpm --filter @aniku/server typecheck
 ```
 
 当前**没有**单元/集成测试 runner；校验靠 `tsc` + 手动 `pnpm dev`。
@@ -96,10 +96,11 @@ Browser (5173)
 | 变量 | 说明 |
 |------|------|
 | `PORT` / `HOST` | 默认 `8787` / `0.0.0.0` |
-| `DANDAN_APP_ID` / `DANDAN_APP_SECRET` | 可选；空则用 agefans 同源内置密钥 + legacy 头 `X-AppId`/`X-AppSecret` |
-| `BANGUMI_USER_AGENT` | 请求 Bangumi 的 UA，默认 `kazumi-web/0.1 (https://github.com/uerax/Kazumi-web)` |
-| `DEFAULT_USER_AGENT` | 抓插件 HTML 等 |
-| `PLUGIN_SHOP` / `PLUGIN_SHOP_MIRROR` | KazumiRules 源与镜像 |
+| `DANDAN_APP_ID` / `DANDAN_APP_SECRET` | 可选；空则用内置 legacy 密钥 + `X-AppId`/`X-AppSecret` |
+| `BANGUMI_USER_AGENT` | 请求 Bangumi 的 UA，默认 `aniku/0.1` |
+| `PRODUCT_USER_AGENT` | 产品身份 UA（弹弹等），默认 `aniku/0.1` |
+| `DEFAULT_USER_AGENT` | 抓插件 HTML / 媒体等浏览器型 UA |
+| `PLUGIN_SHOP` / `PLUGIN_SHOP_MIRROR` | 规则仓库源与镜像（默认 KazumiRules raw） |
 
 **不要**再引入已死的公共 DPlayer 弹幕池 / `DPLAYER_API`。
 
@@ -197,7 +198,7 @@ hls.js           → HLS 挂到同一 <video>
 | Alt+M | 弹幕面板 |
 | P / N | 上 / 下集 |
 
-全屏菜单：播放器全屏 / 浏览器全屏 / 网页全屏（CSS `kz-web-fs`）。
+全屏控制栏两个直达按钮：**全屏**（`shell.requestFullscreen`，F 键）/ **网页全屏**（CSS `kz-web-fs`）。已去掉「浏览器全屏」与二级菜单。默认尺寸 `.kz-player-frame`：16:9 且 `max-height ≈ 100dvh - 11rem`，小屏笔记本不撑破视口。
 
 ---
 

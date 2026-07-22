@@ -5,7 +5,10 @@ import {
   defaultPlayerSettings,
   type DanmakuSettings,
   type PlayerSettings,
-} from '@kazumi-web/shared'
+} from '@aniku/shared'
+import { migrateLocalStorageKey } from '../lib/storage'
+
+migrateLocalStorageKey('aniku-settings', ['kazumi-web-settings'])
 
 interface SettingsState {
   bangumiToken: string
@@ -53,7 +56,7 @@ export const useSettingsStore = create<SettingsState>()(
       resetPlayer: () => set({ player: { ...defaultPlayerSettings } }),
     }),
     {
-      name: 'kazumi-web-settings',
+      name: 'aniku-settings',
       storage: createJSONStorage(() => localStorage),
       partialize: (s) => ({
         bangumiToken: s.bangumiToken,

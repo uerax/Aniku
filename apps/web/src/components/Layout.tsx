@@ -43,9 +43,9 @@ export function Layout() {
             className="flex shrink-0 items-center gap-2 font-semibold tracking-tight"
           >
             <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-sky-500 text-sm text-white">
-              K
+              A
             </span>
-            <span className="hidden sm:inline">Kazumi Web</span>
+            <span className="hidden sm:inline">Aniku</span>
           </NavLink>
 
           <nav className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
@@ -93,7 +93,7 @@ export function Layout() {
         <Outlet />
       </main>
       <footer className="border-t border-zinc-900 py-4 text-center text-xs text-zinc-500">
-        仅供学习研究 · 请遵守当地法律法规 · 数据来自 Bangumi / 弹弹play ·
+        Aniku · 仅供学习研究 · 请遵守当地法律法规 · 数据来自 Bangumi / 弹弹play ·
         规则由用户自行导入
       </footer>
     </div>

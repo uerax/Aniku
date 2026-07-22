@@ -14,11 +14,22 @@ import {
   type SearchItem,
   type Road,
   type DanmakuAnime,
-  type DanmakuComment,
   type DanmakuEpisode,
-} from '@kazumi-web/shared'
+} from '@aniku/shared'
 import { bangumiApi } from '../lib/bangumi'
 import { pluginApi, danmakuApi } from '../lib/plugin-api'
+import {
+  emptyDanmakuPools,
+  enabledCount,
+  flattenEnabledPools,
+  poolsStatusLine,
+  sourceChips,
+  totalLoadedCount,
+  togglePool,
+  writePool,
+  type DanmakuPoolId,
+  type DanmakuPools,
+} from '../lib/danmaku-pools'
 import { usePluginStore } from '../stores/plugins'
 import { useSettingsStore } from '../stores/settings'
 import { useHistoryStore } from '../stores/history'
@@ -107,7 +118,7 @@ export function SubjectPage() {
   /** Kazumi-style: only one road's episodes visible at a time */
   const [visibleRoad, setVisibleRoad] = useState(0)
   const [summaryOpen, setSummaryOpen] = useState(false)
-  const [danmakuComments, setDanmakuComments] = useState<DanmakuComment[]>([])
+  const [danmakuPools, setDanmakuPools] = useState<DanmakuPools>(emptyDanmakuPools)
   const [danmakuStatus, setDanmakuStatus] = useState('')
   const [dmKeyword, setDmKeyword] = useState('')
   const [dmAnimes, setDmAnimes] = useState<DanmakuAnime[]>([])
@@ -126,6 +137,24 @@ export function SubjectPage() {
   const resumeRef = useRef(0)
   /** cancel in-flight per-plugin re-query when a newer one starts */
   const pluginSearchGen = useRef<Record<string, number>>({})
+
+  const visibleComments = useMemo(
+    () => flattenEnabledPools(danmakuPools),
+    [danmakuPools],
+  )
+  const loadedCount = useMemo(
+    () => totalLoadedCount(danmakuPools),
+    [danmakuPools],
+  )
+  const visibleCount = useMemo(
+    () => enabledCount(danmakuPools),
+    [danmakuPools],
+  )
+  const chips = useMemo(() => sourceChips(danmakuPools), [danmakuPools])
+
+  function toggleSource(id: DanmakuPoolId) {
+    setDanmakuPools((p) => togglePool(p, id))
+  }
 
   const titleRefs = useMemo(() => {
     if (!item) return [] as string[]
@@ -149,7 +178,7 @@ export function SubjectPage() {
     setEpisode(null)
     setVisibleRoad(0)
     setRoadError('')
-    setDanmakuComments([])
+    setDanmakuPools(emptyDanmakuPools())
     setDanmakuStatus('')
     setRetryPlugin(null)
     setRetryMode(null)
@@ -323,9 +352,11 @@ export function SubjectPage() {
 
   const loadCommentsByEpisodeId = useCallback(async (epId: number) => {
     const comments = await danmakuApi.comments(epId)
-    setDanmakuComments(comments.data)
+    setDanmakuPools((p) =>
+      writePool(p, 'dandan', comments.data, 'replace', `ep ${epId}`),
+    )
     setDmEpisodeId(epId)
-    setDanmakuStatus(`已加载 ${comments.count} 条弹幕`)
+    setDanmakuStatus(`弹弹 · 已加载 ${comments.count} 条（其它源保留）`)
     return comments
   }, [])
 
@@ -477,10 +508,13 @@ export function SubjectPage() {
     setDanmakuStatus(`拉取 B 站弹幕 ${bvid}…`)
     try {
       const res = await danmakuApi.bilibili(bvid, bvPage)
-      setDanmakuComments(res.data)
       const part = res.meta.part ? ` · ${res.meta.part}` : ''
+      const meta = `${res.meta.title || bvid}${part}`
+      setDanmakuPools((p) =>
+        writePool(p, 'bilibili', res.data, 'append', meta),
+      )
       setDanmakuStatus(
-        `B站 · ${res.meta.title || bvid}${part} · ${res.count} 条`,
+        `已追加 B站 · ${meta} · +${res.count} 条（默认叠加显示）`,
       )
     } catch (e) {
       setDanmakuStatus(e instanceof Error ? e.message : 'B 站弹幕拉取失败')
@@ -498,8 +532,12 @@ export function SubjectPage() {
         setDanmakuStatus('XML 中未找到弹幕（需 bilibili / pakku 格式）')
         return
       }
-      setDanmakuComments(list)
-      setDanmakuStatus(`本地 XML · ${file.name} · ${list.length} 条`)
+      setDanmakuPools((p) =>
+        writePool(p, 'upload', list, 'append', file.name),
+      )
+      setDanmakuStatus(
+        `已追加 用户上传 · ${file.name} · +${list.length} 条（默认叠加显示）`,
+      )
     } catch (e) {
       setDanmakuStatus(e instanceof Error ? e.message : 'XML 解析失败')
     }
@@ -511,7 +549,7 @@ export function SubjectPage() {
     setRoadError('')
     setEpisode(null)
     setVisibleRoad(0)
-    setDanmakuComments([])
+    setDanmakuPools(emptyDanmakuPools())
     setDanmakuStatus('')
     try {
       const res = await pluginApi.chapters(plugin, searchItem.src)
@@ -683,12 +721,12 @@ export function SubjectPage() {
           wrapping a hardware-decoded <video> (Chrome: audio ok, black frame). */}
       <div className="space-y-0">
         {episode && resolve.isLoading && !proxyUrl && (
-          <div className="flex aspect-video w-full items-center justify-center rounded-2xl border border-zinc-800 bg-black text-sm text-zinc-300">
+          <div className="kz-player-placeholder text-sm text-zinc-300">
             解析播放地址…
           </div>
         )}
         {episode && resolve.isError && !proxyUrl && (
-          <div className="flex aspect-video w-full flex-col items-center justify-center gap-2 rounded-2xl border border-zinc-800 bg-black p-4 text-center">
+          <div className="kz-player-placeholder flex-col gap-2 p-4 text-center">
             <div className="text-sm text-red-300">
               {(resolve.error as Error)?.message || '解析失败'}
             </div>
@@ -710,7 +748,7 @@ export function SubjectPage() {
                 ? resumeRef.current
                 : 0
             }
-            comments={danmakuComments}
+            comments={visibleComments}
             danmaku={danmakuSettings}
             player={playerSettings}
             onPlayerChange={setPlayer}
@@ -722,8 +760,9 @@ export function SubjectPage() {
             onPrev={() => goAdjacentEpisode(-1)}
             onNext={() => goAdjacentEpisode(1)}
             danmakuPanel={{
-              status: danmakuStatus,
-              commentsCount: danmakuComments.length,
+              status: danmakuStatus || poolsStatusLine(danmakuPools),
+              commentsCount: loadedCount,
+              visibleCount,
               keyword: dmKeyword,
               onKeywordChange: setDmKeyword,
               onSearch: () => void handleDmSearch(),
@@ -741,10 +780,12 @@ export function SubjectPage() {
               onLoadBilibili: () => void handleLoadBilibili(),
               bilibiliBusy,
               onLoadXmlFile: (f) => void handleLoadXmlFile(f),
+              sources: chips,
+              onToggleSource: toggleSource,
             }}
           />
         ) : !episode || (!resolve.isLoading && !resolve.isError) ? (
-          <div className="flex aspect-video w-full flex-col items-center justify-center gap-1 rounded-2xl border border-zinc-800 bg-black text-sm text-zinc-500">
+          <div className="kz-player-placeholder flex-col gap-1 text-sm text-zinc-500">
             <span>选择播放源与分集后开始播放</span>
             {selection && !episode && (
               <span className="text-xs text-zinc-600">请在下方点击某一集</span>
@@ -762,7 +803,7 @@ export function SubjectPage() {
           <span className="text-zinc-400">
             {danmakuStatus ? `弹幕: ${danmakuStatus}` : '弹幕'}
             {' · '}
-            空格播放 · F 全屏菜单 · D 弹幕 · Alt+M 面板 · P/N 上下集
+            空格播放 · F 全屏 · D 弹幕 · Alt+M 面板 · P/N 上下集
           </span>
           {resolve.data?.data.diagnostics?.length ? (
             <details className="text-zinc-600">

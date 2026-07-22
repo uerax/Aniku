@@ -67,7 +67,8 @@ export async function dandanGet(
   }
 
   const headers: Record<string, string> = {
-    'User-Agent': config.defaultUserAgent,
+    // Identify as Aniku (not a browser scrape UA / not kazumi-web)
+    'User-Agent': config.productUserAgent,
     Accept: 'application/json',
   }
 

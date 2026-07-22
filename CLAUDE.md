@@ -4,25 +4,25 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Human-oriented project context** (architecture, decisions, pitfalls for all developers): **[docs/CONTEXT.md](docs/CONTEXT.md)**. Keep that file and this one aligned when changing critical behavior.
 
-Repo: https://github.com/uerax/Kazumi-web
+Product name: **Aniku**. Packages: `aniku`, `@aniku/web`, `@aniku/server`, `@aniku/shared`.
 
 ## Project overview
 
-**Kazumi Web** is a browser-only anime app (React + local Hono API). It is **not** the Flutter/desktop [Kazumi](https://github.com/Predidit/Kazumi) client. Features: Bangumi metadata & collections, user-imported Kazumi-compatible plugin rules for search/chapters/play resolution, HLS/MP4 playback, DanDanPlay danmaku, local watch history.
+**Aniku** is a browser-only anime app (React + local Hono API). Features: Bangumi metadata & collections, user-imported plugin rules (KazumiRules-compatible JSON) for search/chapters/play resolution, HLS/MP4 playback, DanDanPlay danmaku, local watch history.
 
 Ships working default rules under `apps/web/src/data/default-plugins/` (`7sefun`, `MXdm`). Users can import JSON, reset to defaults, or install/update from [KazumiRules](https://github.com/Predidit/KazumiRules) via server proxy (`GET /api/plugin/catalog`).
 
-## Sibling reference repos (workspace)
+## Sibling reference repos (workspace, optional)
 
-Parent directory often contains:
+Parent directory may still contain older reference clones (read-only if present):
 
-| Path | Role | Access for this project |
-|------|------|-------------------------|
-| `kazumi-web/` | **This repo** | full read/write |
-| `Kazumi/` | Flutter reference (rules, search UX, WebView media) | **read-only** |
-| `agefans-enhance/` | Userscript reference (player + ironkinoko danmaku) | **read-only** |
+| Path | Role |
+|------|------|
+| this repo (`aniku` / folder may still be `Kazumi-web` on disk) | full read/write |
+| `Kazumi/` | optional Flutter reference for rule/search UX |
+| `agefans-enhance/` | optional userscript reference for danmaku/player |
 
-Do not modify `Kazumi` or `agefans-enhance`. Copy patterns, not files wholesale.
+Do not modify sibling reference trees. Copy patterns, not files wholesale.
 
 ## Commands
 
@@ -43,9 +43,9 @@ pnpm typecheck        # recursive tsc
 pnpm lint             # same as typecheck (tsc only; no ESLint)
 
 # Filter a single package
-pnpm --filter @kazumi-web/web typecheck
-pnpm --filter @kazumi-web/server typecheck
-pnpm --filter @kazumi-web/shared typecheck
+pnpm --filter @aniku/web typecheck
+pnpm --filter @aniku/server typecheck
+pnpm --filter @aniku/shared typecheck
 ```
 
 There is **no unit/integration test runner** in the repo today. Validation is `pnpm typecheck` / package `lint` (tsc) and manual flows via `pnpm dev`.
@@ -61,9 +61,10 @@ Loaded by `apps/server/src/config.ts` from repo root and `apps/server` (custom p
 | Variable | Purpose |
 |----------|---------|
 | `PORT` / `HOST` | API listen (default `8787` / `0.0.0.0`) |
-| `DANDAN_APP_ID` / `DANDAN_APP_SECRET` | Optional open-platform keys; empty → agefans-compatible built-in client headers so danmaku works out of the box |
-| `BANGUMI_USER_AGENT` | UA for Bangumi upstream; default `kazumi-web/0.1 (https://github.com/uerax/Kazumi-web)` |
-| `DEFAULT_USER_AGENT` | UA for plugin HTML fetches |
+| `DANDAN_APP_ID` / `DANDAN_APP_SECRET` | Optional open-platform keys; empty → built-in legacy client headers so danmaku works out of the box |
+| `BANGUMI_USER_AGENT` | UA for Bangumi upstream; default `aniku/0.1` |
+| `PRODUCT_USER_AGENT` | Product identity UA (DanDanPlay etc.); default `aniku/0.1` |
+| `DEFAULT_USER_AGENT` | Browser-like UA for plugin HTML / media fetches |
 
 Vite proxies `/api` → `http://127.0.0.1:8787` (`apps/web/vite.config.ts`).
 
@@ -72,14 +73,14 @@ Vite proxies `/api` → `http://127.0.0.1:8787` (`apps/web/vite.config.ts`).
 ## Monorepo layout
 
 ```
-apps/web/           @kazumi-web/web     React 19 + Vite 6 + Tailwind 4 + TanStack Query + Zustand
-apps/server/        @kazumi-web/server  Hono on @hono/node-server
-packages/shared/    @kazumi-web/shared  Types + parsers (source-exported TS, no build step)
+apps/web/           @aniku/web     React 19 + Vite 6 + Tailwind 4 + TanStack Query + Zustand
+apps/server/        @aniku/server  Hono on @hono/node-server
+packages/shared/    @aniku/shared  Types + parsers (source-exported TS, no build step)
 ```
 
 Workspace: `pnpm-workspace.yaml` → `apps/*`, `packages/*`. Internal deps use `workspace:*`.
 
-Shared is consumed as raw TypeScript (`exports: "./src/index.ts"`). Change types/DTOs in `packages/shared/src/` (`plugin.ts`, `bangumi.ts`, `danmaku.ts`, `history.ts`, `api.ts`, `player.ts`); both apps import `@kazumi-web/shared`.
+Shared is consumed as raw TypeScript (`exports: "./src/index.ts"`). Change types/DTOs in `packages/shared/src/` (`plugin.ts`, `bangumi.ts`, `danmaku.ts`, `history.ts`, `api.ts`, `player.ts`); both apps import `@aniku/shared`.
 
 ## Architecture
 
@@ -190,14 +191,17 @@ Proxy URL comes from resolve (`/api/media/proxy?url=…&referer=…`). Segment 2
 - **Settings:** opacity / fontSize / speed / area / timeOffset / type filters / keyword filters; store in Zustand `danmaku`.
 - **Auto-match:** bgm map + title search in parallel; do not clear comments until new load succeeds; never block video resolve.
 
-#### Fullscreen menu (control bar 「全屏」)
+#### Fullscreen (control bar direct buttons — no nested menu)
 
 | Mode | Mechanism |
 |------|-----------|
-| 播放器全屏 | `shell.requestFullscreen()` — **F** toggles this |
-| 浏览器全屏 | `document.documentElement.requestFullscreen()` |
+| 全屏 | `shell.requestFullscreen()` — **F** toggles this |
 | 网页全屏 | CSS class `kz-web-fs` fixed full viewport (no Fullscreen API) |
-| 退出 | exit FS API + clear `webFs` |
+| 退出 | same button again, **F**, or **Esc** (web-fs); browser Esc for Fullscreen API |
+
+**Removed:** 浏览器全屏 (`document.documentElement.requestFullscreen`).
+
+**Sizing:** default shell uses `.kz-player-frame` — 16:9, `max-width/max-height` capped by `100dvh - 11rem` so small laptop windows don't overflow.
 
 #### Hotkeys (player focus; skip when typing in inputs)
 

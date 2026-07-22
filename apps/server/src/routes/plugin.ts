@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { parsePluginRule } from '@kazumi-web/shared'
+import { parsePluginRule } from '@aniku/shared'
 import {
   searchWithRule,
   chaptersWithRule,

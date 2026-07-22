@@ -1,7 +1,10 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
-import type { WatchHistoryEntry } from '@kazumi-web/shared'
-import { historyId } from '@kazumi-web/shared'
+import type { WatchHistoryEntry } from '@aniku/shared'
+import { historyId } from '@aniku/shared'
+import { migrateLocalStorageKey } from '../lib/storage'
+
+migrateLocalStorageKey('aniku-history', ['kazumi-web-history'])
 
 interface HistoryState {
   items: WatchHistoryEntry[]
@@ -61,7 +64,7 @@ export const useHistoryStore = create<HistoryState>()(
       },
     }),
     {
-      name: 'kazumi-web-history',
+      name: 'aniku-history',
       storage: createJSONStorage(() => localStorage),
       partialize: (s) => ({ items: s.items }),
       merge: (persisted, current) => {

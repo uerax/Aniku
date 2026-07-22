@@ -1,8 +1,11 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
-import type { PluginMeta, PluginRule } from '@kazumi-web/shared'
-import { parsePluginRule } from '@kazumi-web/shared'
+import type { PluginMeta, PluginRule } from '@aniku/shared'
+import { parsePluginRule } from '@aniku/shared'
 import { DEFAULT_PLUGIN_RULES } from '../data/default-plugins'
+import { migrateLocalStorageKey } from '../lib/storage'
+
+migrateLocalStorageKey('aniku-plugins', ['kazumi-web-plugins'])
 
 /** Bump when built-in rule set changes so empty/legacy stores re-seed */
 export const PLUGIN_DEFAULTS_VERSION = 3
@@ -157,7 +160,7 @@ export const usePluginStore = create<PluginState>()(
       },
     }),
     {
-      name: 'kazumi-web-plugins',
+      name: 'aniku-plugins',
       version: 1,
       storage: createJSONStorage(() => localStorage),
       partialize: (s) => ({

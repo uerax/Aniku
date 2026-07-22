@@ -1,7 +1,7 @@
 import {
   defaultDanmakuSettings,
   defaultPlayerSettings,
-} from '@kazumi-web/shared'
+} from '@aniku/shared'
 
 /** Stable empty refs for zustand selectors (avoid infinite re-render) */
 export const EMPTY_ARRAY: never[] = []

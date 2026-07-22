@@ -1,14 +1,25 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import type {
   DanmakuAnime,
-  DanmakuComment,
   DanmakuEpisode,
   Road,
-} from '@kazumi-web/shared'
-import { extractBvid, parseDanmakuXml } from '@kazumi-web/shared'
+} from '@aniku/shared'
+import { extractBvid, parseDanmakuXml } from '@aniku/shared'
 import { pluginApi, danmakuApi } from '../lib/plugin-api'
+import {
+  emptyDanmakuPools,
+  enabledCount,
+  flattenEnabledPools,
+  poolsStatusLine,
+  sourceChips,
+  totalLoadedCount,
+  togglePool,
+  writePool,
+  type DanmakuPoolId,
+  type DanmakuPools,
+} from '../lib/danmaku-pools'
 import { usePluginStore } from '../stores/plugins'
 import { useHistoryStore } from '../stores/history'
 import { useSettingsStore } from '../stores/settings'
@@ -61,7 +72,7 @@ export function PlayPage() {
   const setPlayer = useSettingsStore((s) => s.setPlayer)
 
   const [roads, setRoads] = useState<Road[]>([])
-  const [danmakuComments, setDanmakuComments] = useState<DanmakuComment[]>([])
+  const [danmakuPools, setDanmakuPools] = useState<DanmakuPools>(emptyDanmakuPools)
   const [danmakuStatus, setDanmakuStatus] = useState('')
   const [keyword, setKeyword] = useState(title)
   const [animes, setAnimes] = useState<DanmakuAnime[]>([])
@@ -74,6 +85,24 @@ export function PlayPage() {
   const [bilibiliBusy, setBilibiliBusy] = useState(false)
   const resumeRef = useRef(history?.position || 0)
   const autoMatchGen = useRef(0)
+
+  const visibleComments = useMemo(
+    () => flattenEnabledPools(danmakuPools),
+    [danmakuPools],
+  )
+  const loadedCount = useMemo(
+    () => totalLoadedCount(danmakuPools),
+    [danmakuPools],
+  )
+  const visibleCount = useMemo(
+    () => enabledCount(danmakuPools),
+    [danmakuPools],
+  )
+  const chips = useMemo(() => sourceChips(danmakuPools), [danmakuPools])
+
+  function toggleSource(id: DanmakuPoolId) {
+    setDanmakuPools((p) => togglePool(p, id))
+  }
 
   useEffect(() => {
     resumeRef.current = history?.position || 0
@@ -118,20 +147,22 @@ export function PlayPage() {
 
   const loadCommentsByEpisodeId = useCallback(async (epId: number) => {
     const comments = await danmakuApi.comments(epId)
-    setDanmakuComments(comments.data)
+    setDanmakuPools((p) =>
+      writePool(p, 'dandan', comments.data, 'replace', `ep ${epId}`),
+    )
     setEpisodeId(epId)
-    setDanmakuStatus(`已加载 ${comments.count} 条弹幕`)
+    setDanmakuStatus(`弹弹 · 已加载 ${comments.count} 条（其它源保留）`)
     return comments
   }, [])
 
-  // auto match danmaku (弹弹) — never blocks video resolve
+  // auto match danmaku (弹弹) — never blocks video resolve; only replaces dandan pool
   useEffect(() => {
     const gen = ++autoMatchGen.current
     let cancelled = false
 
     async function loadDanmaku() {
       setDanmakuStatus('匹配弹幕中…')
-      // keep previous comments until new ones arrive (avoid empty flash)
+      // keep previous pools until dandan arrives (avoid empty flash)
       setAnimes([])
       setEpisodes([])
       setAnimeId('')
@@ -284,10 +315,13 @@ export function PlayPage() {
     setDanmakuStatus(`拉取 B 站弹幕 ${bvid}…`)
     try {
       const res = await danmakuApi.bilibili(bvid, bvPage)
-      setDanmakuComments(res.data)
       const part = res.meta.part ? ` · ${res.meta.part}` : ''
+      const meta = `${res.meta.title || bvid}${part}`
+      setDanmakuPools((p) =>
+        writePool(p, 'bilibili', res.data, 'append', meta),
+      )
       setDanmakuStatus(
-        `B站 · ${res.meta.title || bvid}${part} · ${res.count} 条`,
+        `已追加 B站 · ${meta} · +${res.count} 条（默认叠加显示）`,
       )
     } catch (e) {
       setDanmakuStatus(e instanceof Error ? e.message : 'B 站弹幕拉取失败')
@@ -305,8 +339,12 @@ export function PlayPage() {
         setDanmakuStatus('XML 中未找到弹幕（需 bilibili / pakku 格式）')
         return
       }
-      setDanmakuComments(list)
-      setDanmakuStatus(`本地 XML · ${file.name} · ${list.length} 条`)
+      setDanmakuPools((p) =>
+        writePool(p, 'upload', list, 'append', file.name),
+      )
+      setDanmakuStatus(
+        `已追加 用户上传 · ${file.name} · +${list.length} 条（默认叠加显示）`,
+      )
     } catch (e) {
       setDanmakuStatus(e instanceof Error ? e.message : 'XML 解析失败')
     }
@@ -399,7 +437,7 @@ export function PlayPage() {
               ? resumeRef.current
               : 0
           }
-          comments={danmakuComments}
+          comments={visibleComments}
           danmaku={danmakuSettings}
           player={playerSettings}
           onPlayerChange={setPlayer}
@@ -411,8 +449,9 @@ export function PlayPage() {
           onPrev={() => goAdjacentEpisode(-1)}
           onNext={() => goAdjacentEpisode(1)}
           danmakuPanel={{
-            status: danmakuStatus,
-            commentsCount: danmakuComments.length,
+            status: danmakuStatus || poolsStatusLine(danmakuPools),
+            commentsCount: loadedCount,
+            visibleCount,
             keyword,
             onKeywordChange: setKeyword,
             onSearch: () => void handleSearch(),
@@ -430,6 +469,8 @@ export function PlayPage() {
             onLoadBilibili: () => void handleLoadBilibili(),
             bilibiliBusy,
             onLoadXmlFile: (f) => void handleLoadXmlFile(f),
+            sources: chips,
+            onToggleSource: toggleSource,
           }}
         />
       )}

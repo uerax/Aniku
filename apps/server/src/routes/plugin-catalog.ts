@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
-import type { PluginCatalogItem } from '@kazumi-web/shared'
-import { parsePluginRule } from '@kazumi-web/shared'
+import type { PluginCatalogItem } from '@aniku/shared'
+import { parsePluginRule } from '@aniku/shared'
 import { config } from '../config'
 
 export const pluginCatalogRoutes = new Hono()

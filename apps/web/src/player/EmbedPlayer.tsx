@@ -56,7 +56,7 @@ export function EmbedPlayer({
           </a>
         </div>
       </div>
-      <div className="relative aspect-video w-full bg-black">
+      <div className="kz-player-frame relative mx-auto bg-black">
         <iframe
           title={title || '源站播放'}
           src={pageUrl}
@@ -68,7 +68,7 @@ export function EmbedPlayer({
         />
       </div>
       <div className="border-t border-zinc-800 px-3 py-2 text-[11px] leading-relaxed text-zinc-500">
-        与桌面 Kazumi WebView 不同：跨域 iframe 无法拦截 m3u8，弹幕/续播/跳过片头在此模式下不可用。
+        与桌面 WebView 拦截不同：跨域 iframe 无法读取 m3u8，弹幕/续播/跳过片头在此模式下不可用。
         优先仍应换可静态解析的规则或线路。
       </div>
     </div>

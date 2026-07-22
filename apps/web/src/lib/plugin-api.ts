@@ -8,7 +8,7 @@ import type {
   PluginChapterResult,
   ResolvePlayResult,
   PluginCatalogItem,
-} from '@kazumi-web/shared'
+} from '@aniku/shared'
 
 export const danmakuApi = {
   status: () =>

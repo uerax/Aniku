@@ -5,7 +5,7 @@ import type {
   BangumiUser,
   BangumiCollectionEntry,
   CollectType,
-} from '@kazumi-web/shared'
+} from '@aniku/shared'
 import { useSettingsStore } from '../stores/settings'
 
 function token() {

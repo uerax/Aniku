@@ -33,8 +33,9 @@ export const config = {
   dandanAppId: process.env.DANDAN_APP_ID || '',
   dandanAppSecret: process.env.DANDAN_APP_SECRET || '',
   bangumiUserAgent:
-    process.env.BANGUMI_USER_AGENT ||
-    'kazumi-web/0.1 (https://github.com/uerax/Kazumi-web)',
+    process.env.BANGUMI_USER_AGENT || 'aniku/0.1',
+  /** Product UA for APIs that expect an app identity (e.g. DanDanPlay) */
+  productUserAgent: process.env.PRODUCT_USER_AGENT || 'aniku/0.1',
   defaultUserAgent:
     process.env.DEFAULT_USER_AGENT ||
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
