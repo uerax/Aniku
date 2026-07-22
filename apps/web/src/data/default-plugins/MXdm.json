@@ -1,0 +1,21 @@
+{
+  "api": "5",
+  "type": "anime",
+  "name": "MXdm",
+  "version": "2.3",
+  "muliSources": true,
+  "useWebview": true,
+  "useNativePlayer": true,
+  "usePost": false,
+  "useLegacyParser": false,
+  "adBlocker": true,
+  "userAgent": "",
+  "baseURL": "https://www.dcc3.com/",
+  "searchURL": "https://www.dcc3.com/search/?wd=@keyword",
+  "searchList": "//div[3]/ul/li",
+  "searchName": "//h3/a",
+  "searchResult": "//h3/a",
+  "chapterRoads": "//div[4]/div/div/ul",
+  "chapterResult": "//li/a",
+  "referer": ""
+}

@@ -1,0 +1,18 @@
+{
+  "name": "kazumi-web",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Web client for anime browsing, plugin sources, danmaku and Bangumi collect — inspired by Kazumi & agefans-enhance",
+  "scripts": {
+    "dev": "pnpm -r --parallel --filter @kazumi-web/web --filter @kazumi-web/server dev",
+    "dev:web": "pnpm --filter @kazumi-web/web dev",
+    "dev:server": "pnpm --filter @kazumi-web/server dev",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@9.15.0"
+}
