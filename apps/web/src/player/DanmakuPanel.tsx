@@ -79,7 +79,7 @@ export function DanmakuPanel(props: Props) {
 
   return (
     <div
-      className="absolute right-2 z-[60] w-[min(22rem,calc(100%-1rem))] overflow-hidden rounded-xl border border-zinc-600/90 bg-zinc-950/98 shadow-2xl backdrop-blur-md"
+      className="absolute right-2 z-[60] flex w-[min(22rem,calc(100%-1rem))] flex-col overflow-hidden rounded-xl border border-zinc-600/90 bg-zinc-950/98 shadow-2xl backdrop-blur-md"
       style={{ bottom: bottomOffset }}
       onMouseDown={(e) => e.stopPropagation()}
       onClick={(e) => e.stopPropagation()}
@@ -87,7 +87,7 @@ export function DanmakuPanel(props: Props) {
       role="dialog"
       aria-label="弹幕面板"
     >
-      <div className="flex items-center justify-between border-b border-zinc-800 px-3 py-2">
+      <div className="flex shrink-0 items-center justify-between border-b border-zinc-800 px-3 py-2">
         <div className="flex gap-1">
           {(
             [
@@ -117,8 +117,9 @@ export function DanmakuPanel(props: Props) {
         </button>
       </div>
 
-      <div className="max-h-[min(22rem,50vh)] space-y-3 overflow-y-auto p-3 text-sm">
-        <div className="text-xs text-zinc-400">
+      {/* Fixed body height so 搜索/设置/导入 switch without layout jump */}
+      <div className="flex h-[min(20rem,46vh)] min-h-[16rem] flex-col">
+        <div className="shrink-0 border-b border-zinc-800/80 px-3 py-2 text-xs text-zinc-400">
           {status || '—'}
           {commentsCount > 0 ? (
             <span className="ml-2 text-sky-400/90">
@@ -127,16 +128,17 @@ export function DanmakuPanel(props: Props) {
             </span>
           ) : null}
         </div>
-
-        {tab === 'search' && <SearchTab {...props} />}
-        {tab === 'settings' && (
-          <SettingsTab danmaku={danmaku} onDanmakuChange={onDanmakuChange} />
-        )}
-        {tab === 'import' && <ImportTab {...props} />}
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 text-sm">
+          {tab === 'search' && <SearchTab {...props} />}
+          {tab === 'settings' && (
+            <SettingsTab danmaku={danmaku} onDanmakuChange={onDanmakuChange} />
+          )}
+          {tab === 'import' && <ImportTab {...props} />}
+        </div>
       </div>
 
       {sources && sources.some((s) => s.loaded) && onToggleSource ? (
-        <div className="border-t border-zinc-800 px-3 py-2">
+        <div className="shrink-0 border-t border-zinc-800 px-3 py-2">
           <div className="mb-1.5 text-[11px] text-zinc-500">
             弹幕源 · 亮色显示 / 灰色关闭
           </div>
