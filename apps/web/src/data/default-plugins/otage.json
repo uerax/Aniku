@@ -1,0 +1,21 @@
+{
+  "api": "1",
+  "type": "anime",
+  "name": "otage",
+  "version": "1.0",
+  "muliSources": true,
+  "useWebview": true,
+  "useNativePlayer": true,
+  "usePost": false,
+  "useLegacyParser": false,
+  "adBlocker": true,
+  "userAgent": "",
+  "baseURL": "https://otage.cc/",
+  "searchURL": "https://otage.cc/index.php/vod/search.html?wd=@keyword",
+  "searchList": "//div[contains(@class,'public-list-box')]",
+  "searchName": ".//a[contains(@class,'time-title')]",
+  "searchResult": ".//a[contains(@href,'vod/detail')]",
+  "chapterRoads": "//div[contains(@class,'anthology-list-box')]",
+  "chapterResult": ".//a[contains(@href,'vod/play')]",
+  "referer": "https://otage.cc/"
+}

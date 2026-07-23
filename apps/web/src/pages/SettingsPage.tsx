@@ -274,7 +274,7 @@ export function SettingsPage() {
       <section className="space-y-3 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5">
         <h2 className="text-lg font-medium">已安装规则</h2>
         <p className="text-sm text-zinc-400">
-          默认内置可用规则（7sefun / MXdm）。可本地导入 JSON，或从下方规则仓库安装。仓库：{' '}
+          默认内置可用规则（Anime1 / otage / MXdm）。可本地导入 JSON，或从下方规则仓库安装。仓库：{' '}
           <a
             href="https://github.com/Predidit/KazumiRules"
             className="kz-link"
@@ -309,7 +309,7 @@ export function SettingsPage() {
             onClick={() => {
               if (
                 window.confirm(
-                  '将清空当前规则并恢复为内置默认（7sefun / MXdm），确定？',
+                  '将清空当前规则并恢复为内置默认（Anime1 / otage / MXdm），确定？',
                 )
               ) {
                 resetToDefaults()

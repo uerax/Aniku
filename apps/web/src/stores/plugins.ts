@@ -8,7 +8,7 @@ import { migrateLocalStorageKey } from '../lib/storage'
 migrateLocalStorageKey('aniku-plugins', ['kazumi-web-plugins'])
 
 /** Bump when built-in rule set changes so empty/legacy stores re-seed */
-export const PLUGIN_DEFAULTS_VERSION = 5
+export const PLUGIN_DEFAULTS_VERSION = 6
 
 interface PluginState {
   plugins: PluginMeta[]
@@ -151,14 +151,20 @@ export const usePluginStore = create<PluginState>()(
           return
         }
 
-        // Replace legacy default names (DM84/enlie/old set) with current defaults
-        // when the store only contains old built-in sources and nothing else.
+        // Replace legacy default-only stores with current defaults.
+        // v6: drop 7sefun from defaults, add otage (MacCMS / plaintext m3u8).
         const legacyBuiltinNames = new Set(
-          ['7sefun', 'dm84', 'enlie', 'age', 'gugu3', 'mxdm'].map((s) =>
-            s.toLowerCase(),
-          ),
+          [
+            '7sefun',
+            'dm84',
+            'enlie',
+            'age',
+            'gugu3',
+            'mxdm',
+            'anime1',
+            'otage',
+          ].map((s) => s.toLowerCase()),
         )
-        // Note: AGE/gugu3 were prior defaults; pure-builtin stores re-seed to 7sefun+MXdm
         const onlyLegacyBuiltins = plugins.every(
           (p) =>
             p.source === 'builtin' ||
@@ -171,13 +177,20 @@ export const usePluginStore = create<PluginState>()(
           })
           return
         }
-        // Merge any new built-in rules missing from store (e.g. Anime1)
+        // Mixed store: add any new built-ins (e.g. otage); drop retired default 7sefun
+        // only when it was still marked builtin (user re-import keeps source=import).
         const have = new Set(plugins.map((p) => p.name.toLowerCase()))
         const missing = seedFromDefaults().filter(
           (p) => !have.has(p.name.toLowerCase()),
         )
-        let next = missing.length ? [...plugins, ...missing] : plugins
-        // Prefer Anime1 first when present (product default order)
+        let next = plugins.filter(
+          (p) =>
+            !(
+              p.name.toLowerCase() === '7sefun' &&
+              (p.source === 'builtin' || p.source === undefined)
+            ),
+        )
+        if (missing.length) next = [...next, ...missing]
         next = preferAnime1First(next)
         set({
           plugins: next,

@@ -138,7 +138,7 @@ docker run --rm -p 8787:8787 --env-file .env -e PORT=8787 -e PUBLIC_PROXY=1 anik
 
 1. 开发：打开 http://localhost:$WEB_DEV_PORT · 生产/Docker：http://localhost:$PORT  
 2. **设置 → Bangumi Token**（可选，用于追番）  
-3. 规则：默认已内置（如 `7sefun` / `MXdm`）；可导入 JSON 或从 **规则仓库** 安装  
+3. 规则：默认已内置（`Anime1` / `otage` / `MXdm`）；可导入 JSON 或从 **规则仓库** 安装  
 4. 详情页 → 选源 → 选集播放（能直链则浏览器直连 CDN，失败自动回退媒体代理）  
 5. 播放页自动匹配弹幕；控制栏「幕」打开面板  
 

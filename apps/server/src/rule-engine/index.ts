@@ -299,7 +299,8 @@ function cheerioSearchFallback(html: string, baseUrl: string): SearchItem[] {
         $el.find('.video-by').first().text(),
         $el
           .find(
-            '.video-name, .module-item-title, .module-card-item-title, .title, .name, .hl-item-title',
+            // time-title: MacCMS shoutu / otage.cc card titles
+            '.time-title, .video-name, .module-item-title, .module-card-item-title, .title, .name, .hl-item-title',
           )
           .first()
           .text(),
@@ -321,7 +322,10 @@ function cheerioSearchFallback(html: string, baseUrl: string): SearchItem[] {
       const $card = $a.closest('.video, .module-item, li, .public-list-box')
       const name = firstNonEmpty(
         $a.attr('title'),
-        $card.find('.video-by, .video-name, .title, .name').first().text(),
+        $card
+          .find('.time-title, .video-by, .video-name, .title, .name')
+          .first()
+          .text(),
         $a.find('img').attr('alt'),
         $card.find('img').attr('alt'),
         $a.text(),
