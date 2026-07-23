@@ -125,6 +125,20 @@ if (webRoot) {
 }
 
 app.onError((err, c) => {
+  // Client aborted / connect timeout while proxying media — not a server bug
+  const name = err instanceof Error ? err.name : ''
+  const msg = err instanceof Error ? err.message : String(err)
+  if (
+    name === 'TimeoutError' ||
+    name === 'AbortError' ||
+    /aborted due to timeout|The operation was aborted/i.test(msg)
+  ) {
+    console.warn('[server] request aborted/timeout:', msg)
+    return c.json(
+      { error: 'upstream', message: msg || '请求超时或已取消' },
+      504,
+    )
+  }
   console.error(err)
   const message = err instanceof Error ? err.message : 'Internal Server Error'
   return c.json({ error: 'internal_error', message }, 500)
@@ -150,10 +164,34 @@ if (server && typeof (server as { on?: unknown }).on === 'function') {
   })
 }
 
-// Unbuffered diagnostics if the process is still alive without accepting traffic
+// Stream aborts after Response is already handed off may surface as unhandled
+// rejections (client seek/cancel, upstream drop). Log softly; don't crash.
+function isBenignAbort(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false
+  const e = err as { name?: string; message?: string; code?: string }
+  const name = e.name || ''
+  const msg = e.message || String(err)
+  return (
+    name === 'TimeoutError' ||
+    name === 'AbortError' ||
+    e.code === 'ABORT_ERR' ||
+    /aborted due to timeout|The operation was aborted|ECONNRESET|EPIPE/i.test(
+      msg,
+    )
+  )
+}
+
 process.on('uncaughtException', (err) => {
+  if (isBenignAbort(err)) {
+    console.warn('[server] uncaught abort/timeout (ignored):', err)
+    return
+  }
   console.error('[server] uncaughtException', err)
 })
 process.on('unhandledRejection', (err) => {
+  if (isBenignAbort(err)) {
+    console.warn('[server] unhandled abort/timeout (ignored):', err)
+    return
+  }
   console.error('[server] unhandledRejection', err)
 })

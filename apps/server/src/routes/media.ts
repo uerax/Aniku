@@ -15,6 +15,37 @@ function originFromReferer(referer: string): string {
   }
 }
 
+/**
+ * Abort only until response headers arrive. Do NOT use AbortSignal.timeout()
+ * for media proxy: that timer stays armed during body streaming and aborts
+ * long progressive mp4 / HLS segments after ~20s → uncaught TimeoutError in
+ * Node while the player still needs the rest of the file.
+ */
+function connectTimeoutSignal(ms: number): {
+  signal: AbortSignal
+  clear: () => void
+} {
+  const ac = new AbortController()
+  const timer = setTimeout(() => {
+    try {
+      ac.abort(
+        new DOMException(
+          `媒体源连接超时 (${Math.round(ms / 1000)}s)`,
+          'TimeoutError',
+        ),
+      )
+    } catch {
+      ac.abort()
+    }
+  }, ms)
+  // Avoid keeping the event loop alive solely for this timer
+  timer.unref?.()
+  return {
+    signal: ac.signal,
+    clear: () => clearTimeout(timer),
+  }
+}
+
 function rewriteM3u8Uri(u: string, base: URL, referer: string, cookie: string): string {
   const abs = new URL(u, base)
   if (isPrivateHost(abs.hostname)) {
@@ -85,12 +116,14 @@ mediaRoutes.get('/proxy', async (c) => {
   if (range) headers.Range = range
 
   let upstream: Response
+  const connect = connectTimeoutSignal(20_000)
   try {
     upstream = await fetchPublic(target.toString(), {
       headers,
-      signal: AbortSignal.timeout(20_000),
+      signal: connect.signal,
     })
   } catch (e) {
+    connect.clear()
     const msg = e instanceof Error ? e.message : String(e)
     if (/内网|重定向/.test(msg)) {
       return c.json({ error: 'forbidden', message: msg }, 403)
@@ -104,6 +137,8 @@ mediaRoutes.get('/proxy', async (c) => {
       502,
     )
   }
+  // Headers received — allow body to stream without the connect timer.
+  connect.clear()
 
   if (!upstream.ok && upstream.status !== 206) {
     // Cookie / auth expired (anime1 and similar)
@@ -119,6 +154,7 @@ mediaRoutes.get('/proxy', async (c) => {
     }
     // Retry once with a looser referer (some CDNs only care about site origin)
     if (origin && (upstream.status === 403 || upstream.status === 401)) {
+      const retryConnect = connectTimeoutSignal(20_000)
       try {
         const retry = await fetchPublic(target.toString(), {
           headers: {
@@ -126,8 +162,9 @@ mediaRoutes.get('/proxy', async (c) => {
             Referer: origin + '/',
             Origin: origin,
           },
-          signal: AbortSignal.timeout(20_000),
+          signal: retryConnect.signal,
         })
+        retryConnect.clear()
         if (retry.ok || retry.status === 206) {
           upstream = retry
         } else {
@@ -144,6 +181,7 @@ mediaRoutes.get('/proxy', async (c) => {
           )
         }
       } catch (e) {
+        retryConnect.clear()
         const msg = e instanceof Error ? e.message : String(e)
         if (/内网|重定向/.test(msg)) {
           return c.json({ error: 'forbidden', message: msg }, 403)
