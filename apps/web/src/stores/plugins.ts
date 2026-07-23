@@ -8,7 +8,7 @@ import { migrateLocalStorageKey } from '../lib/storage'
 migrateLocalStorageKey('aniku-plugins', ['kazumi-web-plugins'])
 
 /** Bump when built-in rule set changes so empty/legacy stores re-seed */
-export const PLUGIN_DEFAULTS_VERSION = 6
+export const PLUGIN_DEFAULTS_VERSION = 7
 
 interface PluginState {
   plugins: PluginMeta[]
@@ -142,17 +142,31 @@ export const usePluginStore = create<PluginState>()(
           })
           return
         }
-        // Always keep Anime1 first when present (cheap reorder)
+        // Already on current defaults version: still merge any *new* built-ins
+        // (e.g. xifan) without touching user/catalog rules; keep Anime1 first.
         if (ver >= PLUGIN_DEFAULTS_VERSION) {
-          const ordered = preferAnime1First(plugins)
-          if (ordered !== plugins && ordered[0] !== plugins[0]) {
-            set({ plugins: ordered })
+          const have = new Set(plugins.map((p) => p.name.toLowerCase()))
+          const missing = seedFromDefaults().filter(
+            (p) => !have.has(p.name.toLowerCase()),
+          )
+          let next = plugins
+          if (missing.length) next = [...next, ...missing]
+          next = preferAnime1First(next)
+          if (
+            missing.length ||
+            (next.length && next[0] !== plugins[0])
+          ) {
+            set({
+              plugins: next,
+              defaultsVersion: PLUGIN_DEFAULTS_VERSION,
+            })
           }
           return
         }
 
         // Replace legacy default-only stores with current defaults.
         // v6: drop 7sefun from defaults, add otage (MacCMS / plaintext m3u8).
+        // v7: add xifan (稀饭 MacCMS; suggest API search + player_aaaa).
         const legacyBuiltinNames = new Set(
           [
             '7sefun',
@@ -163,6 +177,7 @@ export const usePluginStore = create<PluginState>()(
             'mxdm',
             'anime1',
             'otage',
+            'xifan',
           ].map((s) => s.toLowerCase()),
         )
         const onlyLegacyBuiltins = plugins.every(

@@ -340,17 +340,19 @@ function cheerioSearchFallback(html: string, baseUrl: string): SearchItem[] {
 /** True if href looks like an episode play page (not detail/search/user). */
 function isLikelyPlayHref(href: string): boolean {
   if (!href || /javascript:|^#|void\(0\)/i.test(href)) return false
-  if (/login|register|gbook|user\/|search|vodtype|label|map\.html/i.test(href)) {
+  if (/login|register|gbook|user\/|search|vodtype|label|map\.html|bangumi\/\d+\.html/i.test(href)) {
     return false
   }
   // Prefer explicit play paths used by MacCMS / anime sites
   if (/\/(vod)?play\//i.test(href) || /play\/|\/ep\/|episode/i.test(href)) {
     return true
   }
+  // 稀饭 MacCMS (anime.xifanacg.com): /watch/{vodId}/{sid}/{nid}.html
+  if (/\/watch\/\d+\/\d+\/\d+/i.test(href)) return true
   // MacCMS style: detail-id-source-ep.html  e.g. xxx-1-1.html
   if (/-\d+-\d+\.html?(?:\?|$)/i.test(href)) return true
   // Reject pure detail pages
-  if (/voddetail|\/detail\//i.test(href) && !/play/i.test(href)) return false
+  if (/voddetail|\/detail\//i.test(href) && !/play|watch/i.test(href)) return false
   return false
 }
 
@@ -378,7 +380,11 @@ function cleanRoad(road: Road): Road | null {
     if (!rawUrl || !isLikelyPlayHref(rawUrl)) continue
     if (!isLikelyEpisodeName(rawName) && !/第?\d+集?/.test(rawName) && !/^\d+$/.test(rawName)) {
       // allow numeric-ish; otherwise skip vague labels unless href is strong play link
-      if (!/\/(vod)?play\//i.test(rawUrl) && !/-\d+-\d+\.html/i.test(rawUrl)) {
+      if (
+        !/\/(vod)?play\//i.test(rawUrl) &&
+        !/\/watch\/\d+\/\d+\/\d+/i.test(rawUrl) &&
+        !/-\d+-\d+\.html/i.test(rawUrl)
+      ) {
         continue
       }
       if (!rawName || rawName.length > 24) continue
@@ -435,7 +441,11 @@ function labelFromPlayUrls(urls: string[], fallbackIndex: number): string {
   const sources = new Set<string>()
   for (const u of urls.slice(0, 8)) {
     // .../play/123-2-1.html  or  /play/123-2-1/
-    const m = u.match(/(?:vod)?play\/\d+-(\d+)-\d+/i) || u.match(/-(\d+)-\d+\.html/i)
+    // 稀饭: /watch/2176/2/1.html → sid as source index
+    const m =
+      u.match(/(?:vod)?play\/\d+-(\d+)-\d+/i) ||
+      u.match(/\/watch\/\d+\/(\d+)\/\d+/i) ||
+      u.match(/-(\d+)-\d+\.html/i)
     if (m?.[1]) sources.add(m[1])
   }
   if (sources.size === 1) {
@@ -487,6 +497,16 @@ function cleanRoads(roads: Road[]): Road[] {
 }
 
 /**
+ * Tab / road label text without episode-count badges (稀饭: "主线-1<span class=badge>8</span>" → "主线-18").
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function roadTabLabelText($: any, el: any): string {
+  const $el = $(el).clone()
+  $el.find('.badge, .num, .count, em, i.fa, i[class*="fa"]').remove()
+  return $el.text().replace(/\s+/g, ' ').trim()
+}
+
+/**
  * Prefer MacCMS / theme structures that pair tab labels (quality/CDN) with
  * episode lists — this is how sites expose "分辨率 / 线路" names.
  */
@@ -506,7 +526,7 @@ function cheerioChapterFallback(html: string, baseUrl: string): Road[] {
         const name = $(a).text().replace(/\s+/g, '')
         if (!href || !name) return
         if (!isLikelyPlayHref(href) && !isLikelyEpisodeName(name)) return
-        if (/voddetail|\/detail\//i.test(href) && !/play/i.test(href)) return
+        if (/voddetail|\/detail\//i.test(href) && !/play|watch/i.test(href)) return
         const abs = normalizeEpisodeUrl(baseUrl, href)
         if (seen.has(abs)) return
         seen.add(abs)
@@ -543,13 +563,16 @@ function cheerioChapterFallback(html: string, baseUrl: string): Road[] {
           .toArray()
       }
       lists = lists.filter(
-        (el) => $(el).find('a[href*="play"], a[href*="-"]').length > 0,
+        (el) =>
+          $(el).find(
+            'a[href*="play"], a[href*="watch"], a[href*="-"]',
+          ).length > 0,
       )
 
       if (tabs.length >= 1 && lists.length >= 1) {
         const n = Math.min(tabs.length, lists.length)
         for (let i = 0; i < n; i++) {
-          const label = $(tabs[i]).text().replace(/\s+/g, '')
+          const label = roadTabLabelText($, tabs[i]).replace(/\s+/g, '')
           pushRoad(label, lists[i])
         }
       }
@@ -608,7 +631,9 @@ function cheerioChapterFallback(html: string, baseUrl: string): Road[] {
     const urls: string[] = []
     const names: string[] = []
     const seen = new Set<string>()
-    $('a[href*="vodplay"], a[href*="/play/"], a[href*="play"]').each((_, a) => {
+    $(
+      'a[href*="vodplay"], a[href*="/play/"], a[href*="play"], a[href*="/watch/"]',
+    ).each((_, a) => {
       const href = $(a).attr('href') || ''
       const name = $(a).text().replace(/\s+/g, '')
       if (!href || !name || name.length > 20) return
@@ -656,7 +681,7 @@ function resolveRoadLabelFromHtml(
   for (const sel of tabSets) {
     const tabs = $(sel).toArray()
     if (tabs.length > roadIndex) {
-      const t = $(tabs[roadIndex]).text().replace(/\s+/g, '')
+      const t = roadTabLabelText($, tabs[roadIndex]).replace(/\s+/g, '')
       if (isLikelyRoadLabel(t)) return t
     }
   }

@@ -346,14 +346,30 @@ export function parseApiSearch(
   const nodes = jsonPathRead(document, cfg.listPath)
   const items: SearchItem[] = []
   const diagnostics: string[] = []
+  const sourceTemplate = (cfg.sourceTemplate || '').trim()
   for (let index = 0; index < nodes.length; index++) {
     const node = nodes[index]
     try {
       const name = stringValue(jsonPathReadFirst(node, cfg.namePath))
-      const source = stringValue(jsonPathReadFirst(node, cfg.sourcePath))
+      let source = stringValue(jsonPathReadFirst(node, cfg.sourcePath))
       if (!name || !source) {
         diagnostics.push(`搜索节点 ${index} 缺少名称或来源，已跳过`)
         continue
+      }
+      // Optional: MacCMS suggest returns bare ids → map to detail path
+      if (sourceTemplate) {
+        try {
+          source = renderTemplate(sourceTemplate, { source }, false)
+        } catch (e) {
+          diagnostics.push(
+            `搜索节点 ${index} sourceTemplate 失败: ${e instanceof Error ? e.message : e}`,
+          )
+          continue
+        }
+        if (!source) {
+          diagnostics.push(`搜索节点 ${index} sourceTemplate 结果为空，已跳过`)
+          continue
+        }
       }
       items.push({ name, src: source })
     } catch (e) {
@@ -608,7 +624,16 @@ export async function searchWithApiRule(
   const cfg = rule.searchApiConfig
   if (!cfg) throw new ApiRuleError('缺少 searchApiConfig')
   const document = await executeApiRequest(cfg.request, { keyword }, rule)
-  return parseApiSearch(document, cfg)
+  const res = parseApiSearch(document, cfg)
+  // Absolute-ize detail URLs (sourceTemplate may be path-only, e.g. /bangumi/1.html)
+  const base = rule.baseURL || ''
+  return {
+    items: res.items.map((it) => ({
+      ...it,
+      src: base ? normalizeEpisodeUrl(base, it.src) : it.src,
+    })),
+    diagnostics: res.diagnostics,
+  }
 }
 
 export async function chaptersWithApiRule(

@@ -1,0 +1,38 @@
+{
+  "api": "1",
+  "type": "anime",
+  "name": "xifan",
+  "version": "1.0",
+  "muliSources": true,
+  "useWebview": true,
+  "useNativePlayer": true,
+  "usePost": false,
+  "useLegacyParser": false,
+  "adBlocker": true,
+  "userAgent": "",
+  "baseURL": "https://anime.xifanacg.com/",
+  "searchURL": "",
+  "searchList": "",
+  "searchName": "",
+  "searchResult": "",
+  "chapterRoads": "//div[contains(@class,'anthology-list-box')]",
+  "chapterResult": ".//a[contains(@href,'/watch/')]",
+  "referer": "https://anime.xifanacg.com/",
+  "searchMode": "api",
+  "chapterMode": "xpath",
+  "searchApiConfig": {
+    "request": {
+      "method": "GET",
+      "url": "https://anime.xifanacg.com/index.php/ajax/suggest",
+      "query": {
+        "mid": "1",
+        "wd": "@keyword",
+        "limit": "10"
+      }
+    },
+    "listPath": "$.list[*]",
+    "namePath": "$.name",
+    "sourcePath": "$.id",
+    "sourceTemplate": "/bangumi/@source.html"
+  }
+}

@@ -14,6 +14,12 @@ export interface ApiSearchConfig {
   listPath: string
   namePath: string
   sourcePath: string
+  /**
+   * Optional template to turn a bare id/slug from sourcePath into a detail URL.
+   * Use `@source` for the raw value (e.g. `/bangumi/@source.html`).
+   * When omitted, sourcePath value is used as-is (sorani / TvTFun style).
+   */
+  sourceTemplate?: string
 }
 
 export interface ApiEpisodePageConfig {
@@ -286,11 +292,13 @@ function parseApiSearchConfig(raw: unknown): ApiSearchConfig {
   if (!listPath || !namePath || !sourcePath) {
     throw new Error('searchApiConfig 缺少 listPath / namePath / sourcePath')
   }
+  const sourceTemplate = String(j.sourceTemplate ?? '').trim()
   return {
     request: parseApiRequestConfig(j.request),
     listPath,
     namePath,
     sourcePath,
+    ...(sourceTemplate ? { sourceTemplate } : {}),
   }
 }
 

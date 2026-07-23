@@ -10,7 +10,7 @@ Product name: **Aniku**. Packages: `aniku`, `@aniku/web`, `@aniku/server`, `@ani
 
 **Aniku** is a browser-only anime app (React + local Hono API). Features: Bangumi metadata & collections, user-imported plugin rules (KazumiRules-compatible JSON) for search/chapters/play resolution, HLS/MP4 playback, DanDanPlay danmaku, local watch history.
 
-Ships working default rules under `apps/web/src/data/default-plugins/` (`Anime1`, `otage`, `MXdm`). Users can import JSON, reset to defaults, or install/update from [KazumiRules](https://github.com/Predidit/KazumiRules) via server proxy (`GET /api/plugin/catalog`).
+Ships working default rules under `apps/web/src/data/default-plugins/` (`Anime1`, `otage`, `xifan`, `MXdm`). Users can import JSON, reset to defaults, or install/update from [KazumiRules](https://github.com/Predidit/KazumiRules) via server proxy (`GET /api/plugin/catalog`).
 
 ## Sibling reference repos (workspace, optional)
 
