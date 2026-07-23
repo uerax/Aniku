@@ -27,8 +27,16 @@ loadEnvFile(resolve(process.cwd(), '.env'))
 loadEnvFile(resolve(import.meta.dirname, '../../../.env'))
 loadEnvFile(resolve(import.meta.dirname, '../../.env'))
 
+function envInt(raw: string | undefined, fallback: number): number {
+  if (raw === undefined || raw === '') return fallback
+  const n = Number(raw)
+  return Number.isFinite(n) && n > 0 ? n : fallback
+}
+
 export const config = {
-  port: Number(process.env.PORT || 8787),
+  /** API listen port — `PORT` in root `.env` */
+  port: envInt(process.env.PORT, 8787),
+  /** API bind host — `HOST` in root `.env` */
   host: process.env.HOST || '0.0.0.0',
   dandanAppId: process.env.DANDAN_APP_ID || '',
   dandanAppSecret: process.env.DANDAN_APP_SECRET || '',

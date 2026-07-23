@@ -91,12 +91,16 @@ pnpm install
 cp .env.example .env
 ```
 
-编辑 `.env`（可选）：
+编辑 `.env`（可选；完整字段见 `.env.example`）：
 
 ```env
-# Server
+# Server (API)
 PORT=8787
 HOST=0.0.0.0
+
+# Website (Vite dev)
+WEB_PORT=5173
+WEB_HOST=0.0.0.0
 
 # 弹幕开放平台密钥（申请：https://www.dandanplay.com/ ）
 # 留空时使用与 agefans-enhance 相同的内置客户端密钥，开箱即可匹配弹幕
@@ -105,7 +109,8 @@ DANDAN_APP_SECRET=
 ```
 
 不填密钥也能拉弹幕；若日后内置密钥失效，再自行申请并写入即可。  
-服务端从**仓库根**与 `apps/server` 读取 `.env`（见 `apps/server/src/config.ts`）。
+- **API** 从仓库根与 `apps/server` 读 `.env`（`apps/server/src/config.ts`）  
+- **Vite** 同样读仓库根 `.env`（`apps/web/vite.config.ts`），`WEB_PORT` / `PORT` 控制前端监听与 `/api` 代理目标  
 
 ### 4. 启动（Web + API）
 
@@ -114,12 +119,12 @@ DANDAN_APP_SECRET=
 pnpm dev
 ```
 
-会并行启动：
+会并行启动（端口以 `.env` 为准，下表为默认）：
 
 | 进程 | 地址 | 说明 |
 |------|------|------|
-| Web（Vite） | http://localhost:5173 | 浏览器只开这个即可 |
-| API（Hono） | http://localhost:8787 | Vite 已将 `/api` 代理到此 |
+| Web（Vite） | http://localhost:`WEB_PORT`（默认 5173） | 浏览器只开这个即可 |
+| API（Hono） | http://localhost:`PORT`（默认 8787） | Vite 将 `/api` 代理到此 |
 
 只启动一端时：
 
@@ -150,27 +155,25 @@ pnpm start
 # 或一步：pnpm start:prod
 ```
 
-默认打开：**http://localhost:8787**
+默认打开：**http://localhost:$PORT**（默认 `8787`）
 
 | 变量 | 说明 |
 |------|------|
 | `PORT` / `HOST` | 监听地址，默认 `8787` / `0.0.0.0` |
+| `WEB_PORT` / `WEB_HOST` | 仅开发态 Vite；生产单进程不走 Vite |
 | `WEB_DIST` | Vite 产物目录（相对 **进程 cwd**）。Docker 内为 `public`；本机可省略，会依次尝试 `public`、`apps/web/dist` 等 |
 | `DANDAN_*` 等 | 同开发环境，见 `.env.example` |
 
 进程 cwd 一般是 `apps/server`（`pnpm --filter @aniku/server start`），此时相对路径 `../web/dist` 也会被探测到。
 
-**反向代理（可选）：** 前面可再挂 Nginx/Caddy 做 HTTPS；只需把流量转到 `8787`，无需再拆前后端。
+**反向代理（可选）：** 前面可再挂 Nginx/Caddy 做 HTTPS；只需把流量转到 `$PORT`，无需再拆前后端。
 
 ### 6. Docker / Compose
 
-仓库根目录已提供 `Dockerfile`、`docker-compose.yml`、`.dockerignore`。
+仓库根目录提供 `Dockerfile`、`docker-compose.yml`、`.dockerignore`。生产镜像为 **单进程**：Hono 同时提供 `/api/*` 与 SPA。
 
 ```bash
-# 可选环境变量
-cp .env.example .env
-
-# 构建并后台运行
+cp .env.example .env   # 按需改 PORT / WEB_PORT
 docker compose up -d --build
 
 # 日志 / 停止
@@ -178,18 +181,27 @@ docker compose logs -f
 docker compose down
 ```
 
-- 访问：**http://localhost:8787**（映射可用 `PORT=8080 docker compose up -d` 改宿主机端口）
-- 镜像内：`WEB_DIST=public`，健康检查 `GET /api/health`
+端口（读根目录 `.env`，Compose 变量插值）：
+
+| 变量 | 默认 | 作用 |
+|------|------|------|
+| `WEB_PORT` | `5173` | **浏览器入口**（宿主机发布端口） |
+| `PORT` | `8787` | 容器内 Hono 监听端口；映射关系为 `WEB_PORT → PORT` |
+
+- 访问：**http://localhost:$WEB_PORT**（默认 5173；SPA 与 `/api` 同源）  
+- 镜像内：`WEB_DIST=public`，健康检查 `GET /api/health`  
 - 仅 Docker 构建（不 compose）：
 
 ```bash
 docker build -t aniku .
-docker run --rm -p 8787:8787 --env-file .env aniku
+docker run --rm -p 5173:8787 --env-file .env -e PORT=8787 aniku
+# 或：-p ${WEB_PORT}:${PORT} -e PORT=${PORT}
 ```
 
 ### 7. 使用流程
 
-1. 打开 http://localhost:5173 浏览趋势，或去搜索 / 时间表  
+1. 本地 dev：打开 http://localhost:$WEB_PORT（默认 5173）；Docker：同样打开 **WEB_PORT**  
+
 2. **设置 → Bangumi Token**（可选，用于追番）  
 3. 规则默认已内置（`7sefun` / `MXdm`）；也可 **导入 JSON** 或在 **规则仓库** 中安装 / 更新  
 4. 详情页 → **选源播放** → 选集  
@@ -201,7 +213,7 @@ docker run --rm -p 8787:8787 --env-file .env aniku
 |------|------|
 | `pnpm: command not found` | 按上文安装 pnpm，并确认 `PATH` 含全局 bin |
 | `Local package.json exists, but node_modules missing` / `spawn ENOENT`（`tsx watch …`） | 在**仓库根**执行 `pnpm install` 后再 `pnpm dev` |
-| 页面请求 `/api/*` 全失败 | 确认 `pnpm dev` 起了 server，8787 在监听；不要只开 `dev:web` 却期望代理后端 |
+| 页面请求 `/api/*` 全失败 | 确认 `pnpm dev` 起了 server，`$PORT` 在监听，且 `WEB_PORT`/`PORT` 与 Vite 代理一致；不要只开 `dev:web` 却期望代理后端 |
 | 在 `apps/server` 里直接跑脚本异常 | 优先在根目录用 `pnpm dev` / `pnpm --filter @aniku/server dev` |
 | 弹幕「未配置」 | 本地可留空 `DANDAN_*`；若仍异常检查服务端日志与 `/api/danmaku/status` |
 | 只有声音没有画面 | 多为布局/合成问题，不是流地址必挂；见 [docs/CONTEXT.md](docs/CONTEXT.md) |

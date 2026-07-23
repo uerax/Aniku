@@ -1,6 +1,7 @@
 # Aniku — single image: Hono API + Vite SPA
 # Build:  docker build -t aniku .
-# Run:    docker run --rm -p 8787:8787 --env-file .env aniku
+# Run:    docker compose up -d --build
+#         open http://localhost:$WEB_PORT  (from .env, default 5173)
 
 # ---- deps ----
 FROM node:22-bookworm-slim AS base
@@ -43,6 +44,7 @@ COPY packages/shared/src packages/shared/src
 COPY packages/shared/tsconfig.json packages/shared/
 COPY --from=build /app/apps/web/dist public
 
+# Default API/SPA listen port (override with PORT at runtime)
 EXPOSE 8787
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \

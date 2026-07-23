@@ -63,7 +63,7 @@ aniku/
 
 ```bash
 pnpm install
-pnpm dev              # web :5173 + server :8787
+pnpm dev              # web + server (ports from .env WEB_PORT / PORT)
 pnpm typecheck
 pnpm --filter @aniku/web typecheck
 pnpm --filter @aniku/server typecheck
@@ -76,14 +76,14 @@ pnpm --filter @aniku/server typecheck
 ## 4. 请求流
 
 ```
-Browser (5173)
+Browser (WEB_PORT，默认 5173)
   ├─ Bangumi  ── /api/bangumi/*  ──► api.bgm.tv / next.bgm.tv
   ├─ 弹幕     ── /api/danmaku/*  ──► api.dandanplay.net（及 B 站 BV 代理）
   ├─ 规则     ── /api/plugin/*   ──► rule-engine → 第三方站 HTML / API
   └─ 播放     ── /api/media/proxy?url= ──► 代流 m3u8/mp4（改写 m3u8 URI）
 ```
 
-- Vite 把 `/api` 代理到 `http://127.0.0.1:8787`  
+- Vite 把 `/api` 代理到 `http://127.0.0.1:$PORT`（可用 `API_PROXY_*` 覆盖）  
 - 入口：`apps/server/src/index.ts`  
 - **用户数据边界：** Bangumi Token、规则 JSON 只存浏览器；服务端不落库，每次插件调用 POST 完整 `rule`  
 
@@ -91,11 +91,14 @@ Browser (5173)
 
 ## 5. 环境变量
 
-见 `.env.example`，由 `apps/server/src/config.ts` 从仓库根 / `apps/server` 加载（自写解析，非 dotenv）。
+见 `.env.example`。API：`apps/server/src/config.ts` 从仓库根 / `apps/server` 加载（自写解析）。Web：`apps/web/vite.config.ts` 用 Vite `loadEnv` 读同一份根 `.env`。**端口均从 env 读，代码里只有默认值。**
 
 | 变量 | 说明 |
 |------|------|
-| `PORT` / `HOST` | 默认 `8787` / `0.0.0.0` |
+| `PORT` / `HOST` | API 监听，默认 `8787` / `0.0.0.0`；Docker 容器内同此 |
+| `WEB_PORT` / `WEB_HOST` | Vite dev：监听；Docker Compose：宿主机发布 `WEB_PORT`→容器 `PORT`，浏览器走 `WEB_PORT` |
+| `WEB_HMR_HOST` | 可选；`WEB_HOST=0.0.0.0` 时 HMR 用的主机，默认 `127.0.0.1` |
+| `API_PROXY_HOST` / `API_PROXY_TARGET` | 可选；Vite `/api` 代理目标，默认 `http://127.0.0.1:$PORT` |
 | `DANDAN_APP_ID` / `DANDAN_APP_SECRET` | 可选；空则用内置 legacy 密钥 + `X-AppId`/`X-AppSecret` |
 | `BANGUMI_USER_AGENT` | 请求 Bangumi 的 UA，默认 `aniku/0.1` |
 | `PRODUCT_USER_AGENT` | 产品身份 UA（弹弹等），默认 `aniku/0.1` |

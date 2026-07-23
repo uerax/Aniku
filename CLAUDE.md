@@ -31,7 +31,7 @@ Requires **Node ≥ 20** and **pnpm 9.15.0** (`packageManager` field).
 ```bash
 pnpm install
 
-# Dev: web (5173) + server (8787) together
+# Dev: web + server together (ports from .env WEB_PORT / PORT)
 pnpm dev
 
 # Individual packages
@@ -60,13 +60,16 @@ Loaded by `apps/server/src/config.ts` from repo root and `apps/server` (custom p
 
 | Variable | Purpose |
 |----------|---------|
-| `PORT` / `HOST` | API listen (default `8787` / `0.0.0.0`) |
+| `PORT` / `HOST` | API listen (default `8787` / `0.0.0.0`) — `apps/server/src/config.ts`; Docker container listen |
+| `WEB_PORT` / `WEB_HOST` | Vite dev/preview listen (default `5173` / `127.0.0.1` if unset; example uses `0.0.0.0`) — `apps/web/vite.config.ts`. Docker Compose: host publishes `WEB_PORT` → container `PORT` (open `WEB_PORT` in browser) |
+| `WEB_HMR_HOST` | Optional HMR websocket host when `WEB_HOST` is `0.0.0.0` (default `127.0.0.1`) |
+| `API_PROXY_HOST` / `API_PROXY_TARGET` | Optional Vite `/api` proxy target (default `http://127.0.0.1:$PORT`) |
 | `DANDAN_APP_ID` / `DANDAN_APP_SECRET` | Optional open-platform keys; empty → built-in legacy client headers so danmaku works out of the box |
 | `BANGUMI_USER_AGENT` | UA for Bangumi upstream; default `aniku/0.1` |
 | `PRODUCT_USER_AGENT` | Product identity UA (DanDanPlay etc.); default `aniku/0.1` |
 | `DEFAULT_USER_AGENT` | Browser-like UA for plugin HTML / media fetches |
 
-Vite proxies `/api` → `http://127.0.0.1:8787` (`apps/web/vite.config.ts`).
+Server loads `.env` from repo root / `apps/server` (`config.ts`). Vite loads the same root `.env` via `loadEnv` and binds/proxy from those vars — **no hardcoded ports in config**.
 
 **No `DPLAYER_API` / public DPlayer danmaku pool** — that service is dead and was removed.
 
@@ -87,8 +90,8 @@ Shared is consumed as raw TypeScript (`exports: "./src/index.ts"`). Change types
 ### Request flow
 
 ```
-Browser (5173)
-  ├─ Bangumi UI ──GET/POST /api/bangumi/*──► server ──► api.bgm.tv / next.bgm.tv
+Browser (WEB_PORT, default 5173)
+  ├─ Bangumi UI ──GET/POST /api/bangumi/*──► server (PORT, default 8787) ──► api.bgm.tv / next.bgm.tv
   ├─ Danmaku    ──GET /api/danmaku/*───────► server ──► api.dandanplay.net
   ├─ Plugins    ──POST /api/plugin/*───────► rule-engine ──► third-party site HTML
   └─ Playback   ──GET /api/media/proxy?url=► server streams m3u8/mp4 (rewrites m3u8 URIs)

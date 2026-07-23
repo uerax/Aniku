@@ -1,7 +1,7 @@
 # Aniku — one-command deploy
-#   cp .env.example .env   # optional
+#   cp .env.example .env   # optional; set PORT / WEB_PORT
 #   docker compose up -d --build
-# Open http://localhost:8787
+# Open http://localhost:${WEB_PORT:-5173}  (SPA + /api on same origin)
 
 services:
   aniku:
@@ -10,10 +10,13 @@ services:
       dockerfile: Dockerfile
     image: aniku:local
     container_name: aniku
+    # Host WEB_PORT → container PORT (from .env)
+    # Browser: http://localhost:$WEB_PORT  (SPA + /api, same origin)
     ports:
-      - "${PORT:-8787}:8787"
+      - "${WEB_PORT:-5173}:${PORT:-8787}"
     environment:
-      PORT: "8787"
+      # Listen inside the container (must match the right-hand side of ports)
+      PORT: ${PORT:-8787}
       HOST: "0.0.0.0"
       WEB_DIST: "public"
       DANDAN_APP_ID: ${DANDAN_APP_ID:-}
@@ -23,7 +26,6 @@ services:
       DEFAULT_USER_AGENT: ${DEFAULT_USER_AGENT:-Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36}
       PLUGIN_SHOP: ${PLUGIN_SHOP:-}
       PLUGIN_SHOP_MIRROR: ${PLUGIN_SHOP_MIRROR:-}
-    # Optional: also load a local .env if present (Compose interpolates above too)
     env_file:
       - path: .env
         required: false
@@ -34,7 +36,7 @@ services:
           "CMD",
           "node",
           "-e",
-          "fetch('http://127.0.0.1:8787/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+          "fetch('http://127.0.0.1:'+(process.env.PORT||8787)+'/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
         ]
       interval: 30s
       timeout: 5s

@@ -1,33 +1,80 @@
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
-export default defineConfig({
-  plugins: [react(), tailwindcss()],
-  resolve: {
-    alias: {
-      '@': path.resolve(__dirname, 'src'),
-    },
-  },
-  server: {
-    // Bind loopback only — matches the URL users open
-    host: '127.0.0.1',
-    port: 5173,
-    strictPort: true,
-    // Explicit HMR so the client always targets the same host:port as the page
-    // (avoids wrong websocket host when opened via localhost vs 127.0.0.1)
-    hmr: {
-      protocol: 'ws',
-      host: '127.0.0.1',
-      port: 5173,
-      clientPort: 5173,
-    },
-    proxy: {
-      '/api': {
-        target: 'http://127.0.0.1:8787',
-        changeOrigin: true,
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+/** Monorepo root (…/aniku) — where `.env` / `.env.example` live */
+const repoRoot = path.resolve(__dirname, '../..')
+
+function envInt(
+  raw: string | undefined,
+  fallback: number,
+): number {
+  if (raw === undefined || raw === '') return fallback
+  const n = Number(raw)
+  return Number.isFinite(n) && n > 0 ? n : fallback
+}
+
+export default defineConfig(({ mode }) => {
+  // Merge: shell env > apps/web/.env* > repo-root/.env* (later loadEnv does not override)
+  const fileEnv = {
+    ...loadEnv(mode, repoRoot, ''),
+    ...loadEnv(mode, __dirname, ''),
+  }
+  const get = (key: string) => process.env[key] ?? fileEnv[key]
+
+  const webPort = envInt(get('WEB_PORT'), 5173)
+  // Bind address (0.0.0.0 = all interfaces). Default loopback for safer local dev.
+  const webHost = get('WEB_HOST') || '127.0.0.1'
+  // HMR websocket must be a host the browser can open — not 0.0.0.0
+  const hmrHost =
+    get('WEB_HMR_HOST') ||
+    (webHost === '0.0.0.0' || webHost === '::' ? '127.0.0.1' : webHost)
+
+  const apiPort = envInt(get('PORT'), 8787)
+  // Proxy connects to the API process; 0.0.0.0 is not a valid client target
+  const apiProxyHost = get('API_PROXY_HOST') || '127.0.0.1'
+  const apiProxyTarget =
+    get('API_PROXY_TARGET') || `http://${apiProxyHost}:${apiPort}`
+
+  return {
+    plugins: [react(), tailwindcss()],
+    resolve: {
+      alias: {
+        '@': path.resolve(__dirname, 'src'),
       },
     },
-  },
+    server: {
+      host: webHost,
+      port: webPort,
+      strictPort: true,
+      // Explicit HMR so the client always targets the same host:port as the page
+      // (avoids wrong websocket host when opened via localhost vs 127.0.0.1)
+      hmr: {
+        protocol: 'ws',
+        host: hmrHost,
+        port: webPort,
+        clientPort: webPort,
+      },
+      proxy: {
+        '/api': {
+          target: apiProxyTarget,
+          changeOrigin: true,
+        },
+      },
+    },
+    preview: {
+      host: webHost,
+      port: webPort,
+      strictPort: true,
+      proxy: {
+        '/api': {
+          target: apiProxyTarget,
+          changeOrigin: true,
+        },
+      },
+    },
+  }
 })
