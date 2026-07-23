@@ -27,6 +27,12 @@ await esbuild.build({
   packages: 'bundle',
   minify: true,
   legalComments: 'none',
+  // CJS deps (cheerio etc.) call require("buffer"/…) at runtime. ESM output has no
+  // require unless we inject createRequire; without this Node throws:
+  //   Dynamic require of "buffer" is not supported
+  banner: {
+    js: "import { createRequire as __anikuCreateRequire } from 'node:module';const require = __anikuCreateRequire(import.meta.url);",
+  },
   alias: {
     '@aniku/shared': path.join(root, 'packages/shared/src/index.ts'),
   },
