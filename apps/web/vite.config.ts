@@ -49,6 +49,29 @@ export default defineConfig(({ mode }) => {
         '@aniku/shared': path.resolve(repoRoot, 'packages/shared/src/index.ts'),
       },
     },
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (!id.includes('node_modules')) return
+            if (id.includes('hls.js')) return 'hls'
+            if (id.includes('@ironkinoko/danmaku')) return 'danmaku'
+            if (id.includes('anime4k-webgpu')) return 'anime4k'
+            if (
+              id.includes('/react/') ||
+              id.includes('/react-dom/') ||
+              id.includes('/scheduler/') ||
+              id.includes('react-router')
+            ) {
+              return 'react-vendor'
+            }
+            if (id.includes('@tanstack/react-query') || id.includes('zustand')) {
+              return 'data-vendor'
+            }
+          },
+        },
+      },
+    },
     server: {
       host: webHost,
       port: webPort,

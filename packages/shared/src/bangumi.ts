@@ -205,10 +205,18 @@ export function parseBangumiAliases(
 
 function dateToWeekday(dateStr: string): number {
   if (!dateStr) return 0
-  const d = new Date(dateStr)
-  if (Number.isNaN(d.getTime())) return 0
+  // Prefer UTC calendar day so "YYYY-MM-DD" is timezone-stable across hosts
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(dateStr.trim())
+  let day: number
+  if (m) {
+    // Date.UTC month is 0-based
+    day = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]))).getUTCDay()
+  } else {
+    const d = new Date(dateStr)
+    if (Number.isNaN(d.getTime())) return 0
+    day = d.getUTCDay()
+  }
   // JS: 0=Sun..6=Sat → Bangumi-ish Mon=1..Sun=7
-  const day = d.getDay()
   return day === 0 ? 7 : day
 }
 

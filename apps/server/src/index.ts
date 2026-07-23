@@ -6,6 +6,7 @@ import { logger } from 'hono/logger'
 import { serve } from '@hono/node-server'
 import { serveStatic } from '@hono/node-server/serve-static'
 import { config } from './config'
+import { corsOriginDecision } from './lib/access'
 import { bangumiRoutes } from './routes/bangumi'
 import { danmakuRoutes } from './routes/danmaku'
 import { bilibiliDanmakuRoutes } from './routes/bilibili-danmaku'
@@ -36,9 +37,12 @@ function resolveWebRootRel(): string | null {
     resolve(process.cwd(), 'public'),
     resolve(process.cwd(), 'apps/web/dist'),
     resolve(process.cwd(), '../web/dist'),
-    // From this file: apps/server/src → …
+    // From source (apps/server/src) or bundled dist (apps/server/dist / /app/dist)
     resolve(import.meta.dirname, '../../../public'),
     resolve(import.meta.dirname, '../../web/dist'),
+    resolve(import.meta.dirname, '../public'),
+    resolve(import.meta.dirname, 'public'),
+    resolve(import.meta.dirname, '../web/dist'),
   ].filter(Boolean)
 
   for (const abs of candidates) {
@@ -53,13 +57,33 @@ function resolveWebRootRel(): string | null {
 
 const app = new Hono()
 
-app.use('*', logger())
+const accessLog = logger()
+// Skip successful media segment spam (HLS can be 100s of lines per episode)
+app.use('*', async (c, next) => {
+  const path = c.req.path
+  if (path.startsWith('/api/media/proxy')) {
+    await next()
+    const status = c.res.status
+    if (status >= 400) {
+      console.log(`<- ${c.req.method} ${path} ${status}`)
+    }
+    return
+  }
+  return accessLog(c, next)
+})
 app.use(
   '*',
   cors({
-    origin: '*',
-    allowHeaders: ['Content-Type', 'Authorization'],
+    // Reflect allowlisted Origin only (no `*`). Same-origin requests omit Origin.
+    origin: (origin) => corsOriginDecision(origin),
+    allowHeaders: [
+      'Content-Type',
+      'Authorization',
+      'X-Aniku-Proxy-Token',
+      'X-Proxy-Token',
+    ],
     allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    credentials: false,
   }),
 )
 

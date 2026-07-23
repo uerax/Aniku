@@ -1,7 +1,7 @@
 # Aniku — single image: Hono API + Vite SPA
 # Build:  docker build -t aniku .
 # Run:    docker compose up -d --build
-#         open http://localhost:$PORT  (from .env, default 8787)
+#         open http://localhost:$WEB_PORT  (compose maps host WEB_PORT → container PORT)
 
 # ---- deps ----
 FROM node:22-bookworm-slim AS base
@@ -15,15 +15,14 @@ COPY apps/server/package.json apps/server/
 COPY packages/shared/package.json packages/shared/
 RUN pnpm install --frozen-lockfile
 
-# ---- build frontend ----
+# ---- build frontend + server bundle ----
 FROM deps AS build
 COPY . .
-RUN pnpm --filter @aniku/web build
+RUN pnpm --filter @aniku/web build \
+ && pnpm --filter @aniku/server build
 
-# ---- runtime ----
-FROM base AS runner
-# pnpm --filter runs with cwd=apps/server; keep SPA next to the server package
-# so WEB_DIST=public resolves, and also at /app/public for root cwd.
+# ---- runtime (node dist only; no tsx / no full monorepo src) ----
+FROM node:22-bookworm-slim AS runner
 ENV NODE_ENV=production \
     PORT=8787 \
     HOST=0.0.0.0 \
@@ -31,27 +30,14 @@ ENV NODE_ENV=production \
 
 WORKDIR /app
 
-# Workspace manifests + packages needed at runtime
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY apps/server/package.json apps/server/
-COPY packages/shared/package.json packages/shared/
-# Minimal stub so the workspace graph still resolves (web is not executed)
-COPY apps/web/package.json apps/web/
+# Bundled server is self-contained; only need the JS + SPA assets
+COPY --from=build /app/apps/server/dist ./dist
+COPY --from=build /app/apps/web/dist ./public
 
-RUN pnpm install --frozen-lockfile --filter @aniku/server... --filter @aniku/shared
-
-COPY apps/server/src apps/server/src
-COPY apps/server/tsconfig.json apps/server/
-COPY packages/shared/src packages/shared/src
-COPY packages/shared/tsconfig.json packages/shared/
-# SPA: apps/server/public (matches filter cwd) + /app/public (matches monorepo root)
-COPY --from=build /app/apps/web/dist apps/server/public
-COPY --from=build /app/apps/web/dist public
-
-# Default API/SPA listen port (override with PORT at runtime)
 EXPOSE 8787
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||8787)+'/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
-CMD ["pnpm", "--filter", "@aniku/server", "start"]
+# cwd=/app so WEB_DIST=public and resolveWebRootRel finds ./public
+CMD ["node", "dist/index.js"]

@@ -8,34 +8,28 @@ import {
   buildSearchKeywords,
   rankSearchItems,
   bestTitleSimilarity,
-  extractBvid,
-  parseDanmakuXml,
   type PluginMeta,
   type SearchItem,
   type Road,
-  type DanmakuAnime,
-  type DanmakuEpisode,
 } from '@aniku/shared'
 import { bangumiApi } from '../lib/bangumi'
-import { pluginApi, danmakuApi } from '../lib/plugin-api'
-import {
-  emptyDanmakuPools,
-  enabledCount,
-  flattenEnabledPools,
-  poolsStatusLine,
-  sourceChips,
-  totalLoadedCount,
-  togglePool,
-  writePool,
-  type DanmakuPoolId,
-  type DanmakuPools,
-} from '../lib/danmaku-pools'
+import { pluginApi } from '../lib/plugin-api'
+import { mapPool } from '../lib/async-pool'
+import { writeRoadsForSource } from '../lib/roads-cache'
+import { useDanmakuSession } from '../lib/use-danmaku-session'
 import { usePluginStore } from '../stores/plugins'
 import { useSettingsStore } from '../stores/settings'
 import { useHistoryStore } from '../stores/history'
+import { pickPlaybackSrc } from '../lib/playback-src'
 import { ErrorState, LoadingState } from '../components/ui'
-import { VideoPlayer } from '../player/VideoPlayer'
+import {
+  EmbedPlayerSuspense,
+  VideoPlayerSuspense,
+} from '../player/lazy'
 import { EMPTY_ARRAY, FALLBACK_DANMAKU, FALLBACK_PLAYER } from '../lib/stable'
+
+/** Cap parallel plugin searches so weak VPS / many rules don't stampede */
+const PLUGIN_SEARCH_CONCURRENCY = 3
 
 type SearchRow = {
   plugin: PluginMeta
@@ -77,9 +71,6 @@ export function SubjectPage() {
   const playerSettings = useSettingsStore((s) => s.player ?? FALLBACK_PLAYER)
   const setPlayer = useSettingsStore((s) => s.setPlayer)
   const upsertHistory = useHistoryStore((s) => s.upsert)
-  const historyItems = useHistoryStore((s) =>
-    Array.isArray(s.items) ? s.items : EMPTY_ARRAY,
-  )
 
   const qc = useQueryClient()
 
@@ -118,43 +109,18 @@ export function SubjectPage() {
   /** Kazumi-style: only one road's episodes visible at a time */
   const [visibleRoad, setVisibleRoad] = useState(0)
   const [summaryOpen, setSummaryOpen] = useState(false)
-  const [danmakuPools, setDanmakuPools] = useState<DanmakuPools>(emptyDanmakuPools)
-  const [danmakuStatus, setDanmakuStatus] = useState('')
-  const [dmKeyword, setDmKeyword] = useState('')
-  const [dmAnimes, setDmAnimes] = useState<DanmakuAnime[]>([])
-  const [dmEpisodes, setDmEpisodes] = useState<DanmakuEpisode[]>([])
-  const [dmAnimeId, setDmAnimeId] = useState<number | ''>('')
-  const [dmEpisodeId, setDmEpisodeId] = useState<number | ''>('')
-  const [dmSearchBusy, setDmSearchBusy] = useState(false)
-  const [bvInput, setBvInput] = useState('')
-  const [bvPage, setBvPage] = useState(1)
-  const [bilibiliBusy, setBilibiliBusy] = useState(false)
   /** Per-plugin extra search: alias pick or free text (Kazumi SourceSheet) */
   const [retryPlugin, setRetryPlugin] = useState<string | null>(null)
   const [retryMode, setRetryMode] = useState<'alias' | 'manual' | null>(null)
   const [manualKeyword, setManualKeyword] = useState('')
+  /** Force VideoPlayer remount when auth refresh returns the same proxyUrl */
+  const [playerRemount, setPlayerRemount] = useState(0)
+  /** After direct CDN fails (CORS/hotlink), force media proxy */
+  const [forceProxy, setForceProxy] = useState(false)
   const searchedForId = useRef<number | null>(null)
   const resumeRef = useRef(0)
   /** cancel in-flight per-plugin re-query when a newer one starts */
   const pluginSearchGen = useRef<Record<string, number>>({})
-
-  const visibleComments = useMemo(
-    () => flattenEnabledPools(danmakuPools),
-    [danmakuPools],
-  )
-  const loadedCount = useMemo(
-    () => totalLoadedCount(danmakuPools),
-    [danmakuPools],
-  )
-  const visibleCount = useMemo(
-    () => enabledCount(danmakuPools),
-    [danmakuPools],
-  )
-  const chips = useMemo(() => sourceChips(danmakuPools), [danmakuPools])
-
-  function toggleSource(id: DanmakuPoolId) {
-    setDanmakuPools((p) => togglePool(p, id))
-  }
 
   const titleRefs = useMemo(() => {
     if (!item) return [] as string[]
@@ -165,6 +131,17 @@ export function SubjectPage() {
     if (!item) return [] as string[]
     return buildSearchKeywords(item.nameCn, item.name, item.alias)
   }, [item])
+
+  const dm = useDanmakuSession({
+    bangumiId: subjectId,
+    episode: episode?.episode || 1,
+    title,
+    titleRefs,
+    matchKey: episode
+      ? `${selection?.plugin.name || ''}|${episode.pageUrl}|${episode.episode}`
+      : null,
+    autoMatch: Boolean(selection && episode && subjectId && title),
+  })
 
   useEffect(() => {
     ensureDefaults()
@@ -178,12 +155,12 @@ export function SubjectPage() {
     setEpisode(null)
     setVisibleRoad(0)
     setRoadError('')
-    setDanmakuPools(emptyDanmakuPools())
-    setDanmakuStatus('')
+    dm.resetPools()
     setRetryPlugin(null)
     setRetryMode(null)
     setManualKeyword('')
     pluginSearchGen.current = {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only reset on subject change
   }, [subjectId])
 
   const titleRefsStable = titleRefs
@@ -296,8 +273,9 @@ export function SubjectPage() {
         })),
       )
 
-      await Promise.all(
-        active.map((plugin) => searchOnePlugin(plugin, keyword)),
+      // Limit concurrency: many enabled rules × keyword variants overload Node
+      await mapPool(active, PLUGIN_SEARCH_CONCURRENCY, (plugin) =>
+        searchOnePlugin(plugin, keyword),
       )
       setSearching(false)
     },
@@ -336,7 +314,10 @@ export function SubjectPage() {
       resumeRef.current = 0
       return
     }
-    const h = historyItems.find(
+    // Read once from store — do not subscribe to full history (progress writes)
+    const items = useHistoryStore.getState().items
+    const list = Array.isArray(items) ? items : []
+    const h = list.find(
       (i) =>
         i.bangumiId === subjectId &&
         i.pluginName === selection.plugin.name &&
@@ -344,204 +325,7 @@ export function SubjectPage() {
         i.road === episode.road,
     )
     resumeRef.current = h?.position || 0
-  }, [selection, episode, historyItems, subjectId])
-
-  useEffect(() => {
-    if (title) setDmKeyword(title)
-  }, [title])
-
-  const loadCommentsByEpisodeId = useCallback(async (epId: number) => {
-    const comments = await danmakuApi.comments(epId)
-    setDanmakuPools((p) =>
-      writePool(p, 'dandan', comments.data, 'replace', `ep ${epId}`),
-    )
-    setDmEpisodeId(epId)
-    setDanmakuStatus(`弹弹 · 已加载 ${comments.count} 条（其它源保留）`)
-    return comments
-  }, [])
-
-  useEffect(() => {
-    let cancelled = false
-    async function loadDanmaku() {
-      if (!selection || !episode || !subjectId) return
-      setDanmakuStatus('匹配弹幕…')
-      setDmAnimes([])
-      setDmEpisodes([])
-      setDmAnimeId('')
-      setDmEpisodeId('')
-      try {
-        const [mappedResult, searchResult] = await Promise.allSettled([
-          danmakuApi.bangumiByBgm(subjectId),
-          danmakuApi.search(title),
-        ])
-        if (cancelled) return
-
-        let episodeId = 0
-        if (mappedResult.status === 'fulfilled') {
-          const mapped = mappedResult.value
-          if (mapped.data.episodes.length) {
-            const ep =
-              mapped.data.episodes[Math.max(0, episode.episode - 1)] ||
-              mapped.data.episodes[0]
-            episodeId = ep.episodeId
-            setDmEpisodes(mapped.data.episodes)
-            setDmAnimeId(mapped.data.bangumiId || '')
-          }
-        }
-        if (searchResult.status === 'fulfilled') {
-          setDmAnimes(searchResult.value.data)
-        }
-        if (!episodeId && searchResult.status === 'fulfilled') {
-          let bestId = 0
-          let bestScore = 0
-          for (const a of searchResult.value.data) {
-            if (a.animeId >= 100000 || a.animeId < 2) continue
-            const score = bestTitleSimilarity(a.animeTitle, titleRefs)
-            if (score > bestScore) {
-              bestScore = score
-              bestId = a.animeId
-            }
-          }
-          if (bestId && bestScore >= 0.3) {
-            const info = await danmakuApi.bangumi(bestId)
-            if (cancelled) return
-            setDmEpisodes(info.data.episodes)
-            setDmAnimeId(bestId)
-            const ep =
-              info.data.episodes[Math.max(0, episode.episode - 1)] ||
-              info.data.episodes[0]
-            if (ep) episodeId = ep.episodeId
-          }
-        }
-        if (!episodeId) {
-          if (!cancelled) {
-            setDanmakuStatus('未匹配到弹幕，点「设置」手动搜索或导入')
-          }
-          return
-        }
-        await loadCommentsByEpisodeId(episodeId)
-      } catch (e) {
-        if (!cancelled) {
-          setDanmakuStatus(e instanceof Error ? e.message : '弹幕失败')
-        }
-      }
-    }
-    void loadDanmaku()
-    return () => {
-      cancelled = true
-    }
-  }, [
-    episode?.pageUrl,
-    episode?.episode,
-    selection?.plugin.name,
-    subjectId,
-    title,
-    titleRefs,
-    loadCommentsByEpisodeId,
-  ])
-
-  async function handleDmSearch() {
-    const kw = dmKeyword.trim()
-    if (kw.length < 2) {
-      setDanmakuStatus('番剧名称不少于 2 个字')
-      return
-    }
-    setDmSearchBusy(true)
-    setDanmakuStatus('正在搜索番剧…')
-    try {
-      const search = await danmakuApi.search(kw)
-      setDmAnimes(search.data)
-      setDmEpisodes([])
-      setDmAnimeId('')
-      setDmEpisodeId('')
-      if (!search.data.length) {
-        setDanmakuStatus('无搜索结果')
-        return
-      }
-      setDanmakuStatus(`找到 ${search.data.length} 部番剧`)
-      await handleDmAnimeChange(search.data[0].animeId, search.data)
-    } catch (e) {
-      setDanmakuStatus(e instanceof Error ? e.message : '搜索失败')
-    } finally {
-      setDmSearchBusy(false)
-    }
-  }
-
-  async function handleDmAnimeChange(id: number, list?: DanmakuAnime[]) {
-    setDmAnimeId(id)
-    setDanmakuStatus('正在搜索剧集…')
-    try {
-      const info = await danmakuApi.bangumi(id)
-      setDmEpisodes(info.data.episodes)
-      const name =
-        (list || dmAnimes).find((a) => a.animeId === id)?.animeTitle || ''
-      setDanmakuStatus(
-        name
-          ? `${name} · ${info.data.episodes.length} 集`
-          : `找到 ${info.data.episodes.length} 集`,
-      )
-      const epNo = episode?.episode || 1
-      const ep =
-        info.data.episodes[Math.max(0, epNo - 1)] || info.data.episodes[0]
-      if (ep) await handleDmEpisodeChange(ep.episodeId)
-    } catch (e) {
-      setDanmakuStatus(e instanceof Error ? e.message : '剧集加载失败')
-    }
-  }
-
-  async function handleDmEpisodeChange(epId: number) {
-    setDanmakuStatus('加载弹幕中…')
-    try {
-      await loadCommentsByEpisodeId(epId)
-    } catch (e) {
-      setDanmakuStatus(e instanceof Error ? e.message : '弹幕加载失败')
-    }
-  }
-
-  async function handleLoadBilibili() {
-    const bvid = extractBvid(bvInput)
-    if (!bvid) {
-      setDanmakuStatus('请输入有效 BV 号或视频链接')
-      return
-    }
-    setBilibiliBusy(true)
-    setDanmakuStatus(`拉取 B 站弹幕 ${bvid}…`)
-    try {
-      const res = await danmakuApi.bilibili(bvid, bvPage)
-      const part = res.meta.part ? ` · ${res.meta.part}` : ''
-      const meta = `${res.meta.title || bvid}${part}`
-      setDanmakuPools((p) =>
-        writePool(p, 'bilibili', res.data, 'append', meta),
-      )
-      setDanmakuStatus(
-        `已追加 B站 · ${meta} · +${res.count} 条（默认叠加显示）`,
-      )
-    } catch (e) {
-      setDanmakuStatus(e instanceof Error ? e.message : 'B 站弹幕拉取失败')
-    } finally {
-      setBilibiliBusy(false)
-    }
-  }
-
-  async function handleLoadXmlFile(file: File) {
-    setDanmakuStatus(`解析 ${file.name}…`)
-    try {
-      const text = await file.text()
-      const list = parseDanmakuXml(text)
-      if (!list.length) {
-        setDanmakuStatus('XML 中未找到弹幕（需 bilibili / pakku 格式）')
-        return
-      }
-      setDanmakuPools((p) =>
-        writePool(p, 'upload', list, 'append', file.name),
-      )
-      setDanmakuStatus(
-        `已追加 用户上传 · ${file.name} · +${list.length} 条（默认叠加显示）`,
-      )
-    } catch (e) {
-      setDanmakuStatus(e instanceof Error ? e.message : 'XML 解析失败')
-    }
-  }
+  }, [selection, episode, subjectId])
 
   /** Click search hit → only load episode list, do NOT start playback */
   async function pickSource(plugin: PluginMeta, searchItem: SearchItem) {
@@ -549,19 +333,11 @@ export function SubjectPage() {
     setRoadError('')
     setEpisode(null)
     setVisibleRoad(0)
-    setDanmakuPools(emptyDanmakuPools())
-    setDanmakuStatus('')
+    dm.resetPools()
     try {
       const res = await pluginApi.chapters(plugin, searchItem.src)
       const roads = res.data.roads
-      try {
-        sessionStorage.setItem(
-          `roads:${subjectId}:${plugin.name}`,
-          JSON.stringify(roads),
-        )
-      } catch {
-        /* ignore */
-      }
+      writeRoadsForSource(subjectId, plugin.name, searchItem.src, roads)
       if (!roads.length || !roads[0]?.data?.length) {
         setRoadError(
           res.data.diagnostics?.slice(0, 2).join('；') || '未解析到分集',
@@ -633,6 +409,22 @@ export function SubjectPage() {
   )
 
   const proxyUrl = episode ? resolve.data?.data.proxyUrl : undefined
+  const playUrl = episode ? resolve.data?.data.playUrl : undefined
+  const playback = useMemo(
+    () =>
+      pickPlaybackSrc({
+        playUrl,
+        proxyUrl,
+        forceProxy,
+      }),
+    [playUrl, proxyUrl, forceProxy],
+  )
+  const mediaSrc = episode ? playback.src : ''
+
+  // New episode → retry direct CDN first
+  useEffect(() => {
+    setForceProxy(false)
+  }, [episode?.pageUrl, selection?.plugin.name])
 
   if (subject.isLoading) return <LoadingState />
   if (subject.isError || !item) {
@@ -710,7 +502,7 @@ export function SubjectPage() {
             {selection && episode && (
               <span className="text-xs text-zinc-500">
                 {selection.plugin.name} · 第 {episode.episode} 集
-                {danmakuStatus ? ` · ${danmakuStatus}` : ''}
+                {dm.status ? ` · ${dm.status}` : ''}
               </span>
             )}
           </div>
@@ -720,35 +512,33 @@ export function SubjectPage() {
       {/* Player: same structure as PlayPage — avoid overflow-hidden + rounded
           wrapping a hardware-decoded <video> (Chrome: audio ok, black frame). */}
       <div className="space-y-0">
-        {episode && resolve.isLoading && !proxyUrl && (
+        {episode && resolve.isLoading && !mediaSrc && (
           <div className="kz-player-placeholder text-sm text-zinc-300">
             解析播放地址…
           </div>
         )}
-        {episode && resolve.isError && !proxyUrl && (
-          <div className="kz-player-placeholder flex-col gap-2 p-4 text-center">
-            <div className="text-sm text-red-300">
-              {(resolve.error as Error)?.message || '解析失败'}
-            </div>
-            <button
-              type="button"
-              onClick={() => resolve.refetch()}
-              className="rounded-lg bg-zinc-800 px-3 py-1.5 text-xs hover:bg-zinc-700"
-            >
-              重试
-            </button>
-          </div>
+        {episode && resolve.isError && !mediaSrc && (
+          <EmbedPlayerSuspense
+            pageUrl={episode.pageUrl}
+            title={title}
+            reason={
+              resolve.error instanceof Error
+                ? resolve.error.message
+                : '静态解析失败'
+            }
+            onRetryResolve={() => void resolve.refetch()}
+          />
         )}
-        {proxyUrl ? (
-          <VideoPlayer
-            key={proxyUrl}
-            src={proxyUrl}
+        {mediaSrc ? (
+          <VideoPlayerSuspense
+            key={`${mediaSrc}#${playerRemount}#${playback.mode}`}
+            src={mediaSrc}
             initialTime={
               playerSettings.continuePlay && resumeRef.current > 15
                 ? resumeRef.current
                 : 0
             }
-            comments={visibleComments}
+            comments={dm.visibleComments}
             danmaku={danmakuSettings}
             player={playerSettings}
             onPlayerChange={setPlayer}
@@ -762,31 +552,16 @@ export function SubjectPage() {
             onMediaAuthExpired={async (position) => {
               if (position > 5) resumeRef.current = position
               await resolve.refetch()
+              setPlayerRemount((n) => n + 1)
             }}
-            danmakuPanel={{
-              status: danmakuStatus || poolsStatusLine(danmakuPools),
-              commentsCount: loadedCount,
-              visibleCount,
-              keyword: dmKeyword,
-              onKeywordChange: setDmKeyword,
-              onSearch: () => void handleDmSearch(),
-              searchBusy: dmSearchBusy,
-              animes: dmAnimes,
-              episodes: dmEpisodes,
-              animeId: dmAnimeId,
-              episodeId: dmEpisodeId,
-              onAnimeChange: (id) => void handleDmAnimeChange(id),
-              onEpisodeChange: (id) => void handleDmEpisodeChange(id),
-              bvInput,
-              onBvInputChange: setBvInput,
-              bvPage,
-              onBvPageChange: setBvPage,
-              onLoadBilibili: () => void handleLoadBilibili(),
-              bilibiliBusy,
-              onLoadXmlFile: (f) => void handleLoadXmlFile(f),
-              sources: chips,
-              onToggleSource: toggleSource,
+            onMediaLoadFailed={({ position }) => {
+              if (position > 5) resumeRef.current = position
+              if (playback.mode === 'direct' && proxyUrl) {
+                setForceProxy(true)
+                setPlayerRemount((n) => n + 1)
+              }
             }}
+            danmakuPanel={dm.panel}
           />
         ) : !episode || (!resolve.isLoading && !resolve.isError) ? (
           <div className="kz-player-placeholder flex-col gap-1 text-sm text-zinc-500">
@@ -805,7 +580,7 @@ export function SubjectPage() {
             {danmakuSettings.enabled ? '关弹幕' : '开弹幕'}
           </button>
           <span className="text-zinc-400">
-            {danmakuStatus ? `弹幕: ${danmakuStatus}` : '弹幕'}
+            {dm.status ? `弹幕: ${dm.status}` : '弹幕'}
             {' · '}
             空格播放 · F 全屏 · D 弹幕 · Alt+M 设置 · P/N 上下集
           </span>

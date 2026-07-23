@@ -2,9 +2,15 @@ import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import type { WatchHistoryEntry } from '@aniku/shared'
 import { historyId } from '@aniku/shared'
+import { createDebouncedStorage } from '../lib/debounced-storage'
 import { migrateLocalStorageKey } from '../lib/storage'
 
 migrateLocalStorageKey('aniku-history', ['kazumi-web-history'])
+
+/** Cap persisted history rows */
+const MAX_ITEMS = 200
+/** Debounce localStorage writes (progress ticks are frequent) */
+const PERSIST_DEBOUNCE_MS = 12_000
 
 interface HistoryState {
   items: WatchHistoryEntry[]
@@ -37,11 +43,13 @@ export const useHistoryStore = create<HistoryState>()(
         }
         set((s) => {
           const prev = Array.isArray(s.items) ? s.items : []
-          const rest = prev.filter((i) => i.id !== id)
+          // Newest-first without full re-sort: drop old id, unshift, cap
+          const rest: WatchHistoryEntry[] = []
+          for (const i of prev) {
+            if (i.id !== id) rest.push(i)
+          }
           return {
-            items: [full, ...rest]
-              .sort((a, b) => b.updatedAt - a.updatedAt)
-              .slice(0, 200),
+            items: [full, ...rest].slice(0, MAX_ITEMS),
           }
         })
       },
@@ -65,7 +73,7 @@ export const useHistoryStore = create<HistoryState>()(
     }),
     {
       name: 'aniku-history',
-      storage: createJSONStorage(() => localStorage),
+      storage: createJSONStorage(() => createDebouncedStorage(PERSIST_DEBOUNCE_MS)),
       partialize: (s) => ({ items: s.items }),
       merge: (persisted, current) => {
         const p = (persisted || {}) as Partial<HistoryState>

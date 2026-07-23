@@ -17,7 +17,6 @@
     "anime4k-webgpu": "^1.0.0",
     "clsx": "^2.1.1",
     "hls.js": "^1.5.20",
-    "idb-keyval": "^6.2.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-router-dom": "^7.4.0",

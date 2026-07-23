@@ -67,7 +67,9 @@ Loaded by `apps/server/src/config.ts` from repo root and `apps/server` (custom p
 | `DANDAN_APP_ID` / `DANDAN_APP_SECRET` | Optional open-platform keys; empty → built-in legacy client headers so danmaku works out of the box |
 | `BANGUMI_USER_AGENT` | UA for Bangumi upstream; default `aniku/0.1` |
 | `PRODUCT_USER_AGENT` | Product identity UA (DanDanPlay etc.); default `aniku/0.1` |
-| `DEFAULT_USER_AGENT` | Browser-like UA for plugin HTML / media fetches |
+| `CORS_ORIGINS` | Extra browser Origins for CORS (comma-separated). Loopback always allowed; `*` opens CORS (not recommended) |
+| `PUBLIC_PROXY` | Default off: media proxy + plugin search/chapters/resolve only from loopback/private LAN. Set `1` for public Internet |
+| `PROXY_TOKEN` | Optional; `X-Aniku-Proxy-Token` header or `proxyToken` query bypasses LAN-only gate |
 
 Server loads `.env` from repo root / `apps/server` (`config.ts`). Vite loads the same root `.env` via `loadEnv` and binds/proxy from those vars — **no hardcoded ports in config**.
 

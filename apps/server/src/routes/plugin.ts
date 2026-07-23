@@ -5,17 +5,20 @@ import {
   chaptersWithRule,
   resolvePlay,
 } from '../rule-engine'
+import { requireLocalOrToken } from '../lib/access'
 
 export const pluginRoutes = new Hono()
 
 function errStatus(message: string): 400 | 502 | 504 {
-  if (/无法访问|timeout|ETIMEDOUT|ECONNREFUSED|ENOTFOUND|fetch failed/i.test(message)) {
+  if (/无法访问|timeout|ETIMEDOUT|ECONNREFUSED|ENOTFOUND|fetch failed|内网|禁止/i.test(message)) {
+    if (/内网|禁止/.test(message)) return 400
     return 504
   }
   if (/缺少|无效|bad/i.test(message)) return 400
   return 502
 }
 
+// validate only parses JSON — no network; keep open for settings import
 pluginRoutes.post('/validate', async (c) => {
   const body = await c.req.json()
   try {
@@ -26,7 +29,8 @@ pluginRoutes.post('/validate', async (c) => {
   }
 })
 
-pluginRoutes.post('/search', async (c) => {
+// Exec routes are open-proxy style (client supplies rule + URLs) — gate them
+pluginRoutes.post('/search', requireLocalOrToken, async (c) => {
   const body = await c.req.json<{ rule: unknown; keyword: string }>()
   if (!body.keyword?.trim()) {
     return c.json({ error: 'bad_request', message: '缺少 keyword' }, 400)
@@ -45,7 +49,7 @@ pluginRoutes.post('/search', async (c) => {
   }
 })
 
-pluginRoutes.post('/chapters', async (c) => {
+pluginRoutes.post('/chapters', requireLocalOrToken, async (c) => {
   const body = await c.req.json<{ rule: unknown; source: string }>()
   if (!body.source?.trim() || !body.rule) {
     return c.json({ error: 'bad_request', message: '缺少 rule 或 source' }, 400)
@@ -60,7 +64,7 @@ pluginRoutes.post('/chapters', async (c) => {
   }
 })
 
-pluginRoutes.post('/resolve', async (c) => {
+pluginRoutes.post('/resolve', requireLocalOrToken, async (c) => {
   const body = await c.req.json<{ rule: unknown; pageUrl: string }>()
   if (!body.pageUrl?.trim() || !body.rule) {
     return c.json({ error: 'bad_request', message: '缺少 rule 或 pageUrl' }, 400)

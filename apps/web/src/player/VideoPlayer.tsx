@@ -7,7 +7,8 @@ import { useEffect, useRef, useState, type DragEvent } from 'react'
 import './plyr-overrides.css'
 import Danmaku from '@ironkinoko/danmaku'
 import type { Comment as IronComment } from '@ironkinoko/danmaku'
-import Hls from 'hls.js'
+/** Instance type only — runtime constructor is dynamic-imported for m3u8 */
+import type Hls from 'hls.js'
 import {
   PLAYER_SPEEDS,
   type DanmakuAnime,
@@ -77,6 +78,14 @@ interface Props {
    * Parent should re-resolve and pass a new src; return a Promise to await.
    */
   onMediaAuthExpired?: (position: number) => void | Promise<void>
+  /**
+   * Unrecoverable media failure (e.g. direct CDN CORS / hotlink block).
+   * Parent may switch to proxyUrl and remount. Called at most once per src.
+   */
+  onMediaLoadFailed?: (info: {
+    position: number
+    reason: string
+  }) => void
 }
 
 const BASE_DANMAKU_SPEED = 130
@@ -308,6 +317,7 @@ export function VideoPlayer({
   embedded = false,
   danmakuPanel,
   onMediaAuthExpired,
+  onMediaLoadFailed,
 }: Props) {
   const shellRef = useRef<HTMLDivElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -337,6 +347,8 @@ export function VideoPlayer({
   const onToggleDanmakuRef = useRef(onToggleDanmaku)
   const onDanmakuChangeRef = useRef(onDanmakuChange)
   const onMediaAuthExpiredRef = useRef(onMediaAuthExpired)
+  const onMediaLoadFailedRef = useRef(onMediaLoadFailed)
+  const loadFailedOnceRef = useRef(false)
   const initialTimeRef = useRef(initialTime)
   const authRetryRef = useRef(false)
   const [offsetHint, setOffsetHint] = useState('')
@@ -385,7 +397,15 @@ export function VideoPlayer({
   onToggleDanmakuRef.current = onToggleDanmaku
   onDanmakuChangeRef.current = onDanmakuChange
   onMediaAuthExpiredRef.current = onMediaAuthExpired
+  onMediaLoadFailedRef.current = onMediaLoadFailed
   initialTimeRef.current = initialTime
+
+  function reportLoadFailed(reason: string) {
+    if (loadFailedOnceRef.current) return
+    loadFailedOnceRef.current = true
+    const pos = videoRef.current?.currentTime || 0
+    onMediaLoadFailedRef.current?.({ position: pos, reason })
+  }
 
   function applyDanmaku() {
     const video = videoRef.current
@@ -445,6 +465,7 @@ export function VideoPlayer({
     resumedRef.current = false
     skipBusyRef.current = false
     authRetryRef.current = false
+    loadFailedOnceRef.current = false
     userPausedRef.current = false
     bufferGatePausedRef.current = false
     setMediaError('')
@@ -518,14 +539,19 @@ export function VideoPlayer({
 
         settled = true
         cleanupWaiters()
-        const vol = cfg.volume ?? 0.7
+        // Read volume/speed from live ref — user may have changed them while loading
+        const live = playerRef.current
+        const vol = live.volume ?? 0.7
+        video.playbackRate = live.speed || 1
         video.muted = true
         video
           .play()
           .then(() => {
             if (!alive()) return
             video.muted = false
-            video.volume = vol
+            // Re-read after await: volume may change during muted autoplay
+            video.volume = playerRef.current.volume ?? 0.7
+            video.playbackRate = playerRef.current.speed || 1
             setPaused(false)
             setLoading(false)
             setBufferingUi(false)
@@ -533,6 +559,7 @@ export function VideoPlayer({
           .catch(() => {
             if (!alive()) return
             video.muted = false
+            video.volume = playerRef.current.volume ?? 0.7
             setPaused(true)
             setLoading(false)
             setBufferingUi(false)
@@ -602,71 +629,8 @@ export function VideoPlayer({
 
     console.info('[player] load', src.slice(0, 120), 'm3u8=', isM3u8(src))
 
-    if (isM3u8(src) && Hls.isSupported()) {
-      const hls = new Hls({
-        enableWorker: true,
-        // Prefer a bit more ahead buffer on weak / proxied links
-        maxBufferLength: 45,
-        maxMaxBufferLength: 90,
-        maxBufferHole: 0.5,
-        // Don't start at highest quality when bandwidth is unknown
-        startLevel: -1,
-        abrEwmaDefaultEstimate: 500_000,
-        // Cap in-flight fragments so one slow segment doesn't starve decode
-        maxBufferSize: 60 * 1000 * 1000,
-        fragLoadingTimeOut: 20_000,
-        manifestLoadingTimeOut: 15_000,
-      })
-      hlsRef.current = hls
-      hls.loadSource(src)
-      hls.attachMedia(video)
-      hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        if (!alive()) return
-        console.info('[player] manifest ok')
-        onReady()
-      })
-      hls.on(Hls.Events.ERROR, (_e, data) => {
-        if (!alive()) return
-        // Non-fatal stalls: show buffer UI, keep trying
-        if (!data.fatal) {
-          if (
-            data.details === Hls.ErrorDetails.BUFFER_STALLED_ERROR ||
-            data.details === Hls.ErrorDetails.BUFFER_SEEK_OVER_HOLE
-          ) {
-            setBufferingUi(true)
-          }
-          return
-        }
-        console.error('[player] hls fatal', data.type, data.details)
-        if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
-          setMediaError(`网络错误 ${data.details || ''}，重试…`)
-          setBufferingUi(true)
-          hls.startLoad()
-        } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
-          setMediaError(`解码错误 ${data.details || ''}，恢复…`)
-          hls.recoverMediaError()
-        } else {
-          setLoading(false)
-          setBufferingUi(false)
-          setMediaError(`播放失败: ${data.details || data.type}`)
-        }
-      })
-    } else if (
-      isM3u8(src) &&
-      video.canPlayType('application/vnd.apple.mpegurl')
-    ) {
-      video.src = src
-      video.addEventListener('loadedmetadata', onReady, { once: true })
-      video.addEventListener(
-        'error',
-        () => {
-          if (!alive()) return
-          setLoading(false)
-          setMediaError('原生 HLS 加载失败')
-        },
-        { once: true },
-      )
-    } else {
+    /** Progressive mp4 path (sync). HLS path is async after dynamic import. */
+    const attachProgressive = () => {
       video.src = src
       video.addEventListener('loadedmetadata', onReady, { once: true })
 
@@ -700,6 +664,15 @@ export function VideoPlayer({
           if (!alive()) return
           if (tryAuthRefresh()) return
           setLoading(false)
+          const reason = video.error?.code
+            ? `video_error_${video.error.code}`
+            : 'video_load_failed'
+          // Direct CDN (CORS / hotlink) → parent may switch to proxy
+          if (!src.includes('/api/media/proxy')) {
+            setMediaError('直链失败，尝试代理…')
+            reportLoadFailed(reason)
+            return
+          }
           setMediaError(
             video.error?.code
               ? `视频错误 code=${video.error.code}（请重新选集）`
@@ -743,6 +716,100 @@ export function VideoPlayer({
         onStalled
     }
 
+    if (isM3u8(src)) {
+      // Prefer MSE hls.js; fall back to Safari native HLS
+      void import('hls.js')
+        .then((mod) => {
+          if (!alive()) return
+          const HlsCtor = mod.default
+          if (HlsCtor.isSupported()) {
+            const hls = new HlsCtor({
+              enableWorker: true,
+              // Leaner defaults: less RAM / pre-fetch via proxy; still enough for weak links
+              maxBufferLength: 30,
+              maxMaxBufferLength: 60,
+              maxBufferHole: 0.5,
+              startLevel: -1,
+              abrEwmaDefaultEstimate: 500_000,
+              maxBufferSize: 40 * 1000 * 1000,
+              fragLoadingTimeOut: 20_000,
+              manifestLoadingTimeOut: 15_000,
+            })
+            hlsRef.current = hls
+            hls.loadSource(src)
+            hls.attachMedia(video)
+            hls.on(HlsCtor.Events.MANIFEST_PARSED, () => {
+              if (!alive()) return
+              console.info('[player] manifest ok')
+              onReady()
+            })
+            hls.on(HlsCtor.Events.ERROR, (_e, data) => {
+              if (!alive()) return
+              if (!data.fatal) {
+                if (
+                  data.details === HlsCtor.ErrorDetails.BUFFER_STALLED_ERROR ||
+                  data.details === HlsCtor.ErrorDetails.BUFFER_SEEK_OVER_HOLE
+                ) {
+                  setBufferingUi(true)
+                }
+                return
+              }
+              console.error('[player] hls fatal', data.type, data.details)
+              // Direct CDN often fails CORS; let parent fall back to proxy
+              const direct = !src.includes('/api/media/proxy')
+              if (direct && data.type === HlsCtor.ErrorTypes.NETWORK_ERROR) {
+                setLoading(false)
+                setBufferingUi(false)
+                setMediaError('直链失败，尝试代理…')
+                reportLoadFailed(String(data.details || 'hls_network'))
+                return
+              }
+              if (data.type === HlsCtor.ErrorTypes.NETWORK_ERROR) {
+                setMediaError(`网络错误 ${data.details || ''}，重试…`)
+                setBufferingUi(true)
+                hls.startLoad()
+              } else if (data.type === HlsCtor.ErrorTypes.MEDIA_ERROR) {
+                setMediaError(`解码错误 ${data.details || ''}，恢复…`)
+                hls.recoverMediaError()
+              } else {
+                setLoading(false)
+                setBufferingUi(false)
+                setMediaError(`播放失败: ${data.details || data.type}`)
+                if (direct) reportLoadFailed(String(data.details || data.type))
+              }
+            })
+            return
+          }
+          if (video.canPlayType('application/vnd.apple.mpegurl')) {
+            video.src = src
+            video.addEventListener('loadedmetadata', onReady, { once: true })
+            video.addEventListener(
+              'error',
+              () => {
+                if (!alive()) return
+                setLoading(false)
+                setMediaError('原生 HLS 加载失败')
+                if (!src.includes('/api/media/proxy')) {
+                  reportLoadFailed('native_hls')
+                }
+              },
+              { once: true },
+            )
+            return
+          }
+          setLoading(false)
+          setMediaError('当前浏览器不支持 HLS')
+        })
+        .catch((e) => {
+          if (!alive()) return
+          console.error('[player] hls import failed', e)
+          setLoading(false)
+          setMediaError('加载播放器失败')
+        })
+    } else {
+      attachProgressive()
+    }
+
     const onTime = () => {
       const d = video.duration
       const t = video.currentTime
@@ -751,7 +818,8 @@ export function VideoPlayer({
 
       if (!Number.isFinite(d) || d <= 0) return
       const now = Date.now()
-      if (now - lastSaveRef.current >= 5000) {
+      // Progress → history; store also debounces localStorage (~12s)
+      if (now - lastSaveRef.current >= 10_000) {
         lastSaveRef.current = now
         onProgressRef.current?.(t, d)
       }
@@ -1030,6 +1098,8 @@ export function VideoPlayer({
     window.addEventListener('keydown', onKey)
 
     return () => {
+      // Invalidate generation so softPlay / HLS / auth async paths no-op
+      genRef.current++
       window.removeEventListener('keydown', onKey)
       ro.disconnect()
       try {
@@ -1246,8 +1316,10 @@ export function VideoPlayer({
       anime4kStopRef.current = null
       setSrActive(false)
     }
+    // Do not depend on playerFs/webFs — fullscreen must not tear down WebGPU
+    // (black frame while pipeline rebuilds). Layout uses ResizeObserver inside startAnime4K.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- webGpuOk set inside after probe
-  }, [src, player.superResolution, playerFs, webFs])
+  }, [src, player.superResolution])
 
   function togglePlay() {
     const v = videoRef.current

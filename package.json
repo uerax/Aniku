@@ -10,8 +10,9 @@
     "dev:parallel": "pnpm -r --parallel --filter @aniku/web --filter @aniku/server dev",
     "build": "pnpm -r build",
     "build:web": "pnpm --filter @aniku/web build",
+    "build:server": "pnpm --filter @aniku/server build",
     "start": "pnpm --filter @aniku/server start",
-    "start:prod": "pnpm build:web && pnpm start",
+    "start:prod": "pnpm build && pnpm start",
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck"
   },

@@ -134,7 +134,13 @@ export function totalLoadedCount(pools: DanmakuPools): number {
 }
 
 export function enabledCount(pools: DanmakuPools): number {
-  return flattenEnabledPools(pools).length
+  // Sum lengths only — avoid full flatten+sort used by flattenEnabledPools
+  let n = 0
+  for (const id of DANMAKU_POOL_ORDER) {
+    const slice = pools[id]
+    if (slice.enabled) n += slice.comments.length
+  }
+  return n
 }
 
 export function sourceChips(pools: DanmakuPools): DanmakuSourceChip[] {

@@ -369,9 +369,44 @@ export async function startAnime4K(
   })
 
   let stopped = false
+  /** Tab hidden — skip GPU work until visible again */
+  let pausedForHidden = false
   const WIDTH = native.width
   const HEIGHT = native.height
   let frameErrors = 0
+  let rvfcHandle: number | undefined
+  let rafHandle: number | undefined
+
+  const cancelPendingFrame = () => {
+    try {
+      if (
+        rvfcHandle != null &&
+        typeof video.cancelVideoFrameCallback === 'function'
+      ) {
+        video.cancelVideoFrameCallback(rvfcHandle)
+      }
+    } catch {
+      /* ignore */
+    }
+    rvfcHandle = undefined
+    if (rafHandle != null) {
+      try {
+        cancelAnimationFrame(rafHandle)
+      } catch {
+        /* ignore */
+      }
+      rafHandle = undefined
+    }
+  }
+
+  const scheduleFrame = () => {
+    if (stopped || pausedForHidden) return
+    if (typeof video.requestVideoFrameCallback === 'function') {
+      rvfcHandle = video.requestVideoFrameCallback(frame)
+    } else {
+      rafHandle = requestAnimationFrame(frame)
+    }
+  }
 
   const copyFrame = () => {
     // Always try to copy when we have a current frame (including paused)
@@ -384,7 +419,7 @@ export async function startAnime4K(
   }
 
   const frame = () => {
-    if (stopped) return
+    if (stopped || pausedForHidden) return
     try {
       copyFrame()
       const commandEncoder = device.createCommandEncoder()
@@ -411,13 +446,28 @@ export async function startAnime4K(
         console.warn('[anime4k] frame error', e)
       }
     }
-    if (stopped) return
-    if (typeof video.requestVideoFrameCallback === 'function') {
-      video.requestVideoFrameCallback(frame)
-    } else {
-      requestAnimationFrame(frame)
-    }
+    if (stopped || pausedForHidden) return
+    scheduleFrame()
   }
+
+  const onVisibility = () => {
+    if (stopped) return
+    if (document.hidden) {
+      pausedForHidden = true
+      cancelPendingFrame()
+      return
+    }
+    if (!pausedForHidden) return
+    pausedForHidden = false
+    // Resume pipeline when tab is visible again
+    try {
+      copyFrame()
+    } catch {
+      /* ignore */
+    }
+    scheduleFrame()
+  }
+  document.addEventListener('visibilitychange', onVisibility)
 
   // Prime one frame so first paint is not empty black
   try {
@@ -430,15 +480,17 @@ export async function startAnime4K(
     `[anime4k] started mode=${mode} native=${native.width}x${native.height} target=${target.width}x${target.height}`,
   )
 
-  if (typeof video.requestVideoFrameCallback === 'function') {
-    video.requestVideoFrameCallback(frame)
+  if (!document.hidden) {
+    scheduleFrame()
   } else {
-    requestAnimationFrame(frame)
+    pausedForHidden = true
   }
 
   return () => {
     if (stopped) return
     stopped = true
+    document.removeEventListener('visibilitychange', onVisibility)
+    cancelPendingFrame()
     try {
       videoFrameTexture.destroy()
     } catch {

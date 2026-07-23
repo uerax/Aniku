@@ -103,7 +103,9 @@ Browser (WEB_DEV_PORT，默认 5173)
 | `BANGUMI_USER_AGENT` | 请求 Bangumi 的 UA，默认 `aniku/0.1` |
 | `PRODUCT_USER_AGENT` | 产品身份 UA（弹弹等），默认 `aniku/0.1` |
 | `DEFAULT_USER_AGENT` | 抓插件 HTML / 媒体等浏览器型 UA |
-| `PLUGIN_SHOP` / `PLUGIN_SHOP_MIRROR` | 规则仓库源与镜像（默认 KazumiRules raw） |
+| `CORS_ORIGINS` | 额外浏览器 Origin（逗号分隔）；默认仅 localhost/127.0.0.1。`*` 开放 CORS（不推荐） |
+| `PUBLIC_PROXY` | 默认关：媒体代理 + 规则 search/chapters/resolve 仅本机/局域网。公网部署设 `1` |
+| `PROXY_TOKEN` | 可选；请求头 `X-Aniku-Proxy-Token` 或 query `proxyToken` 可绕过局域网限制 |
 
 **不要**再引入已死的公共 DPlayer 弹幕池 / `DPLAYER_API`。
 

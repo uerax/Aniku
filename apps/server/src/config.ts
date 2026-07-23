@@ -33,11 +33,46 @@ function envInt(raw: string | undefined, fallback: number): number {
   return Number.isFinite(n) && n > 0 ? n : fallback
 }
 
+function envBool(raw: string | undefined, fallback: boolean): boolean {
+  if (raw === undefined || raw === '') return fallback
+  const v = raw.trim().toLowerCase()
+  if (['1', 'true', 'yes', 'on'].includes(v)) return true
+  if (['0', 'false', 'no', 'off'].includes(v)) return false
+  return fallback
+}
+
+/** Comma-separated Origin list; empty → built-in localhost allowlist only */
+function parseCorsOrigins(raw: string | undefined): string[] {
+  if (!raw?.trim()) return []
+  return raw
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+}
+
 export const config = {
   /** API listen port — `PORT` in root `.env` */
   port: envInt(process.env.PORT, 8787),
   /** API bind host — `HOST` in root `.env` */
   host: process.env.HOST || '0.0.0.0',
+  /**
+   * Extra browser Origins allowed by CORS (comma-separated).
+   * Always allows same-origin (no Origin) + localhost / 127.0.0.1 any port.
+   * Set CORS_ORIGINS=* only if you intentionally want open cross-origin (not recommended).
+   */
+  corsOrigins: parseCorsOrigins(process.env.CORS_ORIGINS),
+  corsOpen: (process.env.CORS_ORIGINS || '').trim() === '*',
+  /**
+   * When false (default): /api/media/proxy and plugin search/chapters/resolve
+   * only accept loopback / private-network clients (LAN Docker OK; public Internet blocked).
+   * Set PUBLIC_PROXY=1 for intentional public deploy (still has SSRF host checks).
+   */
+  publicProxy: envBool(process.env.PUBLIC_PROXY, false),
+  /**
+   * Optional shared secret. When set, media + plugin exec also accept
+   * `X-Aniku-Proxy-Token: <token>` even from public IPs.
+   */
+  proxyToken: (process.env.PROXY_TOKEN || '').trim(),
   dandanAppId: process.env.DANDAN_APP_ID || '',
   dandanAppSecret: process.env.DANDAN_APP_SECRET || '',
   bangumiUserAgent:

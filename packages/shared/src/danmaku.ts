@@ -64,18 +64,21 @@ const MODE_MAP: Record<string, DanmakuMode> = {
 export function parseDanmakuComments(
   comments: { m: string; p: string }[],
 ): DanmakuComment[] {
-  return comments
-    .map((o) => {
-      const [time, type, color, source] = o.p.split(',')
-      return {
-        mode: MODE_MAP[type] || 'rtl',
-        text: o.m,
-        time: parseFloat(time),
-        style: { color: colorToHex(color) },
-        source: source || '',
-      } satisfies DanmakuComment
+  const out: DanmakuComment[] = []
+  for (const o of comments) {
+    const [time, type, color, source] = o.p.split(',')
+    const t = parseFloat(time)
+    if (!Number.isFinite(t)) continue
+    out.push({
+      mode: MODE_MAP[type] || 'rtl',
+      text: o.m,
+      time: t,
+      style: { color: colorToHex(color) },
+      source: source || '',
     })
-    .sort((a, b) => a.time - b.time)
+  }
+  out.sort((a, b) => a.time - b.time)
+  return out
 }
 
 /**

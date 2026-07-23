@@ -1,237 +1,165 @@
 # Aniku
 
-浏览器端的番剧浏览 / 选源播放 / 弹幕 / Bangumi 追番应用。
+浏览器里的番剧应用：**Bangumi 元数据** · **规则选源播放** · **弹弹弹幕** · **本地历史 / 追番**。
 
-> **仅 Web**：本仓库是 React 网页 + 本地 API 代理，不是 Flutter / 桌面安装包。  
-> 包名：`aniku` / `@aniku/*` · 远程仓库若仍为旧名，以实际 GitHub 地址为准。
+## 快速开始（本地开发）
 
-**开发者：** 架构约定、规则引擎、播放器/弹幕设计与踩坑见 [docs/CONTEXT.md](docs/CONTEXT.md)。  
-给 AI 助手的工作约定见 [CLAUDE.md](CLAUDE.md)。
+### 1. 环境
 
-## 能力与规则生态
-
-| 模块 | 说明 |
+| 工具 | 版本 |
 |------|------|
-| 首页 / 时间表 / 搜索 | Bangumi 元数据 |
-| 详情 | 简介、分集、收藏状态、选源 |
-| 规则插件 | 内置默认规则 + 本地导入 + 兼容 [KazumiRules](https://github.com/Predidit/KazumiRules) 仓库安装 |
-| 播放 | 原生 video + [hls.js](https://github.com/video-dev/hls.js)（HLS/MP4、倍速、热键、全屏）+ 可选 **Anime4K 超分**（WebGPU，默认关）+ 自动下一集 / 续播 / 跳过片头片尾 |
-| 弹幕 | 弹弹play 自动匹配 + 播放器内弹幕面板 + [@ironkinoko/danmaku](https://github.com/IronKinoko/danmaku)；XML 拖入 / B 站 BV |
-| 追番 | Bangumi Access Token 同步收藏 |
-| 历史 | 本地播放进度 |
-
-规则 JSON 字段与社区 [KazumiRules](https://github.com/Predidit/KazumiRules) 兼容；早期实现曾参考 [Kazumi](https://github.com/Predidit/Kazumi) 与 [agefans-enhance](https://github.com/IronKinoko/agefans-enhance)。Web 端无桌面 WebView 媒体拦截，部分源依赖静态解析或 iframe 降级。
-
-## 技术栈
-
-- `apps/web` — React + Vite + TypeScript + Tailwind + TanStack Query + Zustand
-- `apps/server` — Hono（Bangumi / 弹弹 / 规则引擎 / 媒体代理）
-- `packages/shared` — 共享类型
-
-## 快速开始
-
-### 前置要求
-
-| 工具 | 版本 | 说明 |
-|------|------|------|
-| **Node.js** | ≥ 20 | 建议 LTS 或当前稳定版 |
-| **pnpm** | **9.15.0** | 本仓库 monorepo 的包管理器（见 `packageManager` 字段） |
-
-本项目是 **pnpm workspace**（`apps/*` + `packages/*`，内部依赖 `workspace:*`）。根目录脚本（`pnpm dev`、`pnpm -r` / `--filter`）按 pnpm 编写，**请用 pnpm，不要用 npm / yarn 直接装依赖**，否则容易出现 workspace 解析失败、`node_modules` 布局不对等问题。
-
-#### 安装 pnpm
-
-任选其一（版本对齐 9.15.0）：
+| Node.js | ≥ 20（建议 LTS） |
+| pnpm | **9.15.0**（与 `packageManager` 字段一致） |
 
 ```bash
-# 方式 A：npm 全局安装（最常见）
+# 安装 pnpm（任选）
 npm install -g pnpm@9.15.0
+# 或：corepack enable && corepack prepare pnpm@9.15.0 --activate
 
-# 方式 B：Corepack（Node 自带；若遇权限错误可改用方式 A）
-corepack enable
-corepack prepare pnpm@9.15.0 --activate
-
-# 方式 C：不装全局，临时调用
-npx pnpm@9.15.0 install
-npx pnpm@9.15.0 dev
+node -v && pnpm -v
 ```
 
-验证：
+请在 **仓库根目录** 使用 pnpm，不要用 npm/yarn 直接装依赖。
+
+### 2. 安装与配置
 
 ```bash
-node -v    # 应 ≥ v20
-pnpm -v    # 期望 9.15.0
-```
+git clone <remote> aniku
+cd aniku
 
-若新开终端提示 `pnpm: command not found`，把全局 bin 加进 `PATH` 后重开终端，例如：
-
-```bash
-export PATH="$(npm prefix -g)/bin:$PATH"
-```
-
-### 1. 克隆并进入仓库根目录
-
-```bash
-git clone <your-fork-or-remote> aniku
-cd aniku   # 必须在 monorepo 根目录执行后续命令
-```
-
-### 2. 安装依赖
-
-```bash
 pnpm install
+cp .env.example .env   # 按需修改
 ```
 
-会为根目录、`apps/web`、`apps/server`、`packages/shared` 装齐依赖（含服务端 dev 用的 `tsx` 等）。  
-**跳过这一步直接 `pnpm dev`，会出现 `node_modules missing` / `spawn ENOENT`（找不到 `tsx`）。**
-
-### 3. 环境变量
+### 3. 启动
 
 ```bash
-cp .env.example .env
-```
-
-编辑 `.env`（可选；完整字段见 `.env.example`）：
-
-```env
-# Server (API)
-PORT=8787
-HOST=0.0.0.0
-
-# Website (Vite dev)
-WEB_DEV_PORT=5173
-WEB_HOST=0.0.0.0
-
-# 弹幕开放平台密钥（申请：https://www.dandanplay.com/ ）
-# 留空时使用与 agefans-enhance 相同的内置客户端密钥，开箱即可匹配弹幕
-DANDAN_APP_ID=
-DANDAN_APP_SECRET=
-```
-
-不填密钥也能拉弹幕；若日后内置密钥失效，再自行申请并写入即可。  
-- **API** 从仓库根与 `apps/server` 读 `.env`（`apps/server/src/config.ts`）  
-- **Vite** 同样读仓库根 `.env`（`apps/web/vite.config.ts`），`WEB_DEV_PORT` / `PORT` 控制前端监听与 `/api` 代理目标  
-
-### 4. 启动（Web + API）
-
-```bash
-# 在仓库根目录
 pnpm dev
 ```
 
-会并行启动（端口以 `.env` 为准，下表为默认）：
+| 进程 | 默认地址 | 说明 |
+|------|----------|------|
+| Web（Vite） | http://localhost:5173（`WEB_DEV_PORT`） | **浏览器只开这个** |
+| API（Hono） | http://localhost:8787（`PORT`） | Vite 把 `/api` 代理过来 |
 
-| 进程 | 地址 | 说明 |
+```bash
+pnpm dev:web       # 仅前端
+pnpm dev:server    # 仅后端
+pnpm typecheck     # 全仓 tsc
+```
+
+跳过 `pnpm install` 直接 `pnpm dev` 会报找不到 `tsx` / `node_modules missing`。
+
+---
+
+## 环境变量
+
+完整注释见 [.env.example](.env.example)。服务端从仓库根与 `apps/server` 加载；Vite 读仓库根同一份。
+
+### 常用
+
+| 变量 | 默认 | 说明 |
 |------|------|------|
-| Web（Vite） | http://localhost:`WEB_DEV_PORT`（默认 5173） | 浏览器只开这个即可 |
-| API（Hono） | http://localhost:`PORT`（默认 8787） | Vite 将 `/api` 代理到此 |
+| `PORT` / `HOST` | `8787` / `0.0.0.0` | API / 生产单进程监听 |
+| `WEB_DEV_PORT` / `WEB_HOST` | `5173` / 代码默认 `127.0.0.1` | **仅本地 Vite**；Docker 生产不用 |
+| `WEB_HMR_HOST` | — | `WEB_HOST=0.0.0.0` 时 HMR 主机，默认 `127.0.0.1` |
+| `API_PROXY_*` | — | 可选；Vite `/api` 代理目标 |
+| `DANDAN_APP_ID` / `DANDAN_APP_SECRET` | 空 | 空则用内置 legacy 客户端密钥，开箱可弹幕 |
+| `BANGUMI_USER_AGENT` / `PRODUCT_USER_AGENT` | `aniku/0.1` | 上游 UA |
+| `DEFAULT_USER_AGENT` | 浏览器型 UA | 抓插件 HTML / 媒体 |
 
-只启动一端时：
-
-```bash
-pnpm dev:web      # 仅前端
-pnpm dev:server   # 仅后端
-```
-
-类型检查（当前无单元测试 runner，校验靠 tsc + 手动点流程）：
-
-```bash
-pnpm typecheck
-# 或单个包
-pnpm --filter @aniku/web typecheck
-pnpm --filter @aniku/server typecheck
-```
-
-### 5. 生产构建（本机 Node，单进程）
-
-本项目是 **浏览器 SPA + 本地/服务器 API**，**不是** Flutter/Electron 安装包。生产形态：编译前端静态资源，由 Hono **同一端口** 托管（`/api/*` + SPA）。
-
-```bash
-# 1) 构建前端 → apps/web/dist
-pnpm build:web
-
-# 2) 启动 API（会自动挂载 web dist / public，找不到则仅 API）
-pnpm start
-# 或一步：pnpm start:prod
-```
-
-默认打开：**http://localhost:$PORT**（默认 `8787`）
+### 公网部署（重要）
 
 | 变量 | 说明 |
 |------|------|
-| `PORT` / `HOST` | 监听地址，默认 `8787` / `0.0.0.0` |
-| `WEB_DEV_PORT` / `WEB_HOST` | 仅本地 Vite 开发；生产单进程 / Docker 不走 Vite |
-| `WEB_DIST` | Vite 产物目录（相对 **进程 cwd**）。Docker 内为 `public`；本机可省略，会依次尝试 `public`、`apps/web/dist` 等 |
-| `DANDAN_*` 等 | 同开发环境，见 `.env.example` |
+| `PUBLIC_PROXY` | 默认关：媒体代理 + 规则 search/chapters/resolve **仅本机/局域网**。VPS 给浏览器公网访问时设 `1` |
+| `PROXY_TOKEN` | 可选；请求头 `X-Aniku-Proxy-Token` 或 `?proxyToken=` 可绕过局域网限制 |
+| `CORS_ORIGINS` | 额外允许的浏览器 Origin（逗号分隔）；localhost 始终可用。`*` 开放 CORS（不推荐） |
 
-进程 cwd 一般是 `apps/server`（`pnpm --filter @aniku/server start`），此时相对路径 `../web/dist` 也会被探测到。
+**本机 / 局域网开发：不必开 `PUBLIC_PROXY`。**  
+**VPS 公网：通常需要 `PUBLIC_PROXY=1`，否则选源/播放代理会 403。** 打开后他人也可借你的服务器出口拉流，请知悉带宽风险（仍有内网 SSRF 拦截）。
 
-**反向代理（可选）：** 前面可再挂 Nginx/Caddy 做 HTTPS；只需把流量转到 `$PORT`，无需再拆前后端。
+---
 
-### 6. Docker / Compose
+## 生产运行（本机 Node）
 
-仓库根目录提供 `Dockerfile`、`docker-compose.yml`、`.dockerignore`。生产镜像为 **单进程**：Hono 同时提供 `/api/*` 与 SPA。
+形态：**一个进程** 同时提供 `/api/*` 与 SPA（同源，无需 Vite 代理）。
 
 ```bash
-cp .env.example .env   # 按需改 PORT（本地 dev 另可改 WEB_DEV_PORT）
+pnpm start:prod
+# 等价：pnpm build && pnpm start
+#   build:web   → apps/web/dist
+#   build:server → apps/server/dist/index.js（esbuild 单文件）
+#   start       → node dist/index.js（无 tsx）
+```
+
+浏览器打开：**http://localhost:$PORT**（默认 `8787`）。
+
+| 变量 | 说明 |
+|------|------|
+| `PORT` / `HOST` | 监听 |
+| `WEB_DIST` | 静态目录（相对 **进程 cwd**）。Docker 内为 `public`；本机可省略，会探测 `public` / `apps/web/dist` 等 |
+
+可选：前面再挂 Nginx/Caddy 做 HTTPS，反代到 `$PORT` 即可。
+
+开发请继续用 `pnpm dev`（tsx watch），不要用生产 `start` 做日常改代码。
+
+---
+
+## Docker / Compose
+
+单镜像：构建前端 + 服务端 bundle，运行时只有 `node dist/index.js` + SPA。
+
+```bash
+cp .env.example .env    # 按需改 PORT、PUBLIC_PROXY 等
 docker compose up -d --build
 
-# 日志 / 停止
 docker compose logs -f
 docker compose down
 ```
 
-端口（读根目录 `.env`，Compose 变量插值）：
-
 | 变量 | 默认 | 作用 |
 |------|------|------|
-| `PORT` | `8787` | **浏览器入口**与容器内 Hono 监听（映射 `PORT → PORT`） |
-| `WEB_DEV_PORT` | `5173` | 仅 `pnpm dev` 时 Vite 监听；Docker 生产不用 |
-
-- 访问：**http://localhost:$PORT**（默认 8787；SPA 与 `/api` 同源）  
-- 镜像内：`WEB_DIST=public`，健康检查 `GET /api/health`  
-- 仅 Docker 构建（不 compose）：
+| `PORT` | `8787` | 主机与容器监听；浏览器入口 **http://localhost:$PORT** |
+| `WEB_DEV_PORT` | `5173` | 仅本地 Vite；Compose 生产不用 |
 
 ```bash
+# 不用 compose
 docker build -t aniku .
-docker run --rm -p 8787:8787 --env-file .env -e PORT=8787 aniku
-# 或：-p ${PORT}:${PORT} -e PORT=${PORT}
+docker run --rm -p 8787:8787 --env-file .env -e PORT=8787 -e PUBLIC_PROXY=1 aniku
 ```
 
-### 7. 使用流程
+- 健康检查：`GET /api/health`
+- 镜像内 `WEB_DIST=public`
 
-1. 本地 dev：打开 http://localhost:$WEB_DEV_PORT（默认 5173）；Docker / 生产：打开 **http://localhost:$PORT**（默认 8787）  
+---
 
+## 使用流程
+
+1. 开发：打开 http://localhost:$WEB_DEV_PORT · 生产/Docker：http://localhost:$PORT  
 2. **设置 → Bangumi Token**（可选，用于追番）  
-3. 规则默认已内置（`7sefun` / `MXdm`）；也可 **导入 JSON** 或在 **规则仓库** 中安装 / 更新  
-4. 详情页 → **选源播放** → 选集  
-5. 播放页自动尝试匹配弹幕  
+3. 规则：默认已内置（如 `7sefun` / `MXdm`）；可导入 JSON 或从 **规则仓库** 安装  
+4. 详情页 → 选源 → 选集播放（能直链则浏览器直连 CDN，失败自动回退媒体代理）  
+5. 播放页自动匹配弹幕；控制栏「幕」打开面板  
 
-### 常见问题
+### 播放快捷键
 
-| 现象 | 处理 |
-|------|------|
-| `pnpm: command not found` | 按上文安装 pnpm，并确认 `PATH` 含全局 bin |
-| `Local package.json exists, but node_modules missing` / `spawn ENOENT`（`tsx watch …`） | 在**仓库根**执行 `pnpm install` 后再 `pnpm dev` |
-| 页面请求 `/api/*` 全失败 | 确认 `pnpm dev` 起了 server，`$PORT` 在监听，且 `WEB_DEV_PORT`/`PORT` 与 Vite 代理一致；不要只开 `dev:web` 却期望代理后端 |
-| 在 `apps/server` 里直接跑脚本异常 | 优先在根目录用 `pnpm dev` / `pnpm --filter @aniku/server dev` |
-| 弹幕「未配置」 | 本地可留空 `DANDAN_*`；若仍异常检查服务端日志与 `/api/danmaku/status` |
-| 只有声音没有画面 | 多为布局/合成问题，不是流地址必挂；见 [docs/CONTEXT.md](docs/CONTEXT.md) |
+| 键 | 作用 |
+|----|------|
+| Space / K | 播放 / 暂停 |
+| ← / → | ±5s |
+| ↑ / ↓ | 音量 |
+| F | 播放器全屏 |
+| D | 弹幕开关 |
+| `,` / `.` / `/` | 弹幕滞后 / 超前 / 偏移复位 |
+| Alt+M | 弹幕面板 |
+| P / N | 上 / 下一集 |
+| 拖入 `.xml` | 导入 B 站 / pakku 弹幕 |
 
+控制栏另有 **网页全屏**（CSS 铺满，不走 Fullscreen API）。  
+设置页：默认倍速、自动下一集、续播、跳 OP/ED、超分档位等。
 
-## 目录
-
-```
-aniku/
-  apps/web/          # 前端 @aniku/web
-  apps/server/       # 代理与规则引擎（生产可托管 SPA）@aniku/server
-  packages/shared/   # 类型与 DTO @aniku/shared
-  docs/CONTEXT.md    # 开发者上下文（架构 / 约定 / 踩坑）
-  CLAUDE.md          # AI 助手约定
-  Dockerfile         # 单镜像：API + 静态前端
-  docker-compose.yml
-  .env.example
-```
+---
 
 ## API 一览
 
@@ -245,37 +173,37 @@ aniku/
 | `GET /api/bangumi/subjects/:id/episodes` | 分集 |
 | `GET /api/bangumi/me` | 当前用户（需 Token） |
 | `GET/PUT /api/bangumi/collections…` | 收藏 |
-| `GET /api/danmaku/*` | 弹弹代理（status / search / bangumi / comment） |
-| `POST /api/plugin/search\|chapters\|resolve` | 规则执行 |
-| `GET /api/plugin/catalog` | KazumiRules 目录（`?mirror=1` 镜像） |
-| `GET /api/plugin/catalog/:name` | 下载单条规则 JSON |
-| `GET /api/media/proxy` | 媒体流代理 |
+| `GET /api/danmaku/*` | 弹弹代理（status / search / bangumi / comment 等） |
+| `GET /api/danmaku/bilibili` | B 站 BV 弹幕 |
+| `POST /api/plugin/search\|chapters\|resolve` | 规则执行（可受 `PUBLIC_PROXY` 限制） |
+| `GET /api/plugin/catalog` | 规则商店目录（`?mirror=1` 镜像） |
+| `GET /api/plugin/catalog/:name` | 下载单条规则 |
+| `GET /api/media/proxy` | 媒体流代理（可受 `PUBLIC_PROXY` 限制） |
 
-## 快捷键（播放）
+用户 Token 与规则 JSON **只存在浏览器**；插件请求每次 POST 完整 `rule`，服务端不落库。
 
-| 键 | 作用 |
-|----|------|
-| Space / K | 播放 / 暂停 |
-| ← / → | 快退 / 快进 5s |
-| ↑ / ↓ | 音量 |
-| F | 播放器全屏 / 退出（控制栏另有「网页全屏」直达按钮） |
-| D | 弹幕开关 |
-| , | 弹幕滞后 0.5s（偏移 +0.5） |
-| . | 弹幕超前 0.5s（偏移 −0.5） |
-| / | 弹幕偏移复位 |
-| Alt+M | 弹幕面板（搜索 / 设置 / 导入） |
-| P / N | 上一集 / 下一集 |
-| 拖入 .xml | 加载 B 站 / pakku 弹幕文件 |
+---
 
-控制栏：播放、上/下集、进度、弹幕、倍速、音量、全屏、网页全屏。
+## 常见问题
 
-设置页可配置：倍速默认、自动下一集、记忆进度、跳过片头/片尾。播放器内也可调倍速 / 画质相关控件。
+| 现象 | 处理 |
+|------|------|
+| `pnpm: command not found` | 安装 pnpm 9.15.0，检查 `PATH` |
+| `node_modules missing` / `spawn ENOENT`（tsx） | 在仓库**根**执行 `pnpm install` |
+| 页面 `/api/*` 全失败 | 确认 `pnpm dev` 起了 server；不要只开 `dev:web` |
+| Docker 首页 404 | 确认镜像构建含 SPA；`WEB_DIST=public` 与健康检查正常 |
+| 公网能开页但不能播 / 选源 403 | 设置 `PUBLIC_PROXY=1`（或配置 `PROXY_TOKEN`） |
+| 弹幕「未配置」 | 本地可留空 `DANDAN_*`；查 `/api/danmaku/status` 与服务端日志 |
+| 有声无画 | 多为布局/合成（`overflow`+圆角等），见 [docs/CONTEXT.md](docs/CONTEXT.md) |
+| 大量源解析失败 | Web 静态解析上限；换规则/线路，或接受 iframe 降级 |
+
+---
 
 ## 说明与免责
 
-- 默认内置少量示例规则；更多规则请从兼容的 [KazumiRules](https://github.com/Predidit/KazumiRules) 安装或自行导入。  
-- 元数据来自 [Bangumi](https://bangumi.tv/)，弹幕来自 [弹弹play](https://www.dandanplay.com/)。  
-- 使用需遵守所在地法律法规；因使用本项目产生的缓存数据建议在 24 小时内清除。  
-- 部分站点有反爬 / 验证码 / 反盗链，Web 端解析可能失败，可换规则或线路。
+- 默认仅内置少量示例规则；更多请从 [KazumiRules](https://github.com/Predidit/KazumiRules) 安装或自行导入。  
+- 元数据：[Bangumi](https://bangumi.tv/) · 弹幕：[弹弹play](https://www.dandanplay.com/)。  
+- 请遵守所在地法律法规；因使用产生的缓存建议及时清理。  
+- 部分站点有反爬 / 验证码 / 防盗链，Web 端可能解析失败，可换规则或线路。  
 
-规则格式与社区生态兼容 [KazumiRules](https://github.com/Predidit/KazumiRules)；实现上曾参考 [Kazumi](https://github.com/Predidit/Kazumi) 与 [agefans-enhance](https://github.com/IronKinoko/agefans-enhance)。
+实现上曾参考 [Kazumi](https://github.com/Predidit/Kazumi) 与 [agefans-enhance](https://github.com/IronKinoko/agefans-enhance)。

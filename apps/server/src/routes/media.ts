@@ -1,17 +1,11 @@
 import { Hono } from 'hono'
 import { config } from '../config'
+import { requireLocalOrToken } from '../lib/access'
+import { fetchPublic, isPrivateHost } from '../lib/private-host'
 
 export const mediaRoutes = new Hono()
 
-function isPrivateHost(hostname: string): boolean {
-  const h = hostname.toLowerCase()
-  if (h === 'localhost' || h === '127.0.0.1' || h === '::1') return true
-  if (/^10\./.test(h)) return true
-  if (/^192\.168\./.test(h)) return true
-  if (/^172\.(1[6-9]|2\d|3[0-1])\./.test(h)) return true
-  if (h.endsWith('.local')) return true
-  return false
-}
+mediaRoutes.use('*', requireLocalOrToken)
 
 function originFromReferer(referer: string): string {
   try {
@@ -19,6 +13,37 @@ function originFromReferer(referer: string): string {
   } catch {
     return ''
   }
+}
+
+function rewriteM3u8Uri(u: string, base: URL, referer: string, cookie: string): string {
+  const abs = new URL(u, base)
+  if (isPrivateHost(abs.hostname)) {
+    // Do not proxy private segment/key URLs
+    return abs.toString()
+  }
+  const q = new URLSearchParams({
+    url: abs.toString(),
+    referer,
+  })
+  if (cookie) q.set('cookie', cookie)
+  return `/api/media/proxy?${q.toString()}`
+}
+
+/** Rewrite URI="..." and URI='...' in #EXT lines */
+function rewriteExtUriAttrs(
+  line: string,
+  base: URL,
+  referer: string,
+  cookie: string,
+): string {
+  return line.replace(/URI=(["'])([^"']+)\1/gi, (_m, quote: string, u: string) => {
+    try {
+      const proxied = rewriteM3u8Uri(u, base, referer, cookie)
+      return `URI=${quote}${proxied}${quote}`
+    } catch {
+      return `URI=${quote}${u}${quote}`
+    }
+  })
 }
 
 mediaRoutes.get('/proxy', async (c) => {
@@ -61,13 +86,15 @@ mediaRoutes.get('/proxy', async (c) => {
 
   let upstream: Response
   try {
-    upstream = await fetch(target.toString(), {
+    upstream = await fetchPublic(target.toString(), {
       headers,
-      redirect: 'follow',
       signal: AbortSignal.timeout(20_000),
     })
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
+    if (/内网|重定向/.test(msg)) {
+      return c.json({ error: 'forbidden', message: msg }, 403)
+    }
     return c.json(
       {
         error: 'upstream',
@@ -80,10 +107,7 @@ mediaRoutes.get('/proxy', async (c) => {
 
   if (!upstream.ok && upstream.status !== 206) {
     // Cookie / auth expired (anime1 and similar)
-    if (
-      cookie &&
-      (upstream.status === 403 || upstream.status === 401)
-    ) {
+    if (cookie && (upstream.status === 403 || upstream.status === 401)) {
       return c.json(
         {
           error: 'auth_expired',
@@ -96,13 +120,12 @@ mediaRoutes.get('/proxy', async (c) => {
     // Retry once with a looser referer (some CDNs only care about site origin)
     if (origin && (upstream.status === 403 || upstream.status === 401)) {
       try {
-        const retry = await fetch(target.toString(), {
+        const retry = await fetchPublic(target.toString(), {
           headers: {
             ...headers,
             Referer: origin + '/',
             Origin: origin,
           },
-          redirect: 'follow',
           signal: AbortSignal.timeout(20_000),
         })
         if (retry.ok || retry.status === 206) {
@@ -120,7 +143,11 @@ mediaRoutes.get('/proxy', async (c) => {
             502,
           )
         }
-      } catch {
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e)
+        if (/内网|重定向/.test(msg)) {
+          return c.json({ error: 'forbidden', message: msg }, 403)
+        }
         return c.json(
           {
             error: 'upstream',
@@ -159,26 +186,10 @@ mediaRoutes.get('/proxy', async (c) => {
       .map((line) => {
         const trimmed = line.trim()
         if (!trimmed || trimmed.startsWith('#')) {
-          return line.replace(/URI="([^"]+)"/g, (_, u: string) => {
-            try {
-              const abs = new URL(u, base).toString()
-              const q = new URLSearchParams({
-                url: abs,
-                referer,
-              })
-              if (cookie) q.set('cookie', cookie)
-              const proxied = `/api/media/proxy?${q.toString()}`
-              return `URI="${proxied}"`
-            } catch {
-              return `URI="${u}"`
-            }
-          })
+          return rewriteExtUriAttrs(line, base, referer, cookie)
         }
         try {
-          const abs = new URL(trimmed, base).toString()
-          const q = new URLSearchParams({ url: abs, referer })
-          if (cookie) q.set('cookie', cookie)
-          return `/api/media/proxy?${q.toString()}`
+          return rewriteM3u8Uri(trimmed, base, referer, cookie)
         } catch {
           return line
         }
@@ -187,13 +198,12 @@ mediaRoutes.get('/proxy', async (c) => {
 
     return c.body(rewritten, 200, {
       'Content-Type': 'application/vnd.apple.mpegurl',
-      'Access-Control-Allow-Origin': '*',
-      'Cache-Control': 'no-cache',
+      // Short client cache cuts playlist re-fetch storms; URLs stay short-lived
+      'Cache-Control': 'private, max-age=5',
     })
   }
 
   const resHeaders: Record<string, string> = {
-    'Access-Control-Allow-Origin': '*',
     'Access-Control-Expose-Headers':
       'Content-Length, Content-Range, Accept-Ranges',
   }

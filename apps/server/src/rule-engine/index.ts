@@ -11,6 +11,7 @@ import * as cheerio from 'cheerio'
 import { DOMParser } from '@xmldom/xmldom'
 import xpath from 'xpath'
 import { config } from '../config'
+import { assertPublicHttpUrl, fetchPublic } from '../lib/private-host'
 
 const MEDIA_RE =
   /(https?:\/\/[^\s"'<>\\]+?\.(?:m3u8|mp4)(?:\?[^\s"'<>\\]*)?)/gi
@@ -109,6 +110,57 @@ function nodeAttr(node: Node | null | undefined, name: string): string {
   return ''
 }
 
+/** Reject pathological HTML/JSON bodies that would blow Node heap */
+const MAX_HTML_BYTES = 2_500_000
+
+async function readTextLimited(
+  res: Response,
+  maxBytes: number,
+  label: string,
+): Promise<string> {
+  const cl = res.headers.get('content-length')
+  if (cl) {
+    const n = Number(cl)
+    if (Number.isFinite(n) && n > maxBytes) {
+      // Consume/cancel body so connection can reuse
+      try {
+        await res.body?.cancel()
+      } catch {
+        /* ignore */
+      }
+      throw new Error(`${label} 响应过大 (${n} > ${maxBytes} bytes)`)
+    }
+  }
+
+  if (!res.body) return res.text()
+
+  const reader = res.body.getReader()
+  const chunks: Uint8Array[] = []
+  let total = 0
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    if (!value?.byteLength) continue
+    total += value.byteLength
+    if (total > maxBytes) {
+      try {
+        await reader.cancel()
+      } catch {
+        /* ignore */
+      }
+      throw new Error(`${label} 响应过大 (>${maxBytes} bytes)`)
+    }
+    chunks.push(value)
+  }
+  const merged = new Uint8Array(total)
+  let offset = 0
+  for (const c of chunks) {
+    merged.set(c, offset)
+    offset += c.byteLength
+  }
+  return new TextDecoder('utf-8', { fatal: false }).decode(merged)
+}
+
 export async function fetchHtml(
   url: string,
   rule: PluginRule,
@@ -122,6 +174,13 @@ export async function fetchHtml(
     retries?: number
   } = {},
 ): Promise<string> {
+  // SSRF: block private hosts + re-check redirects (see lib/private-host.ts)
+  try {
+    assertPublicHttpUrl(url, '源站')
+  } catch (e) {
+    throw new Error(e instanceof Error ? e.message : `源站 URL 无效: ${url}`)
+  }
+
   const headers: Record<string, string> = {
     'User-Agent': rule.userAgent || config.defaultUserAgent,
     Accept:
@@ -138,13 +197,15 @@ export async function fetchHtml(
 
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
-      const res = await fetch(url, {
-        method: opts.method || 'GET',
-        headers,
-        body: opts.body,
-        redirect: 'follow',
-        signal: AbortSignal.timeout(timeoutMs),
-      })
+      const res = await fetchPublic(
+        url,
+        {
+          method: opts.method || 'GET',
+          headers,
+          body: opts.body,
+        },
+        { timeoutMs },
+      )
       if (!res.ok) {
         // retry on 429 / 5xx once
         if (
@@ -157,14 +218,20 @@ export async function fetchHtml(
         }
         throw new Error(`源站返回 ${res.status}: ${url}`)
       }
-      return res.text()
+      return await readTextLimited(res, MAX_HTML_BYTES, '源站')
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
       lastErr = new Error(
-        msg.startsWith('源站') || msg.startsWith('无法访问')
+        msg.startsWith('源站') ||
+          msg.startsWith('无法访问') ||
+          msg.includes('内网') ||
+          msg.includes('重定向') ||
+          msg.includes('响应过大')
           ? msg
           : `无法访问源站: ${msg} (${url})`,
       )
+      // Do not retry size limit / SSRF — permanent for this URL
+      if (/内网|禁止|响应过大/.test(msg)) break
       if (attempt < retries) {
         await new Promise((r) => setTimeout(r, 400 * (attempt + 1)))
         continue
@@ -300,7 +367,6 @@ function cleanRoad(road: Road): Road | null {
   const urls: string[] = []
   const names: string[] = []
   const seenUrl = new Set<string>()
-  const seenName = new Set<string>()
 
   for (let i = 0; i < road.data.length; i++) {
     const rawUrl = road.data[i] || ''
@@ -315,14 +381,10 @@ function cleanRoad(road: Road): Road | null {
     }
     if (JUNK_EP_NAME.test(rawName)) continue
 
-    // normalize trailing slash already handled
+    // Deduplicate by URL only — same display label with different URLs is allowed
+    // (multi-part / re-air). Dropping by name wrongly removed later episodes.
     if (seenUrl.has(rawUrl)) continue
-    // same label twice (e.g. three "18") → keep first only
-    const nameKey = rawName.toLowerCase()
-    if (nameKey && seenName.has(nameKey)) continue
-
     seenUrl.add(rawUrl)
-    if (nameKey) seenName.add(nameKey)
     urls.push(rawUrl)
     names.push(rawName || `第${urls.length}集`)
   }
@@ -1206,6 +1268,49 @@ function scoreMediaUrl(u: string): number {
   return 3
 }
 
+/** Prefer m3u8 / clean mp4 enough to skip further HTML hops */
+function hasStrongMediaCandidate(urls: string[]): boolean {
+  return urls.some(
+    (u) => isLikelyMediaUrl(u) && scoreMediaUrl(u) <= 1, // m3u8=0, mp4=1
+  )
+}
+
+function finishResolve(
+  rule: PluginRule,
+  candidatesIn: string[],
+  diagnostics: string[],
+): ResolvePlayResult {
+  const candidates = [...new Set(candidatesIn.filter(isLikelyMediaUrl))].sort(
+    (a, b) => scoreMediaUrl(a) - scoreMediaUrl(b),
+  )
+  if (candidates.length === 0) {
+    const hint = [
+      '未能解析到可播放地址（静态 HTML 中无 m3u8/mp4）。',
+      '常见原因：源站把真实地址放在 JS/WebView 里、Cloudflare 校验、或规则过期。',
+      '请换线路/换规则；带 WebView 媒体拦截的桌面客户端成功率通常更高。',
+      diagnostics.length
+        ? `诊断: ${diagnostics.slice(0, 6).join(' · ')}`
+        : '',
+    ]
+      .filter(Boolean)
+      .join(' ')
+    throw new Error(hint)
+  }
+  const playUrl = candidates[0]!
+  const referer = rule.referer || rule.baseURL
+  const proxyUrl = `/api/media/proxy?url=${encodeURIComponent(playUrl)}&referer=${encodeURIComponent(referer)}`
+  return {
+    playUrl,
+    proxyUrl,
+    referer,
+    headers: {
+      'User-Agent': rule.userAgent || config.defaultUserAgent,
+      Referer: referer,
+    },
+    diagnostics,
+  }
+}
+
 export async function resolvePlay(
   ruleInput: unknown,
   pageUrl: string,
@@ -1226,81 +1331,7 @@ export async function resolvePlay(
   let candidates = extractMediaUrls(html)
   diagnostics.push(`页面直接命中 ${candidates.length} 个媒体地址`)
 
-  // MacCMS player_aaaa (encrypt 0/1/2)
-  const player = extractPlayerAaaa(html)
-  if (player?.url) {
-    const decoded = decodeMaccmsUrl(player.url, player.encrypt)
-    diagnostics.push(
-      `player_aaaa encrypt=${player.encrypt ?? 0} from=${player.from || '?'} → ${decoded.slice(0, 80)}`,
-    )
-    if (isLikelyMediaUrl(decoded)) {
-      candidates.push(decoded)
-    }
-    if (/^https?:\/\//i.test(decoded)) {
-      // Prefer site-side dplayer (handles nested pages behind CF on the intermediate host)
-      const from = encodeURIComponent(player.from || '')
-      const id = encodeURIComponent(String(player.id || '0'))
-      const base = new URL(rule.baseURL)
-      const dpIndex = `${base.origin}/addons/dp/player/index.php?key=0&id=${id}&uid=0&from=${from}&url=${encodeURIComponent(decoded)}`
-      try {
-        const dpHtml = await fetchHtml(dpIndex, rule, { referer: abs })
-        candidates.push(...extractMediaUrls(dpHtml))
-        candidates.push(...extractConfigUrls(dpHtml).filter(isLikelyMediaUrl))
-        // Follow window.location redirect (index.php → dp.php)
-        const redirMatch = dpHtml.match(
-          /window\.location\.href\s*=\s*["']([^"']+)["']/i,
-        )
-        const redir =
-          redirMatch?.[1] ||
-          extractConfigUrls(dpHtml).find((u) =>
-            /dp\.php|player\/|addons\//i.test(u),
-          )
-        if (redir) {
-          const next = normalizeEpisodeUrl(`${base.origin}/`, redir)
-          diagnostics.push(`跟随播放器跳转 ${next.slice(0, 120)}`)
-          const deep = await fetchHtml(next, rule, { referer: dpIndex })
-          candidates.push(...extractMediaUrls(deep))
-          candidates.push(...extractConfigUrls(deep).filter(isLikelyMediaUrl))
-        }
-      } catch (e) {
-        diagnostics.push(`dplayer 解析失败: ${(e as Error).message}`)
-      }
-
-      // Also try following the decoded intermediate page when not CF-blocked
-      if (!isLikelyMediaUrl(decoded)) {
-        try {
-          const nested = await fetchHtml(decoded, rule, { referer: abs })
-          candidates.push(...extractMediaUrls(nested))
-          candidates.push(
-            ...extractConfigUrls(nested).filter(isLikelyMediaUrl),
-          )
-        } catch (e) {
-          diagnostics.push(`中间页不可达: ${(e as Error).message}`)
-        }
-      }
-    }
-  }
-
-  if (candidates.filter(isLikelyMediaUrl).length === 0) {
-    const iframes = extractIframeSrcs(html)
-    diagnostics.push(`发现 ${iframes.length} 个 iframe/配置地址`)
-    for (const iframe of iframes.slice(0, 5)) {
-      try {
-        const iframeUrl = normalizeEpisodeUrl(abs, iframe)
-        if (isLikelyMediaUrl(iframeUrl)) {
-          candidates.push(iframeUrl)
-          continue
-        }
-        if (!/^https?:/i.test(iframeUrl)) continue
-        const nested = await fetchHtml(iframeUrl, rule, { referer: abs })
-        candidates.push(...extractMediaUrls(nested))
-        candidates.push(...extractConfigUrls(nested).filter(isLikelyMediaUrl))
-      } catch (e) {
-        diagnostics.push(`跟随 iframe 失败: ${(e as Error).message}`)
-      }
-    }
-  }
-
+  // Query-string media on play URL (cheap, no extra fetch)
   try {
     const page = new URL(abs)
     for (const v of page.searchParams.values()) {
@@ -1317,35 +1348,121 @@ export async function resolvePlay(
     /* ignore */
   }
 
-  candidates = [...new Set(candidates.filter(isLikelyMediaUrl))]
-  if (candidates.length === 0) {
-    const hint = [
-      '未能解析到可播放地址（静态 HTML 中无 m3u8/mp4）。',
-      '常见原因：源站把真实地址放在 JS/WebView 里、Cloudflare 校验、或规则过期。',
-      '请换线路/换规则；带 WebView 媒体拦截的桌面客户端成功率通常更高。',
-      diagnostics.length
-        ? `诊断: ${diagnostics.slice(0, 6).join(' · ')}`
-        : '',
-    ]
-      .filter(Boolean)
-      .join(' ')
-    throw new Error(hint)
+  // Early exit: solid m3u8/mp4 already on the play page
+  if (hasStrongMediaCandidate(candidates)) {
+    diagnostics.push('页面已有优质媒体地址，跳过深层解析')
+    return finishResolve(rule, candidates, diagnostics)
   }
 
-  candidates.sort((a, b) => scoreMediaUrl(a) - scoreMediaUrl(b))
-  const playUrl = candidates[0]
-  const referer = rule.referer || rule.baseURL
-  const proxyUrl = `/api/media/proxy?url=${encodeURIComponent(playUrl)}&referer=${encodeURIComponent(referer)}`
+  // MacCMS player_aaaa (encrypt 0/1/2)
+  const player = extractPlayerAaaa(html)
+  if (player?.url) {
+    const decoded = decodeMaccmsUrl(player.url, player.encrypt)
+    diagnostics.push(
+      `player_aaaa encrypt=${player.encrypt ?? 0} from=${player.from || '?'} → ${decoded.slice(0, 80)}`,
+    )
+    if (isLikelyMediaUrl(decoded)) {
+      candidates.push(decoded)
+    }
+    // Direct media from player_aaaa — skip dplayer/iframe hops
+    if (hasStrongMediaCandidate(candidates)) {
+      diagnostics.push('player_aaaa 直链可用，跳过 dplayer/iframe')
+      return finishResolve(rule, candidates, diagnostics)
+    }
 
-  return {
-    playUrl,
-    proxyUrl,
-    referer,
-    headers: {
-      'User-Agent': rule.userAgent || config.defaultUserAgent,
-      Referer: referer,
-    },
-    diagnostics,
+    if (/^https?:\/\//i.test(decoded)) {
+      // Prefer site-side dplayer (handles nested pages behind CF on the intermediate host)
+      const from = encodeURIComponent(player.from || '')
+      const id = encodeURIComponent(String(player.id || '0'))
+      const base = new URL(rule.baseURL)
+      const dpIndex = `${base.origin}/addons/dp/player/index.php?key=0&id=${id}&uid=0&from=${from}&url=${encodeURIComponent(decoded)}`
+      try {
+        const dpHtml = await fetchHtml(dpIndex, rule, { referer: abs })
+        candidates.push(...extractMediaUrls(dpHtml))
+        candidates.push(...extractConfigUrls(dpHtml).filter(isLikelyMediaUrl))
+        if (hasStrongMediaCandidate(candidates)) {
+          diagnostics.push('dplayer 页已解析到媒体，跳过后续跳转')
+          return finishResolve(rule, candidates, diagnostics)
+        }
+        // Follow window.location redirect (index.php → dp.php)
+        const redirMatch = dpHtml.match(
+          /window\.location\.href\s*=\s*["']([^"']+)["']/i,
+        )
+        const redir =
+          redirMatch?.[1] ||
+          extractConfigUrls(dpHtml).find((u) =>
+            /dp\.php|player\/|addons\//i.test(u),
+          )
+        if (redir) {
+          const next = normalizeEpisodeUrl(`${base.origin}/`, redir)
+          diagnostics.push(`跟随播放器跳转 ${next.slice(0, 120)}`)
+          const deep = await fetchHtml(next, rule, { referer: dpIndex })
+          candidates.push(...extractMediaUrls(deep))
+          candidates.push(...extractConfigUrls(deep).filter(isLikelyMediaUrl))
+          if (hasStrongMediaCandidate(candidates)) {
+            diagnostics.push('播放器跳转页已解析到媒体')
+            return finishResolve(rule, candidates, diagnostics)
+          }
+        }
+      } catch (e) {
+        diagnostics.push(`dplayer 解析失败: ${(e as Error).message}`)
+      }
+
+      // Also try following the decoded intermediate page when not CF-blocked
+      if (!isLikelyMediaUrl(decoded)) {
+        try {
+          const nested = await fetchHtml(decoded, rule, { referer: abs })
+          candidates.push(...extractMediaUrls(nested))
+          candidates.push(
+            ...extractConfigUrls(nested).filter(isLikelyMediaUrl),
+          )
+          if (hasStrongMediaCandidate(candidates)) {
+            diagnostics.push('中间页已解析到媒体')
+            return finishResolve(rule, candidates, diagnostics)
+          }
+        } catch (e) {
+          diagnostics.push(`中间页不可达: ${(e as Error).message}`)
+        }
+      }
+    }
   }
+
+  // iframe follow: only when still empty; budget wall-clock + max hops
+  if (candidates.filter(isLikelyMediaUrl).length === 0) {
+    const iframes = extractIframeSrcs(html)
+    diagnostics.push(`发现 ${iframes.length} 个 iframe/配置地址`)
+    const budgetMs = 8_000
+    const deadline = Date.now() + budgetMs
+    const maxIframes = 3
+    for (const iframe of iframes.slice(0, maxIframes)) {
+      if (Date.now() > deadline) {
+        diagnostics.push('iframe 跟随超时，停止')
+        break
+      }
+      try {
+        const iframeUrl = normalizeEpisodeUrl(abs, iframe)
+        if (isLikelyMediaUrl(iframeUrl)) {
+          candidates.push(iframeUrl)
+          if (hasStrongMediaCandidate(candidates)) break
+          continue
+        }
+        if (!/^https?:/i.test(iframeUrl)) continue
+        const nested = await fetchHtml(iframeUrl, rule, {
+          referer: abs,
+          timeoutMs: Math.max(2_000, deadline - Date.now()),
+        })
+        candidates.push(...extractMediaUrls(nested))
+        candidates.push(...extractConfigUrls(nested).filter(isLikelyMediaUrl))
+        if (hasStrongMediaCandidate(candidates)) {
+          diagnostics.push('iframe 内已解析到媒体')
+          break
+        }
+      } catch (e) {
+        diagnostics.push(`跟随 iframe 失败: ${(e as Error).message}`)
+      }
+    }
+  }
+
+  return finishResolve(rule, candidates, diagnostics)
 }
 

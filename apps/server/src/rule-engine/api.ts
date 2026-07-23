@@ -11,6 +11,7 @@ import type {
   SearchItem,
 } from '@aniku/shared'
 import { config } from '../config'
+import { assertPublicHttpUrl, fetchPublic } from '../lib/private-host'
 
 /** Local copy to avoid circular import with rule-engine/index.ts */
 function normalizeEpisodeUrl(baseUrl: string, raw: string): string {
@@ -263,9 +264,9 @@ export async function executeApiRequest(
   const urlStr = renderTemplate(req.url.trim(), variables, true)
   let uri: URL
   try {
-    uri = new URL(urlStr)
-  } catch {
-    throw new ApiRuleError(`API 请求 URL 无效: ${urlStr}`)
+    uri = assertPublicHttpUrl(urlStr, 'API 请求 URL')
+  } catch (e) {
+    throw new ApiRuleError(e instanceof Error ? e.message : `API 请求 URL 无效: ${urlStr}`)
   }
 
   const query = renderMap(req.query, variables)
@@ -306,13 +307,22 @@ export async function executeApiRequest(
     }
   }
 
-  const res = await fetch(uri.toString(), {
-    method,
-    headers,
-    body,
-    redirect: 'follow',
-    signal: AbortSignal.timeout(15_000),
-  })
+  let res: Response
+  try {
+    res = await fetchPublic(
+      uri.toString(),
+      {
+        method,
+        headers,
+        body,
+      },
+      { timeoutMs: 15_000 },
+    )
+  } catch (e) {
+    throw new ApiRuleError(
+      e instanceof Error ? e.message : `API 请求失败: ${uri.toString()}`,
+    )
+  }
   if (!res.ok) {
     throw new ApiRuleError(`API 返回 ${res.status}: ${uri.toString()}`)
   }
