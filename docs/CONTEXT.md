@@ -63,7 +63,7 @@ aniku/
 
 ```bash
 pnpm install
-pnpm dev              # web + server (ports from .env WEB_PORT / PORT)
+pnpm dev              # web + server (ports from .env WEB_DEV_PORT / PORT)
 pnpm typecheck
 pnpm --filter @aniku/web typecheck
 pnpm --filter @aniku/server typecheck
@@ -76,7 +76,7 @@ pnpm --filter @aniku/server typecheck
 ## 4. 请求流
 
 ```
-Browser (WEB_PORT，默认 5173)
+Browser (WEB_DEV_PORT，默认 5173)
   ├─ Bangumi  ── /api/bangumi/*  ──► api.bgm.tv / next.bgm.tv
   ├─ 弹幕     ── /api/danmaku/*  ──► api.dandanplay.net（及 B 站 BV 代理）
   ├─ 规则     ── /api/plugin/*   ──► rule-engine → 第三方站 HTML / API
@@ -96,7 +96,7 @@ Browser (WEB_PORT，默认 5173)
 | 变量 | 说明 |
 |------|------|
 | `PORT` / `HOST` | API 监听，默认 `8787` / `0.0.0.0`；Docker 容器内同此 |
-| `WEB_PORT` / `WEB_HOST` | Vite dev：监听；Docker Compose：宿主机发布 `WEB_PORT`→容器 `PORT`，浏览器走 `WEB_PORT` |
+| `WEB_DEV_PORT` / `WEB_HOST` | 仅本地 Vite 开发监听（默认 `5173` / 代码默认 host `127.0.0.1`）；生产 Docker / `pnpm start` 不用，浏览器走 `PORT` |
 | `WEB_HMR_HOST` | 可选；`WEB_HOST=0.0.0.0` 时 HMR 用的主机，默认 `127.0.0.1` |
 | `API_PROXY_HOST` / `API_PROXY_TARGET` | 可选；Vite `/api` 代理目标，默认 `http://127.0.0.1:$PORT` |
 | `DANDAN_APP_ID` / `DANDAN_APP_SECRET` | 可选；空则用内置 legacy 密钥 + `X-AppId`/`X-AppSecret` |

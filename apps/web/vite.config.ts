@@ -25,7 +25,7 @@ export default defineConfig(({ mode }) => {
   }
   const get = (key: string) => process.env[key] ?? fileEnv[key]
 
-  const webPort = envInt(get('WEB_PORT'), 5173)
+  const webPort = envInt(get('WEB_DEV_PORT'), 5173)
   // Bind address (0.0.0.0 = all interfaces). Default loopback for safer local dev.
   const webHost = get('WEB_HOST') || '127.0.0.1'
   // HMR websocket must be a host the browser can open — not 0.0.0.0
@@ -44,6 +44,9 @@ export default defineConfig(({ mode }) => {
     resolve: {
       alias: {
         '@': path.resolve(__dirname, 'src'),
+        // Workspace package exports raw TS; pin path so Vite always finds it
+        // even if node_modules links are stale after rename/reinstall.
+        '@aniku/shared': path.resolve(repoRoot, 'packages/shared/src/index.ts'),
       },
     },
     server: {

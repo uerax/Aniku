@@ -1,7 +1,7 @@
 # Aniku — single image: Hono API + Vite SPA
 # Build:  docker build -t aniku .
 # Run:    docker compose up -d --build
-#         open http://localhost:$WEB_PORT  (from .env, default 5173)
+#         open http://localhost:$PORT  (from .env, default 8787)
 
 # ---- deps ----
 FROM node:22-bookworm-slim AS base

@@ -73,6 +73,108 @@ interface Props {
 
 const BASE_DANMAKU_SPEED = 130
 
+/* -------------------------------------------------------------------------- */
+/* Fullscreen helpers — iOS Safari has no Element.requestFullscreen for divs  */
+/* -------------------------------------------------------------------------- */
+
+type FsEl = HTMLElement & {
+  webkitRequestFullscreen?: () => Promise<void> | void
+  webkitRequestFullScreen?: () => Promise<void> | void
+  webkitExitFullscreen?: () => Promise<void> | void
+}
+
+type FsDoc = Document & {
+  webkitFullscreenElement?: Element | null
+  webkitExitFullscreen?: () => Promise<void> | void
+  webkitCancelFullScreen?: () => Promise<void> | void
+}
+
+type IosVideo = HTMLVideoElement & {
+  webkitEnterFullscreen?: () => void
+  webkitExitFullscreen?: () => void
+  webkitDisplayingFullscreen?: boolean
+  webkitSupportsFullscreen?: boolean
+}
+
+function getFullscreenElement(): Element | null {
+  const d = document as FsDoc
+  return document.fullscreenElement ?? d.webkitFullscreenElement ?? null
+}
+
+function isShellFullscreen(shell: HTMLElement | null): boolean {
+  if (!shell) return false
+  return getFullscreenElement() === shell
+}
+
+function canRequestDomFullscreen(el: HTMLElement): boolean {
+  const e = el as FsEl
+  return Boolean(
+    e.requestFullscreen || e.webkitRequestFullscreen || e.webkitRequestFullScreen,
+  )
+}
+
+async function requestDomFullscreen(el: HTMLElement): Promise<void> {
+  const e = el as FsEl
+  if (e.requestFullscreen) {
+    await e.requestFullscreen()
+    return
+  }
+  if (e.webkitRequestFullscreen) {
+    await e.webkitRequestFullscreen()
+    return
+  }
+  if (e.webkitRequestFullScreen) {
+    await e.webkitRequestFullScreen()
+    return
+  }
+  throw new Error('Fullscreen API not available')
+}
+
+async function exitDomFullscreen(): Promise<void> {
+  const d = document as FsDoc
+  if (!getFullscreenElement()) return
+  if (document.exitFullscreen) {
+    await document.exitFullscreen()
+    return
+  }
+  if (d.webkitExitFullscreen) {
+    await d.webkitExitFullscreen()
+    return
+  }
+  if (d.webkitCancelFullScreen) {
+    await d.webkitCancelFullScreen()
+  }
+}
+
+function canIosVideoFullscreen(video: HTMLVideoElement | null): boolean {
+  if (!video) return false
+  const v = video as IosVideo
+  // iPhone: webkitEnterFullscreen exists; webkitSupportsFullscreen may be true
+  return typeof v.webkitEnterFullscreen === 'function'
+}
+
+function isIosVideoFullscreen(video: HTMLVideoElement | null): boolean {
+  if (!video) return false
+  return Boolean((video as IosVideo).webkitDisplayingFullscreen)
+}
+
+function enterIosVideoFullscreen(video: HTMLVideoElement): void {
+  const v = video as IosVideo
+  v.webkitEnterFullscreen?.()
+}
+
+function exitIosVideoFullscreen(video: HTMLVideoElement | null): void {
+  if (!video) return
+  const v = video as IosVideo
+  if (v.webkitDisplayingFullscreen) {
+    try {
+      v.webkitExitFullscreen?.()
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
 function filterComments(
   comments: DanmakuComment[],
   settings: DanmakuSettings,
@@ -682,8 +784,10 @@ export function VideoPlayer({
       } else if (k === 'escape') {
         setPanelOpen(false)
         setSpeedMenuOpen(false)
-        // web-fs exit (Fullscreen API escape is handled by browser)
+        // Exit CSS web-fs + any DOM fullscreen (browser also exits DOM FS)
         setWebFs(false)
+        setPlayerFs(false)
+        void exitDomFullscreen()
       }
     }
     window.addEventListener('keydown', onKey)
@@ -753,53 +857,119 @@ export function VideoPlayer({
 
   useEffect(() => {
     const onFs = () => {
-      setPlayerFs(document.fullscreenElement === shellRef.current)
+      setPlayerFs(isShellFullscreen(shellRef.current))
     }
+    // Standard + legacy webkit (older Safari / iPadOS)
     document.addEventListener('fullscreenchange', onFs)
-    return () => document.removeEventListener('fullscreenchange', onFs)
-  }, [])
-
-  /** Player container fullscreen (Fullscreen API on shell) */
-  async function togglePlayerFs() {
-    setWebFs(false)
-    const shell = shellRef.current
-    if (!shell) return
-    try {
-      if (document.fullscreenElement === shell) {
-        await document.exitFullscreen()
-        return
-      }
-      if (document.fullscreenElement) {
-        await document.exitFullscreen()
-      }
-      await shell.requestFullscreen()
-    } catch (e) {
-      console.warn('[player] player fullscreen failed', e)
+    document.addEventListener('webkitfullscreenchange', onFs as EventListener)
+    // iOS native video fullscreen (video.webkitEnterFullscreen)
+    const video = videoRef.current
+    const onVideoFsBegin = () => setPlayerFs(true)
+    const onVideoFsEnd = () => {
+      // If CSS web-fs still on, keep "expanded" feel via that path
+      setPlayerFs(isShellFullscreen(shellRef.current))
     }
+    video?.addEventListener('webkitbeginfullscreen', onVideoFsBegin)
+    video?.addEventListener('webkitendfullscreen', onVideoFsEnd)
+    return () => {
+      document.removeEventListener('fullscreenchange', onFs)
+      document.removeEventListener(
+        'webkitfullscreenchange',
+        onFs as EventListener,
+      )
+      video?.removeEventListener('webkitbeginfullscreen', onVideoFsBegin)
+      video?.removeEventListener('webkitendfullscreen', onVideoFsEnd)
+    }
+  }, [src])
+
+  /**
+   * Player fullscreen:
+   * 1) Standard / webkit Fullscreen API on shell (desktop / iPadOS 15+ often)
+   * 2) iOS Safari: only <video> can go native FS via webkitEnterFullscreen
+   * 3) Fallback: CSS webpage fullscreen (kz-web-fs) — works when FS API is missing
+   */
+  async function togglePlayerFs() {
+    const shell = shellRef.current
+    const video = videoRef.current
+    if (!shell) return
+
+    // Already in CSS webpage FS → exit that first if user hits 「全屏」
+    if (webFs && !isShellFullscreen(shell) && !isIosVideoFullscreen(video)) {
+      setWebFs(false)
+      // continue into enter path below
+    }
+
+    // Exit if already in any "true" fullscreen
+    if (isShellFullscreen(shell) || isIosVideoFullscreen(video)) {
+      try {
+        await exitDomFullscreen()
+      } catch {
+        /* ignore */
+      }
+      exitIosVideoFullscreen(video)
+      setPlayerFs(false)
+      return
+    }
+
+    setWebFs(false)
+
+    // Prefer DOM Fullscreen on shell when available (Chrome / desktop Safari / many iPads)
+    if (canRequestDomFullscreen(shell)) {
+      try {
+        await exitDomFullscreen()
+        await requestDomFullscreen(shell)
+        setPlayerFs(true)
+        return
+      } catch (e) {
+        console.warn('[player] shell fullscreen failed, trying fallbacks', e)
+      }
+    }
+
+    // iPhone Safari: only video element supports native fullscreen
+    if (canIosVideoFullscreen(video)) {
+      try {
+        enterIosVideoFullscreen(video!)
+        // webkitbeginfullscreen will set playerFs; set optimistically
+        setPlayerFs(true)
+        return
+      } catch (e) {
+        console.warn('[player] iOS video fullscreen failed', e)
+      }
+    }
+
+    // Last resort: CSS fill viewport (works without Fullscreen API)
+    setWebFs(true)
   }
 
   /** Expand player to viewport via CSS (no Fullscreen API) */
   function toggleWebFs() {
-    if (document.fullscreenElement) {
-      void document.exitFullscreen()
+    if (isShellFullscreen(shellRef.current) || isIosVideoFullscreen(videoRef.current)) {
+      void exitAnyFs()
+      return
     }
+    void exitDomFullscreen()
+    exitIosVideoFullscreen(videoRef.current)
     setWebFs((v) => !v)
   }
 
   async function exitAnyFs() {
     setWebFs(false)
-    if (document.fullscreenElement) {
-      try {
-        await document.exitFullscreen()
-      } catch {
-        /* ignore */
-      }
+    setPlayerFs(false)
+    exitIosVideoFullscreen(videoRef.current)
+    try {
+      await exitDomFullscreen()
+    } catch {
+      /* ignore */
     }
   }
 
-  /** F key: toggle player fullscreen (exit web-fs / any FS first) */
+  /** F key / double-click: toggle fullscreen (with iOS / CSS fallbacks) */
   function toggleFs() {
-    if (webFs || document.fullscreenElement) {
+    if (
+      webFs ||
+      isShellFullscreen(shellRef.current) ||
+      isIosVideoFullscreen(videoRef.current)
+    ) {
       void exitAnyFs()
     } else {
       void togglePlayerFs()
@@ -1098,18 +1268,18 @@ export function VideoPlayer({
           <button
             type="button"
             className="kz-ctrl"
-            data-active={playerFs}
+            data-active={playerFs || webFs}
             onClick={() => void togglePlayerFs()}
-            title="播放器全屏 (F)"
+            title="全屏（iPhone 为系统视频全屏；其它环境为播放器/网页全屏）"
           >
-            {playerFs ? '退出' : '全屏'}
+            {playerFs || webFs ? '退出' : '全屏'}
           </button>
           <button
             type="button"
-            className="kz-ctrl"
+            className="kz-ctrl kz-ctrl-web-fs"
             data-active={webFs}
             onClick={toggleWebFs}
-            title="网页全屏（铺满视口，保留浏览器标签栏）"
+            title="网页全屏（铺满视口；iOS 上可作无 API 时的替代）"
           >
             {webFs ? '退出网页' : '网页全屏'}
           </button>

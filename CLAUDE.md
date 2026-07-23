@@ -31,7 +31,7 @@ Requires **Node ≥ 20** and **pnpm 9.15.0** (`packageManager` field).
 ```bash
 pnpm install
 
-# Dev: web + server together (ports from .env WEB_PORT / PORT)
+# Dev: web + server together (ports from .env WEB_DEV_PORT / PORT)
 pnpm dev
 
 # Individual packages
@@ -61,7 +61,7 @@ Loaded by `apps/server/src/config.ts` from repo root and `apps/server` (custom p
 | Variable | Purpose |
 |----------|---------|
 | `PORT` / `HOST` | API listen (default `8787` / `0.0.0.0`) — `apps/server/src/config.ts`; Docker container listen |
-| `WEB_PORT` / `WEB_HOST` | Vite dev/preview listen (default `5173` / `127.0.0.1` if unset; example uses `0.0.0.0`) — `apps/web/vite.config.ts`. Docker Compose: host publishes `WEB_PORT` → container `PORT` (open `WEB_PORT` in browser) |
+| `WEB_DEV_PORT` / `WEB_HOST` | Vite local dev/preview listen only (default `5173` / `127.0.0.1` if unset) — `apps/web/vite.config.ts`. Not used by production Docker / single-process `pnpm start` (browser uses `PORT`) |
 | `WEB_HMR_HOST` | Optional HMR websocket host when `WEB_HOST` is `0.0.0.0` (default `127.0.0.1`) |
 | `API_PROXY_HOST` / `API_PROXY_TARGET` | Optional Vite `/api` proxy target (default `http://127.0.0.1:$PORT`) |
 | `DANDAN_APP_ID` / `DANDAN_APP_SECRET` | Optional open-platform keys; empty → built-in legacy client headers so danmaku works out of the box |
@@ -90,7 +90,7 @@ Shared is consumed as raw TypeScript (`exports: "./src/index.ts"`). Change types
 ### Request flow
 
 ```
-Browser (WEB_PORT, default 5173)
+Browser (WEB_DEV_PORT, default 5173)
   ├─ Bangumi UI ──GET/POST /api/bangumi/*──► server (PORT, default 8787) ──► api.bgm.tv / next.bgm.tv
   ├─ Danmaku    ──GET /api/danmaku/*───────► server ──► api.dandanplay.net
   ├─ Plugins    ──POST /api/plugin/*───────► rule-engine ──► third-party site HTML

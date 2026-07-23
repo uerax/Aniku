@@ -1,7 +1,7 @@
 # Aniku — one-command deploy
-#   cp .env.example .env   # optional; set PORT / WEB_PORT
+#   cp .env.example .env   # optional; set PORT (and WEB_DEV_PORT for local Vite only)
 #   docker compose up -d --build
-# Open http://localhost:${WEB_PORT:-5173}  (SPA + /api on same origin)
+# Open http://localhost:${PORT:-8787}  (SPA + /api on same origin)
 
 services:
   aniku:
@@ -10,10 +10,10 @@ services:
       dockerfile: Dockerfile
     image: aniku:local
     container_name: aniku
-    # Host WEB_PORT → container PORT (from .env)
-    # Browser: http://localhost:$WEB_PORT  (SPA + /api, same origin)
+    # Host PORT → container PORT (production single process; no Vite)
+    # Browser: http://localhost:$PORT
     ports:
-      - "${WEB_PORT:-5173}:${PORT:-8787}"
+      - "${PORT:-8787}:${PORT:-8787}"
     environment:
       # Listen inside the container (must match the right-hand side of ports)
       PORT: ${PORT:-8787}

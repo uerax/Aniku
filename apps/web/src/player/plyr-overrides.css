@@ -452,7 +452,9 @@
   position: fixed !important;
   inset: 0 !important;
   z-index: 9999 !important;
-  width: 100vw !important;
+  width: 100% !important;
+  width: 100dvw !important;
+  height: 100% !important;
   height: 100dvh !important;
   max-width: none !important;
   max-height: none !important;
@@ -461,4 +463,26 @@
   aspect-ratio: auto !important;
   margin: 0 !important;
   background: #000 !important;
+  /* iOS Safari: avoid address-bar jank while fixed */
+  -webkit-overflow-scrolling: touch;
+}
+
+/* iOS often clips fixed children; ensure video layer still fills shell */
+.kz-player-shell.kz-web-fs .kz-native-video,
+.kz-player-shell:fullscreen .kz-native-video,
+.kz-player-shell:-webkit-full-screen .kz-native-video {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain !important;
+}
+
+/*
+ * On very small touch devices, keep both FS buttons but slightly denser.
+ * (「全屏」uses video.webkitEnterFullscreen on iPhone; 「网页全屏」is CSS fallback.)
+ */
+@media (max-width: 480px) {
+  .kz-ctrl-web-fs {
+    /* keep visible — primary fallback when shell FS API missing */
+    font-size: 12px;
+  }
 }
