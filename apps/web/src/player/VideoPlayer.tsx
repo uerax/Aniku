@@ -267,6 +267,31 @@ function formatTime(sec: number) {
   return `${m}:${String(s).padStart(2, '0')}`
 }
 
+/** Seconds of media buffered ahead of currentTime (0 if none). */
+function bufferedAhead(video: HTMLVideoElement): number {
+  const t = video.currentTime || 0
+  try {
+    const ranges = video.buffered
+    for (let i = 0; i < ranges.length; i++) {
+      const start = ranges.start(i)
+      const end = ranges.end(i)
+      if (t + 0.05 >= start && t <= end + 0.05) {
+        return Math.max(0, end - t)
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+  return 0
+}
+
+/** Min buffer before first play — reduces weak-net audio-before-picture. */
+const MIN_START_BUFFER_SEC = 2.2
+/** After rebuffer pause, wait for this much ahead before resume. */
+const MIN_RESUME_BUFFER_SEC = 2.8
+/** Don't stall forever on empty CDN; start anyway after this. */
+const MAX_START_WAIT_MS = 14_000
+
 export function VideoPlayer({
   src,
   initialTime = 0,
@@ -296,6 +321,10 @@ export function VideoPlayer({
   const skipBusyRef = useRef(false)
   const isSeekingRef = useRef(false)
   const resumedRef = useRef(false)
+  /** User intentionally paused — do not auto-resume after rebuffer. */
+  const userPausedRef = useRef(false)
+  /** We paused because buffer emptied (weak net); resume when ahead is enough. */
+  const bufferGatePausedRef = useRef(false)
 
   const playerRef = useRef(player)
   const danmakuRef = useRef(danmaku)
@@ -324,8 +353,12 @@ export function VideoPlayer({
   const [paused, setPaused] = useState(true)
   const [current, setCurrent] = useState(0)
   const [duration, setDuration] = useState(0)
-  /** Progressive mp4 seek often waits on network — show feedback while seeking/waiting */
+  /**
+   * True while seeking or rebuffering (waiting for network).
+   * Distinct copy: 跳转中… vs 缓冲中…
+   */
   const [seekingUi, setSeekingUi] = useState(false)
+  const [bufferingUi, setBufferingUi] = useState(false)
   const [showBar, setShowBar] = useState(true)
   /** player shell Fullscreen API */
   const [playerFs, setPlayerFs] = useState(false)
@@ -401,8 +434,10 @@ export function VideoPlayer({
 
   // Load media
   useEffect(() => {
-    const video = videoRef.current
-    if (!video || !src) return
+    const videoEl = videoRef.current
+    if (!videoEl || !src) return
+    // Local non-null alias — nested cleanups must not see `HTMLVideoElement | null`
+    const video: HTMLVideoElement = videoEl
 
     const gen = ++genRef.current
     const alive = () => genRef.current === gen
@@ -410,9 +445,12 @@ export function VideoPlayer({
     resumedRef.current = false
     skipBusyRef.current = false
     authRetryRef.current = false
+    userPausedRef.current = false
+    bufferGatePausedRef.current = false
     setMediaError('')
     setLoading(true)
     setSeekingUi(false)
+    setBufferingUi(false)
     setPaused(true)
     setCurrent(0)
     setDuration(0)
@@ -441,28 +479,100 @@ export function VideoPlayer({
     video.playbackRate = cfg.speed || 1
     video.playsInline = true
 
+    /** Clean up softPlay waiters on src change / unmount */
+    let softPlayCleanup: (() => void) | null = null
+
+    /**
+     * Start playback only after enough buffered data (or timeout).
+     * MANIFEST_PARSED / loadedmetadata alone often fire before video frames
+     * are ready on weak nets → audio plays while picture freezes.
+     */
     const softPlay = () => {
-      if (!cfg.autoplay || !alive()) return
-      const vol = cfg.volume ?? 0.7
-      video.muted = true
-      video
-        .play()
-        .then(() => {
-          if (!alive()) return
-          video.muted = false
-          video.volume = vol
-          setPaused(false)
-        })
-        .catch(() => {
-          if (!alive()) return
-          video.muted = false
-          setPaused(true)
-        })
+      if (!alive()) return
+      if (!cfg.autoplay) {
+        setLoading(false)
+        setBufferingUi(false)
+        setPaused(true)
+        userPausedRef.current = true
+        return
+      }
+      userPausedRef.current = false
+      bufferGatePausedRef.current = false
+      setBufferingUi(true)
+      setLoading(true)
+
+      const startedAt = Date.now()
+      let settled = false
+
+      const tryStart = () => {
+        if (!alive() || settled) return
+        const ahead = bufferedAhead(video)
+        const waited = Date.now() - startedAt
+        // Prefer real buffered seconds; HAVE_FUTURE_DATA alone is too early on weak net
+        const readyEnough =
+          ahead >= MIN_START_BUFFER_SEC ||
+          (ahead >= 1.2 &&
+            video.readyState >= HTMLMediaElement.HAVE_ENOUGH_DATA) ||
+          waited >= MAX_START_WAIT_MS
+        if (!readyEnough) return
+
+        settled = true
+        cleanupWaiters()
+        const vol = cfg.volume ?? 0.7
+        video.muted = true
+        video
+          .play()
+          .then(() => {
+            if (!alive()) return
+            video.muted = false
+            video.volume = vol
+            setPaused(false)
+            setLoading(false)
+            setBufferingUi(false)
+          })
+          .catch(() => {
+            if (!alive()) return
+            video.muted = false
+            setPaused(true)
+            setLoading(false)
+            setBufferingUi(false)
+            userPausedRef.current = true
+          })
+      }
+
+      const onProgress = () => tryStart()
+      const onCanPlayThrough = () => tryStart()
+      const onPlaying = () => {
+        if (!alive()) return
+        setLoading(false)
+        setBufferingUi(false)
+      }
+      const poll = window.setInterval(tryStart, 200)
+      const hardTimeout = window.setTimeout(tryStart, MAX_START_WAIT_MS)
+
+      function cleanupWaiters() {
+        window.clearInterval(poll)
+        window.clearTimeout(hardTimeout)
+        video.removeEventListener('progress', onProgress)
+        video.removeEventListener('canplay', onProgress)
+        video.removeEventListener('canplaythrough', onCanPlayThrough)
+        video.removeEventListener('loadeddata', onProgress)
+        video.removeEventListener('playing', onPlaying)
+        if (softPlayCleanup === cleanupWaiters) softPlayCleanup = null
+      }
+
+      softPlayCleanup = cleanupWaiters
+      video.addEventListener('progress', onProgress)
+      video.addEventListener('canplay', onProgress)
+      video.addEventListener('canplaythrough', onCanPlayThrough)
+      video.addEventListener('loadeddata', onProgress)
+      video.addEventListener('playing', onPlaying)
+      // First probe immediately (may already have data)
+      tryStart()
     }
 
     const onReady = () => {
       if (!alive()) return
-      setLoading(false)
       setDuration(video.duration || 0)
       const t0 = initialTimeRef.current
       if (!resumedRef.current && cfg.continuePlay && t0 > 15) {
@@ -473,7 +583,7 @@ export function VideoPlayer({
           /* ignore */
         }
       }
-      // Play first so video paints; attach danmaku after a frame
+      // Wait for buffer gate then play; attach danmaku after a frame
       // (early full-size GPU stage above video blacks out some Chrome builds)
       softPlay()
       requestAnimationFrame(() => {
@@ -495,8 +605,17 @@ export function VideoPlayer({
     if (isM3u8(src) && Hls.isSupported()) {
       const hls = new Hls({
         enableWorker: true,
-        maxBufferLength: 30,
-        maxMaxBufferLength: 60,
+        // Prefer a bit more ahead buffer on weak / proxied links
+        maxBufferLength: 45,
+        maxMaxBufferLength: 90,
+        maxBufferHole: 0.5,
+        // Don't start at highest quality when bandwidth is unknown
+        startLevel: -1,
+        abrEwmaDefaultEstimate: 500_000,
+        // Cap in-flight fragments so one slow segment doesn't starve decode
+        maxBufferSize: 60 * 1000 * 1000,
+        fragLoadingTimeOut: 20_000,
+        manifestLoadingTimeOut: 15_000,
       })
       hlsRef.current = hls
       hls.loadSource(src)
@@ -507,16 +626,28 @@ export function VideoPlayer({
         onReady()
       })
       hls.on(Hls.Events.ERROR, (_e, data) => {
-        if (!alive() || !data.fatal) return
+        if (!alive()) return
+        // Non-fatal stalls: show buffer UI, keep trying
+        if (!data.fatal) {
+          if (
+            data.details === Hls.ErrorDetails.BUFFER_STALLED_ERROR ||
+            data.details === Hls.ErrorDetails.BUFFER_SEEK_OVER_HOLE
+          ) {
+            setBufferingUi(true)
+          }
+          return
+        }
         console.error('[player] hls fatal', data.type, data.details)
         if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
           setMediaError(`网络错误 ${data.details || ''}，重试…`)
+          setBufferingUi(true)
           hls.startLoad()
         } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
           setMediaError(`解码错误 ${data.details || ''}，恢复…`)
           hls.recoverMediaError()
         } else {
           setLoading(false)
+          setBufferingUi(false)
           setMediaError(`播放失败: ${data.details || data.type}`)
         }
       })
@@ -669,9 +800,17 @@ export function VideoPlayer({
     const onPlay = () => {
       setPaused(false)
       setLoading(false)
+      // If play resumed for any reason, clear buffer-gate flag when ahead is OK
+      if (bufferedAhead(video) >= 0.5) {
+        bufferGatePausedRef.current = false
+        setBufferingUi(false)
+      }
       bumpBar()
     }
     const onEndedHandler = () => {
+      userPausedRef.current = false
+      bufferGatePausedRef.current = false
+      setBufferingUi(false)
       onPause()
       if (playerRef.current.autoNext && onNextRef.current) onNextRef.current()
       else onEndedRef.current?.()
@@ -703,13 +842,81 @@ export function VideoPlayer({
       }
       setTimeout(clearSeekUi, 800)
     }
+
+    /**
+     * Weak-net rebuffer: when decoder starves, pause so audio doesn't run ahead
+     * of frozen frames; resume once we have MIN_RESUME_BUFFER_SEC ahead.
+     */
+    let resumePoll = 0
+    const clearResumePoll = () => {
+      if (resumePoll) {
+        window.clearInterval(resumePoll)
+        resumePoll = 0
+      }
+    }
+    const tryResumeFromBuffer = () => {
+      if (!alive()) {
+        clearResumePoll()
+        return
+      }
+      if (userPausedRef.current) {
+        clearResumePoll()
+        setBufferingUi(false)
+        return
+      }
+      const ahead = bufferedAhead(video)
+      if (
+        ahead >= MIN_RESUME_BUFFER_SEC ||
+        video.readyState >= HTMLMediaElement.HAVE_ENOUGH_DATA
+      ) {
+        clearResumePoll()
+        bufferGatePausedRef.current = false
+        setBufferingUi(false)
+        if (video.paused) {
+          void video.play().catch(() => {
+            /* autoplay / user gesture */
+          })
+        }
+      }
+    }
     const onWaiting = () => {
-      // Network rebuffer (common after long seek on progressive mp4 via proxy)
-      if (!video.paused) setSeekingUi(true)
+      // Network rebuffer (HLS + progressive via proxy)
+      if (userPausedRef.current) return
+      setBufferingUi(true)
+      const ahead = bufferedAhead(video)
+      // If almost empty and still "playing", force pause so A/V don't desync
+      if (!video.paused && ahead < 0.35) {
+        bufferGatePausedRef.current = true
+        try {
+          video.pause()
+        } catch {
+          /* ignore */
+        }
+      }
+      if (!resumePoll) {
+        resumePoll = window.setInterval(tryResumeFromBuffer, 250)
+      }
+    }
+    const onStalledPlay = () => {
+      if (userPausedRef.current) return
+      setBufferingUi(true)
+      if (!resumePoll) {
+        resumePoll = window.setInterval(tryResumeFromBuffer, 250)
+      }
     }
     const onCanPlay = () => {
       setSeekingUi(false)
       isSeekingRef.current = false
+      tryResumeFromBuffer()
+    }
+    const onPlayingClear = () => {
+      if (bufferedAhead(video) >= 0.3) {
+        bufferGatePausedRef.current = false
+        setBufferingUi(false)
+        setSeekingUi(false)
+        isSeekingRef.current = false
+        clearResumePoll()
+      }
     }
 
     video.addEventListener('timeupdate', onTime)
@@ -721,8 +928,10 @@ export function VideoPlayer({
     video.addEventListener('seeking', onSeeking)
     video.addEventListener('seeked', onSeeked)
     video.addEventListener('waiting', onWaiting)
+    video.addEventListener('stalled', onStalledPlay)
     video.addEventListener('canplay', onCanPlay)
-    video.addEventListener('playing', onCanPlay)
+    video.addEventListener('playing', onPlayingClear)
+    video.addEventListener('progress', tryResumeFromBuffer)
 
     const ro = new ResizeObserver(() => {
       try {
@@ -741,8 +950,18 @@ export function VideoPlayer({
       const k = e.key.toLowerCase()
       if (k === ' ' || k === 'k') {
         e.preventDefault()
-        if (v.paused) void v.play()
-        else v.pause()
+        if (v.paused) {
+          userPausedRef.current = false
+          bufferGatePausedRef.current = false
+          void v.play().catch(() => {
+            userPausedRef.current = true
+          })
+        } else {
+          userPausedRef.current = true
+          bufferGatePausedRef.current = false
+          setBufferingUi(false)
+          v.pause()
+        }
       } else if (k === 'arrowleft') {
         v.currentTime = Math.max(0, v.currentTime - 5)
       } else if (k === 'arrowright') {
@@ -813,6 +1032,12 @@ export function VideoPlayer({
     return () => {
       window.removeEventListener('keydown', onKey)
       ro.disconnect()
+      try {
+        softPlayCleanup?.()
+      } catch {
+        /* ignore */
+      }
+      softPlayCleanup = null
       video.removeEventListener('timeupdate', onTime)
       video.removeEventListener('pause', onPause)
       video.removeEventListener('play', onPlay)
@@ -822,8 +1047,11 @@ export function VideoPlayer({
       video.removeEventListener('seeking', onSeeking)
       video.removeEventListener('seeked', onSeeked)
       video.removeEventListener('waiting', onWaiting)
+      video.removeEventListener('stalled', onStalledPlay)
       video.removeEventListener('canplay', onCanPlay)
-      video.removeEventListener('playing', onCanPlay)
+      video.removeEventListener('playing', onPlayingClear)
+      video.removeEventListener('progress', tryResumeFromBuffer)
+      clearResumePoll()
       const stalled = (
         video as HTMLVideoElement & { __a1Stalled?: () => void }
       ).__a1Stalled
@@ -886,6 +1114,12 @@ export function VideoPlayer({
     }
   }, [player.superResolution, srMenuOpen, webGpuOk])
 
+  function flashSrHint(msg: string, ms = 4500) {
+    setOffsetHint(msg)
+    window.clearTimeout(offsetHintTimer.current)
+    offsetHintTimer.current = window.setTimeout(() => setOffsetHint(''), ms)
+  }
+
   /**
    * Anime4K: only when mode !== off. Dynamic-import + disposable GPU controller.
    * Off path does not load anime4k-webgpu or touch WebGPU.
@@ -908,20 +1142,28 @@ export function VideoPlayer({
     let cancelled = false
     let stop: Anime4KStop | null = null
 
+    const unsupportedReason = (): string => {
+      if (typeof window !== 'undefined' && !window.isSecureContext) {
+        return '超分需要 HTTPS 或 localhost（当前 HTTP 远程访问无 WebGPU）'
+      }
+      return '当前浏览器 / 环境不支持 WebGPU 超分'
+    }
+
     const run = async () => {
       try {
-        if (webGpuOk === false) {
-          setSrActive(false)
-          return
-        }
-        const ok = webGpuOk === true ? true : await supportsAnime4K()
-        if (cancelled) return
+        // Always re-probe if not confirmed true — localStorage may have mode on
+        // while first paint had no gpu (e.g. insecure context).
+        let ok = webGpuOk === true
         if (!ok) {
-          setWebGpuOk(false)
+          ok = await supportsAnime4K()
+          if (cancelled) return
+          setWebGpuOk(ok)
+        }
+        if (!ok) {
           setSrActive(false)
+          flashSrHint(unsupportedReason())
           return
         }
-        setWebGpuOk(true)
 
         // wait for dimensions if needed
         if (!(video.videoWidth > 0)) {
@@ -935,9 +1177,16 @@ export function VideoPlayer({
               video.removeEventListener('loadedmetadata', done)
               resolve()
             }
+            // Don't hang forever if metadata never arrives
+            window.setTimeout(done, 12_000)
           })
         }
-        if (cancelled || !(video.videoWidth > 0)) return
+        if (cancelled) return
+        if (!(video.videoWidth > 0)) {
+          flashSrHint('超分等待视频尺寸超时，请等画面出来后再开')
+          setSrActive(false)
+          return
+        }
 
         try {
           anime4kStopRef.current?.()
@@ -945,6 +1194,11 @@ export function VideoPlayer({
           /* ignore */
         }
         anime4kStopRef.current = null
+
+        flashSrHint(
+          mode === 'quality' ? '超分：质量档启动中…' : '超分：效率档启动中…',
+          2000,
+        )
 
         stop = await startAnime4K({
           video,
@@ -958,19 +1212,18 @@ export function VideoPlayer({
         }
         anime4kStopRef.current = stop
         setSrActive(true)
+        flashSrHint(
+          mode === 'quality' ? '超分已开启（质量）' : '超分已开启（效率）',
+          2200,
+        )
       } catch (e) {
         console.warn('[player] Anime4K failed', e)
         if (!cancelled) {
           setSrActive(false)
-          setOffsetHint(
+          flashSrHint(
             e instanceof Error
               ? `超分启动失败：${e.message}`
               : '超分启动失败（见控制台）',
-          )
-          window.clearTimeout(offsetHintTimer.current)
-          offsetHintTimer.current = window.setTimeout(
-            () => setOffsetHint(''),
-            4000,
           )
         }
       }
@@ -999,8 +1252,22 @@ export function VideoPlayer({
   function togglePlay() {
     const v = videoRef.current
     if (!v) return
-    if (v.paused) void v.play()
-    else v.pause()
+    if (v.paused) {
+      userPausedRef.current = false
+      bufferGatePausedRef.current = false
+      // Prefer waiting for a small buffer if empty (manual play after lag)
+      if (bufferedAhead(v) < 0.5 && v.readyState < HTMLMediaElement.HAVE_FUTURE_DATA) {
+        setBufferingUi(true)
+      }
+      void v.play().catch(() => {
+        userPausedRef.current = true
+      })
+    } else {
+      userPausedRef.current = true
+      bufferGatePausedRef.current = false
+      setBufferingUi(false)
+      v.pause()
+    }
   }
 
   useEffect(() => {
@@ -1276,10 +1543,14 @@ export function VideoPlayer({
         }}
       />
 
-      {(loading || seekingUi) && !mediaError && (
+      {(loading || seekingUi || bufferingUi) && !mediaError && (
         <div className="kz-status-layer">
           <div className="kz-status-hint">
-            {loading ? '加载视频中…' : '跳转中…'}
+            {loading
+              ? '加载视频中…'
+              : seekingUi
+                ? '跳转中…'
+                : '缓冲中…'}
           </div>
         </div>
       )}
@@ -1301,7 +1572,7 @@ export function VideoPlayer({
       )}
 
       {/* Center play when paused */}
-      {paused && !loading && !seekingUi && !mediaError && (
+      {paused && !loading && !seekingUi && !bufferingUi && !mediaError && (
         <button
           type="button"
           className="kz-big-play"
@@ -1423,7 +1694,7 @@ export function VideoPlayer({
             <button
               type="button"
               className="kz-ctrl"
-              data-active={srMode !== 'off' && srActive}
+              data-active={srMode !== 'off'}
               onClick={() => {
                 setPanelOpen(false)
                 setSpeedMenuOpen(false)
@@ -1431,31 +1702,30 @@ export function VideoPlayer({
               }}
               title={
                 webGpuOk === false
-                  ? typeof window !== 'undefined' &&
-                    !window.isSecureContext
+                  ? typeof window !== 'undefined' && !window.isSecureContext
                     ? '超分需要安全上下文（HTTPS 或 localhost）。当前为 HTTP 远程访问，WebGPU 不可用'
                     : '当前浏览器不支持 WebGPU 超分'
                   : srMode === 'off'
                     ? '超分（Anime4K，默认关；需 WebGPU）'
                     : `超分：${SUPER_RESOLUTION_LABELS[srMode]}${
-                        srActive ? '' : '（启动中…）'
+                        srActive ? ' · 已生效' : ' · 启动中…'
                       }`
               }
             >
               {srMode === 'off'
                 ? '超分'
-                : SUPER_RESOLUTION_LABELS[srMode]}
+                : `${SUPER_RESOLUTION_LABELS[srMode]}${srActive ? '' : '…'}`}
             </button>
             {srMenuOpen && (
               <div className="kz-speed-menu">
                 {webGpuOk === false && (
                   <div
                     className="px-2 py-1.5 text-[11px] leading-snug text-amber-200/90"
-                    style={{ maxWidth: '11rem' }}
+                    style={{ maxWidth: '12rem' }}
                   >
                     {typeof window !== 'undefined' && !window.isSecureContext
                       ? 'WebGPU 需 HTTPS 或 localhost；用局域网 IP 的 HTTP 访问时不可用'
-                      : '当前环境无 WebGPU，超分无法启用'}
+                      : '当前环境无 WebGPU，选档会提示失败'}
                   </div>
                 )}
                 {(
@@ -1469,13 +1739,18 @@ export function VideoPlayer({
                     key={m}
                     type="button"
                     data-active={srMode === m}
-                    disabled={m !== 'off' && webGpuOk === false}
                     onClick={() => {
+                      // Always update preference so button / settings reflect choice.
+                      // Start effect shows toast if WebGPU unavailable.
                       onPlayerChange?.({ superResolution: m })
                       setSrMenuOpen(false)
+                      if (m === 'off') {
+                        flashSrHint('超分已关闭', 1600)
+                      }
                     }}
                   >
                     {SUPER_RESOLUTION_LABELS[m]}
+                    {m === srMode && srActive && m !== 'off' ? ' ✓' : ''}
                   </button>
                 ))}
               </div>

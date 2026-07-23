@@ -4,9 +4,10 @@
   "version": "0.1.0",
   "description": "Aniku — browser anime client: Bangumi metadata, plugin sources, danmaku, collections",
   "scripts": {
-    "dev": "pnpm -r --parallel --filter @aniku/web --filter @aniku/server dev",
+    "dev": "node scripts/dev.mjs",
     "dev:web": "pnpm --filter @aniku/web dev",
     "dev:server": "pnpm --filter @aniku/server dev",
+    "dev:parallel": "pnpm -r --parallel --filter @aniku/web --filter @aniku/server dev",
     "build": "pnpm -r build",
     "build:web": "pnpm --filter @aniku/web build",
     "start": "pnpm --filter @aniku/server start",

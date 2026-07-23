@@ -107,4 +107,29 @@ app.onError((err, c) => {
 })
 
 console.log(`aniku server listening on http://${config.host}:${config.port}`)
-serve({ fetch: app.fetch, port: config.port, hostname: config.host })
+const server = serve({
+  fetch: app.fetch,
+  port: config.port,
+  hostname: config.host,
+})
+
+// @hono/node-server returns Node http.Server — surface bind failures clearly
+if (server && typeof (server as { on?: unknown }).on === 'function') {
+  ;(server as import('node:http').Server).on('error', (err: NodeJS.ErrnoException) => {
+    console.error('[server] listen error:', err.code || err.message, err)
+    if (err.code === 'EADDRINUSE') {
+      console.error(
+        `[server] port ${config.port} is already in use. Stop the other process or change PORT in .env`,
+      )
+    }
+    process.exit(1)
+  })
+}
+
+// Unbuffered diagnostics if the process is still alive without accepting traffic
+process.on('uncaughtException', (err) => {
+  console.error('[server] uncaughtException', err)
+})
+process.on('unhandledRejection', (err) => {
+  console.error('[server] unhandledRejection', err)
+})
