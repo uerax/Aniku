@@ -16,15 +16,28 @@ import { mediaRoutes } from './routes/media'
 /**
  * Resolve SPA build output. @hono/node-server serveStatic only accepts
  * roots relative to process.cwd(), so we convert absolute → relative.
+ *
+ * Layouts we must cover:
+ * - Docker: WORKDIR /app, SPA at /app/public, but `pnpm --filter @aniku/server start`
+ *   sets cwd to /app/apps/server → WEB_DIST=public must still resolve via ../../public
+ * - Local prod: cwd apps/server, SPA at apps/web/dist
+ * - cwd monorepo root: public/ or apps/web/dist
  */
 function resolveWebRootRel(): string | null {
   const env = process.env.WEB_DIST?.trim()
+  const isAbs =
+    !!env && (env.startsWith('/') || /^[A-Za-z]:[\\/]/.test(env))
   const candidates = [
+    // Explicit WEB_DIST (absolute or relative to cwd)
+    isAbs ? resolve(env!) : '',
     env ? resolve(process.cwd(), env) : '',
-    env && !env.startsWith('.') ? resolve(env) : '',
+    // Docker / monorepo root public when cwd is apps/server (pnpm filter)
+    resolve(process.cwd(), '../../public'),
     resolve(process.cwd(), 'public'),
     resolve(process.cwd(), 'apps/web/dist'),
     resolve(process.cwd(), '../web/dist'),
+    // From this file: apps/server/src → …
+    resolve(import.meta.dirname, '../../../public'),
     resolve(import.meta.dirname, '../../web/dist'),
   ].filter(Boolean)
 

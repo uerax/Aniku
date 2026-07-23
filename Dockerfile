@@ -22,6 +22,8 @@ RUN pnpm --filter @aniku/web build
 
 # ---- runtime ----
 FROM base AS runner
+# pnpm --filter runs with cwd=apps/server; keep SPA next to the server package
+# so WEB_DIST=public resolves, and also at /app/public for root cwd.
 ENV NODE_ENV=production \
     PORT=8787 \
     HOST=0.0.0.0 \
@@ -42,6 +44,8 @@ COPY apps/server/src apps/server/src
 COPY apps/server/tsconfig.json apps/server/
 COPY packages/shared/src packages/shared/src
 COPY packages/shared/tsconfig.json packages/shared/
+# SPA: apps/server/public (matches filter cwd) + /app/public (matches monorepo root)
+COPY --from=build /app/apps/web/dist apps/server/public
 COPY --from=build /app/apps/web/dist public
 
 # Default API/SPA listen port (override with PORT at runtime)
