@@ -15,12 +15,20 @@ import {
   type DanmakuEpisode,
   type DanmakuSettings,
   type PlayerSettings,
+  type SuperResolutionMode,
 } from '@aniku/shared'
 import { DanmakuPanel, type DanmakuPanelTab } from './DanmakuPanel'
 import type {
   DanmakuPoolId,
   DanmakuSourceChip,
 } from '../lib/danmaku-pools'
+import {
+  hasWebGPU,
+  startAnime4K,
+  SUPER_RESOLUTION_LABELS,
+  supportsAnime4K,
+  type Anime4KStop,
+} from './anime4k'
 
 export interface DanmakuPanelState {
   status: string
@@ -278,9 +286,11 @@ export function VideoPlayer({
 }: Props) {
   const shellRef = useRef<HTMLDivElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
   const layerRef = useRef<HTMLDivElement>(null)
   const hlsRef = useRef<Hls | null>(null)
   const danmakuCoreRef = useRef<Danmaku | null>(null)
+  const anime4kStopRef = useRef<Anime4KStop | null>(null)
   const genRef = useRef(0)
   const lastSaveRef = useRef(0)
   const skipBusyRef = useRef(false)
@@ -308,6 +318,7 @@ export function VideoPlayer({
   const [filterDraft, setFilterDraft] = useState('')
   const [dropActive, setDropActive] = useState(false)
   const [speedMenuOpen, setSpeedMenuOpen] = useState(false)
+  const [srMenuOpen, setSrMenuOpen] = useState(false)
   const [mediaError, setMediaError] = useState('')
   const [loading, setLoading] = useState(true)
   const [paused, setPaused] = useState(true)
@@ -320,6 +331,12 @@ export function VideoPlayer({
   const [playerFs, setPlayerFs] = useState(false)
   /** CSS fill viewport without Fullscreen API (agefans-style webpage FS) */
   const [webFs, setWebFs] = useState(false)
+  /** WebGPU Anime4K pipeline currently painting to canvas */
+  const [srActive, setSrActive] = useState(false)
+  /** null = not probed yet; false = no WebGPU / no adapter */
+  const [webGpuOk, setWebGpuOk] = useState<boolean | null>(
+    () => (typeof navigator !== 'undefined' && hasWebGPU() ? null : false),
+  )
   const hideBarTimer = useRef(0)
   const xmlInputRef = useRef<HTMLInputElement>(null)
   const toggleFsRef = useRef<() => void>(() => {})
@@ -784,6 +801,7 @@ export function VideoPlayer({
       } else if (k === 'escape') {
         setPanelOpen(false)
         setSpeedMenuOpen(false)
+        setSrMenuOpen(false)
         // Exit CSS web-fs + any DOM fullscreen (browser also exits DOM FS)
         setWebFs(false)
         setPlayerFs(false)
@@ -821,6 +839,12 @@ export function VideoPlayer({
         /* ignore */
       }
       danmakuCoreRef.current = null
+      try {
+        anime4kStopRef.current?.()
+      } catch {
+        /* ignore */
+      }
+      anime4kStopRef.current = null
       if (hlsRef.current) {
         try {
           hlsRef.current.destroy()
@@ -847,6 +871,130 @@ export function VideoPlayer({
       video.playbackRate = player.speed || 1
     }
   }, [player.speed])
+
+  // Probe WebGPU once when user opens SR menu or has a non-off preference
+  useEffect(() => {
+    const mode = player.superResolution || 'off'
+    if (mode === 'off' && !srMenuOpen) return
+    if (webGpuOk !== null) return
+    let cancelled = false
+    void supportsAnime4K().then((ok) => {
+      if (!cancelled) setWebGpuOk(ok)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [player.superResolution, srMenuOpen, webGpuOk])
+
+  /**
+   * Anime4K: only when mode !== off. Dynamic-import + disposable GPU controller.
+   * Off path does not load anime4k-webgpu or touch WebGPU.
+   */
+  useEffect(() => {
+    const mode = (player.superResolution || 'off') as SuperResolutionMode
+    const video = videoRef.current
+    const canvas = canvasRef.current
+    if (mode === 'off' || !video || !canvas) {
+      try {
+        anime4kStopRef.current?.()
+      } catch {
+        /* ignore */
+      }
+      anime4kStopRef.current = null
+      setSrActive(false)
+      return
+    }
+
+    let cancelled = false
+    let stop: Anime4KStop | null = null
+
+    const run = async () => {
+      try {
+        if (webGpuOk === false) {
+          setSrActive(false)
+          return
+        }
+        const ok = webGpuOk === true ? true : await supportsAnime4K()
+        if (cancelled) return
+        if (!ok) {
+          setWebGpuOk(false)
+          setSrActive(false)
+          return
+        }
+        setWebGpuOk(true)
+
+        // wait for dimensions if needed
+        if (!(video.videoWidth > 0)) {
+          await new Promise<void>((resolve) => {
+            const done = () => {
+              video.removeEventListener('loadedmetadata', done)
+              resolve()
+            }
+            video.addEventListener('loadedmetadata', done)
+            if (video.videoWidth > 0) {
+              video.removeEventListener('loadedmetadata', done)
+              resolve()
+            }
+          })
+        }
+        if (cancelled || !(video.videoWidth > 0)) return
+
+        try {
+          anime4kStopRef.current?.()
+        } catch {
+          /* ignore */
+        }
+        anime4kStopRef.current = null
+
+        stop = await startAnime4K({
+          video,
+          canvas,
+          mode: mode === 'quality' ? 'quality' : 'efficiency',
+          layoutEl: shellRef.current,
+        })
+        if (cancelled) {
+          stop()
+          return
+        }
+        anime4kStopRef.current = stop
+        setSrActive(true)
+      } catch (e) {
+        console.warn('[player] Anime4K failed', e)
+        if (!cancelled) {
+          setSrActive(false)
+          setOffsetHint(
+            e instanceof Error
+              ? `超分启动失败：${e.message}`
+              : '超分启动失败（见控制台）',
+          )
+          window.clearTimeout(offsetHintTimer.current)
+          offsetHintTimer.current = window.setTimeout(
+            () => setOffsetHint(''),
+            4000,
+          )
+        }
+      }
+    }
+
+    void run()
+
+    return () => {
+      cancelled = true
+      try {
+        stop?.()
+      } catch {
+        /* ignore */
+      }
+      try {
+        anime4kStopRef.current?.()
+      } catch {
+        /* ignore */
+      }
+      anime4kStopRef.current = null
+      setSrActive(false)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- webGpuOk set inside after probe
+  }, [src, player.superResolution, playerFs, webFs])
 
   function togglePlay() {
     const v = videoRef.current
@@ -1032,18 +1180,23 @@ export function VideoPlayer({
   const progress =
     duration > 0 ? Math.min(100, Math.max(0, (current / duration) * 100)) : 0
 
+  const srMode = (player.superResolution || 'off') as SuperResolutionMode
+  const shellClass = [
+    'kz-player-shell',
+    webFs ? 'kz-web-fs' : '',
+    !webFs && embedded ? 'absolute inset-0' : '',
+    !webFs && !embedded
+      ? 'kz-player-frame relative rounded-2xl border border-zinc-800'
+      : '',
+    srActive ? 'kz-sr-on' : '',
+  ]
+    .filter(Boolean)
+    .join(' ')
+
   return (
     <div
       ref={shellRef}
-      className={
-        webFs
-          ? 'kz-player-shell kz-web-fs'
-          : embedded
-            ? // fill parent without overflow-hidden (Chrome blacks out video otherwise)
-              'kz-player-shell absolute inset-0'
-            : // 16:9, capped by viewport so small laptop screens don't overflow
-              'kz-player-shell kz-player-frame relative rounded-2xl border border-zinc-800'
-      }
+      className={shellClass}
       onMouseMove={bumpBar}
       onMouseLeave={() => {
         if (!paused) setShowBar(false)
@@ -1091,6 +1244,21 @@ export function VideoPlayer({
         }}
       />
 
+      {/*
+        Anime4K output. Keep in layout when mode≠off (display:none collapses size
+        and breaks sizing). Hide picture with opacity until pipeline is live so
+        we don't flash a black canvas over the video.
+      */}
+      <canvas
+        ref={canvasRef}
+        className="kz-sr-canvas"
+        aria-hidden={srMode === 'off' || !srActive}
+        style={{
+          display: srMode === 'off' ? 'none' : 'block',
+          opacity: srActive ? 1 : 0,
+        }}
+      />
+
       {/* Danmaku overlay — transparent, no 3d transform (see CSS) */}
       <div
         ref={layerRef}
@@ -1101,7 +1269,7 @@ export function VideoPlayer({
           top: 0,
           width: '100%',
           height: '100%',
-          zIndex: 1,
+          zIndex: 2,
           pointerEvents: 'none',
           background: 'transparent',
           overflow: 'hidden',
@@ -1146,7 +1314,7 @@ export function VideoPlayer({
 
       {/* Control bar */}
       <div
-        className={`kz-bar ${showBar || paused || panelOpen ? 'kz-bar--show' : ''}`}
+        className={`kz-bar ${showBar || paused || panelOpen || srMenuOpen || speedMenuOpen ? 'kz-bar--show' : ''}`}
         onMouseDown={(e) => e.stopPropagation()}
       >
         <input
@@ -1201,6 +1369,7 @@ export function VideoPlayer({
               data-active={panelOpen}
               onClick={() => {
                 setSpeedMenuOpen(false)
+                setSrMenuOpen(false)
                 setPanelOpen((v) => !v)
               }}
               title="弹幕设置 (Alt+M)"
@@ -1224,6 +1393,7 @@ export function VideoPlayer({
               className="kz-ctrl"
               onClick={() => {
                 setPanelOpen(false)
+                setSrMenuOpen(false)
                 setSpeedMenuOpen((v) => !v)
               }}
             >
@@ -1244,6 +1414,57 @@ export function VideoPlayer({
                     }}
                   >
                     {s}x
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="kz-speed-wrap">
+            <button
+              type="button"
+              className="kz-ctrl"
+              data-active={srMode !== 'off' && srActive}
+              disabled={webGpuOk === false}
+              onClick={() => {
+                setPanelOpen(false)
+                setSpeedMenuOpen(false)
+                setSrMenuOpen((v) => !v)
+              }}
+              title={
+                webGpuOk === false
+                  ? '当前浏览器不支持 WebGPU 超分'
+                  : srMode === 'off'
+                    ? '超分（Anime4K，默认关；需 WebGPU）'
+                    : `超分：${SUPER_RESOLUTION_LABELS[srMode]}${
+                        srActive ? '' : '（启动中…）'
+                      }`
+              }
+            >
+              {srMode === 'off'
+                ? '超分'
+                : SUPER_RESOLUTION_LABELS[srMode]}
+            </button>
+            {srMenuOpen && (
+              <div className="kz-speed-menu">
+                {(
+                  [
+                    'off',
+                    'efficiency',
+                    'quality',
+                  ] as SuperResolutionMode[]
+                ).map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    data-active={srMode === m}
+                    disabled={m !== 'off' && webGpuOk === false}
+                    onClick={() => {
+                      onPlayerChange?.({ superResolution: m })
+                      setSrMenuOpen(false)
+                    }}
+                  >
+                    {SUPER_RESOLUTION_LABELS[m]}
+                    {m === 'quality' ? '（重）' : ''}
                   </button>
                 ))}
               </div>

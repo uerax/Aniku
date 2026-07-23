@@ -9,6 +9,9 @@ export interface SkipSegment {
   duration: number
 }
 
+/** Real-time Anime4K super-resolution (WebGPU). Default off — zero GPU cost when off. */
+export type SuperResolutionMode = 'off' | 'efficiency' | 'quality'
+
 export interface PlayerSettings {
   /** Default playback rate */
   speed: number
@@ -29,9 +32,22 @@ export interface PlayerSettings {
    * (start + duration from end). When start > 0, skip [start, start+duration].
    */
   skipEd: SkipSegment
+  /**
+   * Anime4K super-resolution (browser WebGPU).
+   * `off` — native video only (no GPU pipeline).
+   * `efficiency` — lighter CNN restore + x2.
+   * `quality` — ModeA-style heavier chain.
+   */
+  superResolution: SuperResolutionMode
 }
 
 export const PLAYER_SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2, 2.5, 3, 3.5, 4] as const
+
+export const SUPER_RESOLUTION_MODES: readonly SuperResolutionMode[] = [
+  'off',
+  'efficiency',
+  'quality',
+] as const
 
 export const defaultPlayerSettings: PlayerSettings = {
   speed: 1,
@@ -42,4 +58,5 @@ export const defaultPlayerSettings: PlayerSettings = {
   volume: 1,
   skipOp: { enabled: false, start: 0, duration: 90 },
   skipEd: { enabled: false, start: 0, duration: 90 },
+  superResolution: 'off',
 }

@@ -24,9 +24,15 @@ interface SettingsState {
 
 function mergePlayer(partial?: Partial<PlayerSettings>): PlayerSettings {
   const p = partial && typeof partial === 'object' ? partial : {}
+  const sr = p.superResolution
+  const superResolution =
+    sr === 'efficiency' || sr === 'quality' || sr === 'off'
+      ? sr
+      : defaultPlayerSettings.superResolution
   return {
     ...defaultPlayerSettings,
     ...p,
+    superResolution,
     skipOp: {
       ...defaultPlayerSettings.skipOp,
       ...(p.skipOp && typeof p.skipOp === 'object' ? p.skipOp : {}),

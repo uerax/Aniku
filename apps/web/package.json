@@ -11,9 +11,10 @@
     "lint": "tsc -b --pretty false"
   },
   "dependencies": {
-    "@ironkinoko/danmaku": "^1.4.5",
     "@aniku/shared": "workspace:*",
+    "@ironkinoko/danmaku": "^1.4.5",
     "@tanstack/react-query": "^5.69.0",
+    "anime4k-webgpu": "^1.0.0",
     "clsx": "^2.1.1",
     "hls.js": "^1.5.20",
     "idb-keyval": "^6.2.1",
@@ -27,6 +28,7 @@
     "@types/react": "^19.0.12",
     "@types/react-dom": "^19.0.4",
     "@vitejs/plugin-react": "^4.3.4",
+    "@webgpu/types": "^0.1.71",
     "tailwindcss": "^4.0.14",
     "typescript": "^5.8.2",
     "vite": "^6.2.2"

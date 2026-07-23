@@ -62,14 +62,38 @@
   -webkit-transform: translateZ(0);
 }
 
-/* Overlay for danmaku only — never opaque, never capture events */
+/* Anime4K WebGPU output — sits above video, under danmaku */
+.kz-sr-canvas {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  /* Above video (same z-index paints later in tree; explicit for safety) */
+  z-index: 1;
+  pointer-events: none !important;
+  /* Stretch canvas CSS box to shell; buffer aspect set in anime4k.ts */
+  object-fit: fill;
+  background: transparent;
+}
+
+/* When SR is painting, hide native video picture (audio/seek still on <video>) */
+.kz-player-shell.kz-sr-on .kz-native-video {
+  opacity: 0;
+}
+
+/* Overlay for danmaku only — never opaque, never capture events.
+   z-index 2 keeps it above SR canvas (z-index 1). */
 .kz-danmaku-layer {
   position: absolute;
   left: 0;
   top: 0;
   width: 100%;
   height: 100%;
-  z-index: 1;
+  z-index: 2;
   pointer-events: none !important;
   overflow: hidden;
   background: transparent !important;
@@ -470,7 +494,10 @@
 /* iOS often clips fixed children; ensure video layer still fills shell */
 .kz-player-shell.kz-web-fs .kz-native-video,
 .kz-player-shell:fullscreen .kz-native-video,
-.kz-player-shell:-webkit-full-screen .kz-native-video {
+.kz-player-shell:-webkit-full-screen .kz-native-video,
+.kz-player-shell.kz-web-fs .kz-sr-canvas,
+.kz-player-shell:fullscreen .kz-sr-canvas,
+.kz-player-shell:-webkit-full-screen .kz-sr-canvas {
   width: 100% !important;
   height: 100% !important;
   object-fit: contain !important;

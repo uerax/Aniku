@@ -152,8 +152,9 @@ Server normalizes upstream JSON with shared parsers (`parseBangumiItem`, collect
 **Split responsibilities (do not re-merge):**
 
 ```
-Native <video>   → chrome: custom control bar (play/seek/vol/speed/fs)
+Native <video>   → chrome: custom control bar (play/seek/vol/speed/SR/fs); decode + audio
 hls.js           → HLS attach on the same <video> (DPlayer-equivalent path)
+Anime4K (opt)    → WebGPU canvas overlay (`player/anime4k.ts`); default off
 @ironkinoko/danmaku → overlay layer (pointer-events:none) over video
 DanDanPlay API   → comments via /api/danmaku/* (+ optional bilibili BV proxy)
 ```
@@ -172,9 +173,16 @@ DanDanPlay API   → comments via /api/danmaku/* (+ optional bilibili BV proxy)
 2. `Hls.loadSource(proxyUrl)` + `hls.attachMedia(video)` when URL is m3u8; else `video.src = …`.
 3. After `MANIFEST_PARSED` / `loadedmetadata`: resume seek, then `play()` (muted-first if autoplay policy blocks).
 4. Danmaku: create ironkinoko on a transparent overlay **after** play starts a frame; `BASE_DANMAKU_SPEED = 130` × user speed; `reload` when comments/settings change.
-5. `src` change: destroy hls → destroy danmaku core → new attach. Use a generation token so stale callbacks no-op.
+5. `src` change: destroy hls → destroy danmaku core → stop Anime4K → new attach. Use a generation token so stale callbacks no-op.
 
 Proxy URL comes from resolve (`/api/media/proxy?url=…&referer=…`). Segment 200s in server logs mean the stream works even if the UI was black.
+
+#### Super-resolution (Anime4K / WebGPU)
+
+- `PlayerSettings.superResolution`: `off` | `efficiency` | `quality` (default `off`).
+- Module: `apps/web/src/player/anime4k.ts` + dynamic `import('anime4k-webgpu')` — **no GPU / no package load when off**.
+- Video stays decoder+audio; canvas paints SR; shell class `kz-sr-on` hides video picture via opacity.
+- Must own stop/destroy (upstream `render()` has no teardown). Need WebGPU; disable UI if missing. No SR on iframe embed; iOS system video FS won't show canvas (use webpage FS).
 
 #### Layout / CSS hazards (keep fixed)
 
@@ -252,7 +260,7 @@ OP/ED skip: `PlayerSettings.skipOp` / `skipEd`; when `skipEd.start === 0`, treat
 | XML parse | `packages/shared/src/danmaku.ts` (`parseDanmakuXml`, `extractBvid`) |
 | Subject search UX | `apps/web/src/pages/SubjectPage.tsx` |
 | Playback shell | `apps/web/src/pages/PlayPage.tsx` |
-| Player + danmaku layer | `apps/web/src/player/VideoPlayer.tsx` (native video + hls.js) + `DanmakuPanel.tsx` + `plyr-overrides.css` |
+| Player + danmaku layer | `apps/web/src/player/VideoPlayer.tsx` (native video + hls.js) + `DanmakuPanel.tsx` + `anime4k.ts` + `plyr-overrides.css` |
 | Default rules | `apps/web/src/data/default-plugins/` |
 | App entry (no StrictMode) | `apps/web/src/main.tsx` |
 

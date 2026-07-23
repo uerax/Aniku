@@ -148,8 +148,9 @@ XPath 规则仍要求 `name` + `baseURL` + `searchURL`。
 ### 职责拆分（不要再揉回去）
 
 ```
-原生 <video>     → UI：控制栏（播/进退/音量/倍速/全屏）
+原生 <video>     → UI：控制栏（播/进退/音量/倍速/超分/全屏）；解码 + 音频
 hls.js           → HLS 挂到同一 <video>
+Anime4K (可选)   → WebGPU canvas 覆盖层（默认关，不占 GPU）
 @ironkinoko/danmaku → 视频上的透明层（pointer-events:none）
 弹弹 / B 站 BV   → /api/danmaku/*
 ```
@@ -168,7 +169,17 @@ hls.js           → HLS 挂到同一 <video>
 2. m3u8 → `Hls.loadSource` + `attachMedia`；否则 `video.src`  
 3. 清单/metadata 后再续播 `seek` + `play()`  
 4. 弹幕：`BASE_DANMAKU_SPEED = 130` × 用户倍速；评论/设置变化用 `reload`  
-5. 换源：destroy hls → destroy 弹幕 → 再 attach；用 generation 丢弃过期回调  
+5. 换源：destroy hls → destroy 弹幕 → stop Anime4K → 再 attach；用 generation 丢弃过期回调  
+
+### 超分（Anime4K / WebGPU）
+
+- 语义对齐桌面 Kazumi：关 / **效率档** / **质量档**；`player.superResolution`（默认 `off`）
+- 实现：`apps/web/src/player/anime4k.ts` + `anime4k-webgpu`；**动态 import**，未开启时不加载库、不申请 GPU
+- 画面：`<video>` 继续解码；开启后 `opacity:0`，画面画在 `<canvas class="kz-sr-canvas">`；弹幕仍在最上层
+- 效率：Clamp + CNNM + CNNx2M；质量：`ModeA` 预设
+- 官方 `render()` 无 stop → 自建 rVFC + `device.destroy()`；换集 / 关档 / unmount 必须 stop
+- 需要 **WebGPU**（Chrome/Edge 等）；无能力时控件禁用。**iframe 降级不做超分**。iOS **系统视频全屏**看不到 canvas，用「网页全屏」
+- 控制条「超分」菜单 + 设置页「播放器」下拉共用同一字段
 
 ### 布局雷区
 

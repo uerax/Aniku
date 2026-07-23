@@ -536,7 +536,8 @@ export function SettingsPage() {
           </button>
         </div>
         <p className="text-xs text-zinc-500">
-          对齐 agefans-enhance：倍速、自动下一集、记忆进度、跳过片头/片尾。也可在播放器内「设置」调整。
+          对齐 agefans-enhance：倍速、自动下一集、记忆进度、跳过片头/片尾。超分对齐
+          Kazumi（Anime4K / WebGPU），默认关闭时不占 GPU。也可在播放器控制条切换。
         </p>
         <Toggle
           label="自动播放"
@@ -567,6 +568,29 @@ export function SettingsPage() {
             ))}
           </select>
         </label>
+        <label className="flex items-center justify-between gap-3 text-sm text-zinc-300">
+          <span>超分（Anime4K）</span>
+          <select
+            value={player.superResolution || 'off'}
+            onChange={(e) =>
+              setPlayer({
+                superResolution: (e.target.value === 'efficiency' ||
+                e.target.value === 'quality'
+                  ? e.target.value
+                  : 'off') as 'off' | 'efficiency' | 'quality',
+              })
+            }
+            className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-1.5 text-sm"
+          >
+            <option value="off">关闭（默认）</option>
+            <option value="efficiency">效率档</option>
+            <option value="quality">质量档（更吃 GPU）</option>
+          </select>
+        </label>
+        <p className="text-xs text-zinc-600">
+          需要 Chrome / Edge 等支持 WebGPU 的浏览器。弱显卡请用效率档；iPhone
+          系统全屏看不到 canvas 超分，请用「网页全屏」。iframe 降级播放不支持超分。
+        </p>
         <label className="flex items-center justify-between gap-3 text-sm text-zinc-300">
           <span>记忆跳转时长（J 键，秒）</span>
           <input

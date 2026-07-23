@@ -15,7 +15,7 @@
 | 首页 / 时间表 / 搜索 | Bangumi 元数据 |
 | 详情 | 简介、分集、收藏状态、选源 |
 | 规则插件 | 内置默认规则 + 本地导入 + 兼容 [KazumiRules](https://github.com/Predidit/KazumiRules) 仓库安装 |
-| 播放 | 原生 video + [hls.js](https://github.com/video-dev/hls.js)（HLS/MP4、倍速、热键、全屏）+ 自动下一集 / 续播 / 跳过片头片尾 |
+| 播放 | 原生 video + [hls.js](https://github.com/video-dev/hls.js)（HLS/MP4、倍速、热键、全屏）+ 可选 **Anime4K 超分**（WebGPU，默认关）+ 自动下一集 / 续播 / 跳过片头片尾 |
 | 弹幕 | 弹弹play 自动匹配 + 播放器内弹幕面板 + [@ironkinoko/danmaku](https://github.com/IronKinoko/danmaku)；XML 拖入 / B 站 BV |
 | 追番 | Bangumi Access Token 同步收藏 |
 | 历史 | 本地播放进度 |
