@@ -178,8 +178,8 @@ Anime4K (可选)   → WebGPU canvas 覆盖层（默认关，不占 GPU）
 - 画面：`<video>` 继续解码；开启后 `opacity:0`，画面画在 `<canvas class="kz-sr-canvas">`；弹幕仍在最上层
 - 效率：Clamp + CNNM + CNNx2M；质量：`ModeA` 预设
 - 官方 `render()` 无 stop → 自建 rVFC + `device.destroy()`；换集 / 关档 / unmount 必须 stop
-- 需要 **WebGPU**（Chrome/Edge 等）；无能力时控件禁用。**iframe 降级不做超分**。iOS **系统视频全屏**看不到 canvas，用「网页全屏」
-- 控制条「超分」菜单 + 设置页「播放器」下拉共用同一字段
+- 需要 **WebGPU**（Chrome/Edge 等）且页面为 **安全上下文**（HTTPS 或 `localhost` / `127.0.0.1`）。Docker 用 `http://局域网IP:PORT` 打开时 `navigator.gpu` 不存在，超分不可用（菜单仍可打开并提示原因）。**iframe 降级不做超分**。iOS **系统视频全屏**看不到 canvas，用「网页全屏」
+- 控制条「超分」菜单始终可点；无 WebGPU 时仅禁用效率/质量项。设置页下拉共用同一字段
 
 ### 布局雷区
 

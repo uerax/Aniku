@@ -105,16 +105,18 @@ type Pipeline = {
   getOutputTexture(): GPUTexture
 }
 
-/** Cheap sync probe — does not request a device. */
+/**
+ * Cheap sync probe — does not request a device.
+ * WebGPU is only exposed in a secure context (HTTPS or localhost / 127.0.0.1).
+ * Docker served over http://LAN-IP:PORT has isSecureContext=false → no gpu.
+ */
 export function hasWebGPU(): boolean {
-  return (
-    typeof navigator !== 'undefined' &&
-    typeof (navigator as Navigator & { gpu?: GPU }).gpu !== 'undefined' &&
-    !!(navigator as Navigator & { gpu?: GPU }).gpu
-  )
+  if (typeof navigator === 'undefined') return false
+  if (typeof window !== 'undefined' && !window.isSecureContext) return false
+  return !!(navigator as Navigator & { gpu?: GPU }).gpu
 }
 
-/** Async probe: adapter may be null (remote desktop, blocked GPU). */
+/** Async probe: adapter may be null (remote desktop, blocked GPU, insecure HTTP). */
 export async function supportsAnime4K(): Promise<boolean> {
   if (!hasWebGPU()) return false
   try {

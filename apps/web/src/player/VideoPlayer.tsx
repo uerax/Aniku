@@ -1424,7 +1424,6 @@ export function VideoPlayer({
               type="button"
               className="kz-ctrl"
               data-active={srMode !== 'off' && srActive}
-              disabled={webGpuOk === false}
               onClick={() => {
                 setPanelOpen(false)
                 setSpeedMenuOpen(false)
@@ -1432,7 +1431,10 @@ export function VideoPlayer({
               }}
               title={
                 webGpuOk === false
-                  ? '当前浏览器不支持 WebGPU 超分'
+                  ? typeof window !== 'undefined' &&
+                    !window.isSecureContext
+                    ? '超分需要安全上下文（HTTPS 或 localhost）。当前为 HTTP 远程访问，WebGPU 不可用'
+                    : '当前浏览器不支持 WebGPU 超分'
                   : srMode === 'off'
                     ? '超分（Anime4K，默认关；需 WebGPU）'
                     : `超分：${SUPER_RESOLUTION_LABELS[srMode]}${
@@ -1446,6 +1448,16 @@ export function VideoPlayer({
             </button>
             {srMenuOpen && (
               <div className="kz-speed-menu">
+                {webGpuOk === false && (
+                  <div
+                    className="px-2 py-1.5 text-[11px] leading-snug text-amber-200/90"
+                    style={{ maxWidth: '11rem' }}
+                  >
+                    {typeof window !== 'undefined' && !window.isSecureContext
+                      ? 'WebGPU 需 HTTPS 或 localhost；用局域网 IP 的 HTTP 访问时不可用'
+                      : '当前环境无 WebGPU，超分无法启用'}
+                  </div>
+                )}
                 {(
                   [
                     'off',
@@ -1464,7 +1476,6 @@ export function VideoPlayer({
                     }}
                   >
                     {SUPER_RESOLUTION_LABELS[m]}
-                    {m === 'quality' ? '（重）' : ''}
                   </button>
                 ))}
               </div>

@@ -584,12 +584,14 @@ export function SettingsPage() {
           >
             <option value="off">关闭（默认）</option>
             <option value="efficiency">效率档</option>
-            <option value="quality">质量档（更吃 GPU）</option>
+            <option value="quality">质量档</option>
           </select>
         </label>
         <p className="text-xs text-zinc-600">
-          需要 Chrome / Edge 等支持 WebGPU 的浏览器。弱显卡请用效率档；iPhone
-          系统全屏看不到 canvas 超分，请用「网页全屏」。iframe 降级播放不支持超分。
+          需要 Chrome / Edge 等支持 WebGPU 的浏览器，且页面为安全上下文（HTTPS
+          或 localhost）。用局域网 IP 的 HTTP 访问 Docker
+          时 WebGPU 不可用。弱显卡请用效率档；iPhone 系统全屏看不到 canvas
+          超分，请用「网页全屏」。iframe 降级播放不支持超分。
         </p>
         <label className="flex items-center justify-between gap-3 text-sm text-zinc-300">
           <span>记忆跳转时长（J 键，秒）</span>
