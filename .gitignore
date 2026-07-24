@@ -10,3 +10,4 @@ apps/web/dist
 apps/server/dist
 apps/server/public
 .vite
+.tmp*

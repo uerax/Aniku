@@ -8,7 +8,8 @@ import { migrateLocalStorageKey } from '../lib/storage'
 migrateLocalStorageKey('aniku-plugins', ['kazumi-web-plugins'])
 
 /** Bump when built-in rule set changes so empty/legacy stores re-seed */
-export const PLUGIN_DEFAULTS_VERSION = 7
+/** v8: default adBlocker only on MXdm; Anime1/otage/xifan off */
+export const PLUGIN_DEFAULTS_VERSION = 8
 
 interface PluginState {
   plugins: PluginMeta[]
@@ -20,6 +21,8 @@ interface PluginState {
   ) => PluginMeta
   removePlugin: (id: string) => void
   togglePlugin: (id: string, enabled?: boolean) => void
+  /** Per-rule HLS ad filter (Kazumi `adBlocker`) */
+  setPluginAdBlocker: (id: string, adBlocker: boolean) => void
   getEnabled: () => PluginMeta[]
   getByName: (name: string) => PluginMeta | undefined
   /** If store is empty, write built-in rules (safe to call often) */
@@ -120,6 +123,12 @@ export const usePluginStore = create<PluginState>()(
             p.id === id ? { ...p, enabled: enabled ?? !p.enabled } : p,
           ),
         })),
+      setPluginAdBlocker: (id, adBlocker) =>
+        set((s) => ({
+          plugins: normalizePlugins(s.plugins).map((p) =>
+            p.id === id ? { ...p, adBlocker } : p,
+          ),
+        })),
       getEnabled: () =>
         preferAnime1First(
           normalizePlugins(get().plugins).filter((p) => p.enabled !== false),
@@ -167,6 +176,7 @@ export const usePluginStore = create<PluginState>()(
         // Replace legacy default-only stores with current defaults.
         // v6: drop 7sefun from defaults, add otage (MacCMS / plaintext m3u8).
         // v7: add xifan (稀饭 MacCMS; suggest API search + player_aaaa).
+        // v8: adBlocker defaults — only MXdm on among built-ins.
         const legacyBuiltinNames = new Set(
           [
             '7sefun',
@@ -192,8 +202,13 @@ export const usePluginStore = create<PluginState>()(
           })
           return
         }
-        // Mixed store: add any new built-ins (e.g. otage); drop retired default 7sefun
+        // Mixed store: add any new built-ins; drop retired default 7sefun
         // only when it was still marked builtin (user re-import keeps source=import).
+        // Also align *builtin* adBlocker flags to current DEFAULT_PLUGIN_RULES
+        // without overwriting user/catalog rules.
+        const seedByName = new Map(
+          seedFromDefaults().map((p) => [p.name.toLowerCase(), p]),
+        )
         const have = new Set(plugins.map((p) => p.name.toLowerCase()))
         const missing = seedFromDefaults().filter(
           (p) => !have.has(p.name.toLowerCase()),
@@ -205,6 +220,12 @@ export const usePluginStore = create<PluginState>()(
               (p.source === 'builtin' || p.source === undefined)
             ),
         )
+        next = next.map((p) => {
+          if (p.source !== 'builtin' && p.source !== undefined) return p
+          const seed = seedByName.get(p.name.toLowerCase())
+          if (!seed) return p
+          return { ...p, adBlocker: Boolean(seed.adBlocker) }
+        })
         if (missing.length) next = [...next, ...missing]
         next = preferAnime1First(next)
         set({

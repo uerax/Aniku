@@ -410,14 +410,16 @@ export function SubjectPage() {
 
   const proxyUrl = episode ? resolve.data?.data.proxyUrl : undefined
   const playUrl = episode ? resolve.data?.data.playUrl : undefined
+  const forceAdFilter = Boolean(playerSettings.forceAdBlocker)
   const playback = useMemo(
     () =>
       pickPlaybackSrc({
         playUrl,
         proxyUrl,
         forceProxy,
+        forceAdFilter,
       }),
-    [playUrl, proxyUrl, forceProxy],
+    [playUrl, proxyUrl, forceProxy, forceAdFilter],
   )
   const mediaSrc = episode ? playback.src : ''
 

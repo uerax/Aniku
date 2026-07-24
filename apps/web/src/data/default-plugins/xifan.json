@@ -8,7 +8,7 @@
   "useNativePlayer": true,
   "usePost": false,
   "useLegacyParser": false,
-  "adBlocker": true,
+  "adBlocker": false,
   "userAgent": "",
   "baseURL": "https://anime.xifanacg.com/",
   "searchURL": "",

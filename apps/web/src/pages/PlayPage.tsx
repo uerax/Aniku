@@ -124,14 +124,16 @@ export function PlayPage() {
 
   const proxyUrl = resolve.data?.data.proxyUrl
   const playUrl = resolve.data?.data.playUrl
+  const forceAdFilter = Boolean(playerSettings.forceAdBlocker)
   const playback = useMemo(
     () =>
       pickPlaybackSrc({
         playUrl,
         proxyUrl,
         forceProxy,
+        forceAdFilter,
       }),
-    [playUrl, proxyUrl, forceProxy],
+    [playUrl, proxyUrl, forceProxy, forceAdFilter],
   )
   const mediaSrc = playback.src
 

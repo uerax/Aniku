@@ -33,6 +33,9 @@ function mergePlayer(partial?: Partial<PlayerSettings>): PlayerSettings {
     ...defaultPlayerSettings,
     ...p,
     superResolution,
+    forceAdBlocker: Boolean(
+      p.forceAdBlocker ?? defaultPlayerSettings.forceAdBlocker,
+    ),
     skipOp: {
       ...defaultPlayerSettings.skipOp,
       ...(p.skipOp && typeof p.skipOp === 'object' ? p.skipOp : {}),

@@ -27,6 +27,7 @@ export function SettingsPage() {
   const importRule = usePluginStore((s) => s.importRule)
   const removePlugin = usePluginStore((s) => s.removePlugin)
   const togglePlugin = usePluginStore((s) => s.togglePlugin)
+  const setPluginAdBlocker = usePluginStore((s) => s.setPluginAdBlocker)
   const ensureDefaults = usePluginStore((s) => s.ensureDefaults)
   const resetToDefaults = usePluginStore((s) => s.resetToDefaults)
 
@@ -361,6 +362,17 @@ export function SettingsPage() {
                 />
                 启用
               </label>
+              <label
+                className="flex items-center gap-1 text-xs text-zinc-400"
+                title="HLS 分片广告过滤（#EXT-X-DISCONTINUITY 短段）。需走媒体代理。"
+              >
+                <input
+                  type="checkbox"
+                  checked={Boolean(p.adBlocker)}
+                  onChange={(e) => setPluginAdBlocker(p.id, e.target.checked)}
+                />
+                广告过滤
+              </label>
               <button
                 type="button"
                 onClick={() => testPlugin(p)}
@@ -538,6 +550,17 @@ export function SettingsPage() {
         <p className="text-xs text-zinc-500">
           对齐 agefans-enhance：倍速、自动下一集、记忆进度、跳过片头/片尾。超分对齐
           Kazumi（Anime4K / WebGPU），默认关闭时不占 GPU。也可在播放器控制条切换。
+          HLS 广告过滤对齐 Kazumi：按 discontinuity 短段启发式剔除，非域名拦截。
+        </p>
+        <Toggle
+          label="强制广告过滤"
+          checked={Boolean(player.forceAdBlocker)}
+          onChange={(forceAdBlocker) => setPlayer({ forceAdBlocker })}
+        />
+        <p className="text-xs text-zinc-600">
+          开启后所有规则播放 m3u8 时强制过滤（忽略下方规则的「广告过滤」关闭）。默认仅
+          MXdm 规则开启；Anime1 / otage / xifan 默认关。无 DISCONTINUITY
+          的片源无效。
         </p>
         <Toggle
           label="自动播放"

@@ -1327,7 +1327,13 @@ function finishResolve(
   }
   const playUrl = candidates[0]!
   const referer = rule.referer || rule.baseURL
-  const proxyUrl = `/api/media/proxy?url=${encodeURIComponent(playUrl)}&referer=${encodeURIComponent(referer)}`
+  const params = new URLSearchParams({
+    url: playUrl,
+    referer,
+  })
+  // Per-rule HLS ad filter (global force is applied client-side on proxy URL)
+  if (rule.adBlocker) params.set('adFilter', '1')
+  const proxyUrl = `/api/media/proxy?${params.toString()}`
   return {
     playUrl,
     proxyUrl,

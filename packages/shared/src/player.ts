@@ -39,6 +39,11 @@ export interface PlayerSettings {
    * `quality` — ModeA-style heavier chain.
    */
   superResolution: SuperResolutionMode
+  /**
+   * Force HLS discontinuity ad-filter on all proxied m3u8
+   * (ignores per-rule `adBlocker` when true). Kazumi: forceAdBlocker.
+   */
+  forceAdBlocker: boolean
 }
 
 export const PLAYER_SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2, 2.5, 3, 3.5, 4] as const
@@ -59,4 +64,5 @@ export const defaultPlayerSettings: PlayerSettings = {
   skipOp: { enabled: false, start: 0, duration: 90 },
   skipEd: { enabled: false, start: 0, duration: 90 },
   superResolution: 'off',
+  forceAdBlocker: false,
 }

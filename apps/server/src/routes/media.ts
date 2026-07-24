@@ -1,4 +1,5 @@
 import { Hono } from 'hono'
+import { filterM3u8AdsIfApplicable } from '@aniku/shared'
 import { config } from '../config'
 import { requireLocalOrToken } from '../lib/access'
 import { fetchPublic, isPrivateHost } from '../lib/private-host'
@@ -46,7 +47,14 @@ function connectTimeoutSignal(ms: number): {
   }
 }
 
-function rewriteM3u8Uri(u: string, base: URL, referer: string, cookie: string): string {
+function rewriteM3u8Uri(
+  u: string,
+  base: URL,
+  referer: string,
+  cookie: string,
+  /** Propagate parent adFilter so nested media playlists still filter */
+  adFilter = false,
+): string {
   const abs = new URL(u, base)
   if (isPrivateHost(abs.hostname)) {
     // Do not proxy private segment/key URLs
@@ -57,6 +65,12 @@ function rewriteM3u8Uri(u: string, base: URL, referer: string, cookie: string): 
     referer,
   })
   if (cookie) q.set('cookie', cookie)
+  // Master → media child must keep adFilter=1; without this only the
+  // top playlist is filtered (no-op on master) and ads stay in mixed.m3u8.
+  // Only attach to nested playlists (.m3u8), not TS/KEY segments.
+  if (adFilter && /\.m3u8($|[?#])/i.test(abs.pathname + abs.search)) {
+    q.set('adFilter', '1')
+  }
   return `/api/media/proxy?${q.toString()}`
 }
 
@@ -66,10 +80,11 @@ function rewriteExtUriAttrs(
   base: URL,
   referer: string,
   cookie: string,
+  adFilter = false,
 ): string {
   return line.replace(/URI=(["'])([^"']+)\1/gi, (_m, quote: string, u: string) => {
     try {
-      const proxied = rewriteM3u8Uri(u, base, referer, cookie)
+      const proxied = rewriteM3u8Uri(u, base, referer, cookie, adFilter)
       return `URI=${quote}${proxied}${quote}`
     } catch {
       return `URI=${quote}${u}${quote}`
@@ -82,6 +97,11 @@ mediaRoutes.get('/proxy', async (c) => {
   const referer = c.req.query('referer') || ''
   /** Optional upstream Cookie (e.g. anime1 path-scoped e/p/h). Not used by most sources. */
   const cookie = c.req.query('cookie') || ''
+  /** HLS discontinuity ad-filter (Kazumi-style). Query: adFilter=1 */
+  const adFilter =
+    c.req.query('adFilter') === '1' ||
+    c.req.query('adFilter') === 'true' ||
+    c.req.query('hlsAdFilter') === '1'
   if (!url) return c.json({ error: 'bad_request', message: '缺少 url' }, 400)
 
   let target: URL
@@ -217,17 +237,25 @@ mediaRoutes.get('/proxy', async (c) => {
     target.pathname.endsWith('.m3u8')
 
   if (isM3u8) {
-    const text = await upstream.text()
+    let text = await upstream.text()
     const base = target
+    if (adFilter) {
+      try {
+        const { content } = filterM3u8AdsIfApplicable(text, target.toString())
+        text = content
+      } catch {
+        // Keep original playlist if filter fails
+      }
+    }
     const rewritten = text
       .split('\n')
       .map((line) => {
         const trimmed = line.trim()
         if (!trimmed || trimmed.startsWith('#')) {
-          return rewriteExtUriAttrs(line, base, referer, cookie)
+          return rewriteExtUriAttrs(line, base, referer, cookie, adFilter)
         }
         try {
-          return rewriteM3u8Uri(trimmed, base, referer, cookie)
+          return rewriteM3u8Uri(trimmed, base, referer, cookie, adFilter)
         } catch {
           return line
         }

@@ -138,6 +138,14 @@ Browser (WEB_DEV_PORT，默认 5173)
 - resolve 优先 **m3u8**，签名 mp4（如 qq photo `dis_k`）易过期  
 - 媒体代理禁内网主机；403 可松 referer 重试  
 
+### HLS 广告过滤（对齐 Kazumi）
+
+- **不是**浏览器广告拦截 / 域名黑名单，只处理 playlist 里 `#EXT-X-DISCONTINUITY` 分隔的短 TS 段（启发：&lt;正片 30%、首末 &lt;30s、任意 &lt;10s）。
+- 算法：`packages/shared/src/m3u8-ad-filter.ts`；代理 `GET /api/media/proxy?…&adFilter=1` 在 rewrite 前过滤 media 列表。
+- **嵌套 m3u8：** 顶层常是 master（无 DISCONTINUITY）；rewrite 子列表 URI 时必须**继续带上** `adFilter=1`，否则只滤 master（空操作）而 `mixed.m3u8` 广告仍在（MXdm 即此结构）。
+- 开关：规则 JSON `adBlocker`（设置页「广告过滤」）；全局 `player.forceAdBlocker`（强制，忽略规则关）。默认内置仅 **MXdm** 开，Anime1 / otage / xifan 关。
+- 开启时 m3u8 **强制走代理**（直连 CDN 会跳过过滤）。无 DISCONTINUITY 的片源无效；iframe 降级无效。
+
 ### 校验 API 规则时
 
 `searchMode === 'api'` **不要**强制 `searchURL`；应要求 `searchApiConfig`。  
