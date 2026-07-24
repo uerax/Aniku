@@ -9,7 +9,8 @@ migrateLocalStorageKey('aniku-plugins', ['kazumi-web-plugins'])
 
 /** Bump when built-in rule set changes so empty/legacy stores re-seed */
 /** v8: default adBlocker only on MXdm; Anime1/otage/xifan off */
-export const PLUGIN_DEFAULTS_VERSION = 8
+/** v9: add omofun (211dm/omofuns) built-in */
+export const PLUGIN_DEFAULTS_VERSION = 9
 
 interface PluginState {
   plugins: PluginMeta[]
@@ -177,6 +178,7 @@ export const usePluginStore = create<PluginState>()(
         // v6: drop 7sefun from defaults, add otage (MacCMS / plaintext m3u8).
         // v7: add xifan (稀饭 MacCMS; suggest API search + player_aaaa).
         // v8: adBlocker defaults — only MXdm on among built-ins.
+        // v9: add omofun (211dm / omofuns).
         const legacyBuiltinNames = new Set(
           [
             '7sefun',
@@ -188,6 +190,7 @@ export const usePluginStore = create<PluginState>()(
             'anime1',
             'otage',
             'xifan',
+            'omofun',
           ].map((s) => s.toLowerCase()),
         )
         const onlyLegacyBuiltins = plugins.every(

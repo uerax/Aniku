@@ -1,0 +1,21 @@
+{
+  "api": "1",
+  "type": "anime",
+  "name": "omofun",
+  "version": "1.0",
+  "muliSources": true,
+  "useWebview": true,
+  "useNativePlayer": true,
+  "usePost": false,
+  "useLegacyParser": false,
+  "adBlocker": false,
+  "userAgent": "",
+  "baseURL": "https://cn.211dm.com/",
+  "searchURL": "https://cn.211dm.com/search/-------------.html?wd=@keyword",
+  "searchList": "//a[contains(@href,'/anime/') and contains(@href,'.html')]",
+  "searchName": ".",
+  "searchResult": ".",
+  "chapterRoads": "//ul[contains(@class,'play-list-content')]",
+  "chapterResult": ".//a[contains(@href,'/play/')]",
+  "referer": "https://cn.211dm.com/"
+}

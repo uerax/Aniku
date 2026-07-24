@@ -811,6 +811,22 @@ export async function searchWithRule(
     }
   }
 
+  // Omofun / 211dm — search gate + hash detail URLs (chapters/resolve stay generic)
+  {
+    const { isOmofunRule, searchOmofun } = await import('../lib/omofun')
+    if (isOmofunRule(rule)) {
+      try {
+        return await searchOmofun(rule, keyword)
+      } catch (e) {
+        return {
+          pluginName: rule.name,
+          items: [],
+          diagnostics: [e instanceof Error ? e.message : String(e)],
+        }
+      }
+    }
+  }
+
   // API-mode rules (sorani / TvTFun): JSON API + searchApiConfig
   if (rule.searchMode === 'api') {
     try {
@@ -990,6 +1006,22 @@ export async function chaptersWithRule(
     if (isAnime1Rule(rule)) {
       try {
         return await chaptersAnime1(rule, source)
+      } catch (e) {
+        return {
+          pluginName: rule.name,
+          roads: [],
+          diagnostics: [e instanceof Error ? e.message : String(e)],
+        }
+      }
+    }
+  }
+
+  // Omofun / 211dm — multi-road #playlistN (avoid generic merge of all sids)
+  {
+    const { isOmofunRule, chaptersOmofun } = await import('../lib/omofun')
+    if (isOmofunRule(rule)) {
+      try {
+        return await chaptersOmofun(rule, source)
       } catch (e) {
         return {
           pluginName: rule.name,
