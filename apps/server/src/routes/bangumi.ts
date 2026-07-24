@@ -79,6 +79,19 @@ bangumiRoutes.get('/trending', async (c) => {
   return c.json({ data: items })
 })
 
+/** Bangumi /v0/search/subjects sort values we expose. */
+const SEARCH_SORTS = new Set(['match', 'heat', 'rank', 'score'])
+
+/** Only allow Bangumi-style air_date comparisons (blocks injection-y strings). */
+const AIR_DATE_EXPR = /^(>=|<=|>|<)?\d{4}-\d{2}-\d{2}$/
+
+/**
+ * Browse / search anime subjects.
+ * Supports keyword, tags, year / airDate (season quarters), and sort.
+ * `sort: 'date'` is not a Bangumi upstream value — we use heat + optional year
+ * filter, then order the page by airDate (desc) for 放送时间 UX.
+ * NSFW is always filtered out (`nsfw: false`); no client override.
+ */
 bangumiRoutes.post('/search', async (c) => {
   const body = await c.req.json<{
     keyword?: string
@@ -86,20 +99,58 @@ bangumiRoutes.post('/search', async (c) => {
     offset?: number
     sort?: string
     tags?: string[]
+    /** Calendar year, e.g. 2024 — maps to air_date [>=Y-01-01, <Y+1-01-01] */
+    year?: number | null
+    /** Explicit air_date filter expressions, e.g. [">=2020-01-01", "<2021-01-01"] */
+    airDate?: string[]
   }>()
-  const limit = body.limit ?? 20
-  const offset = body.offset ?? 0
-  const sort = body.sort || 'heat'
-  const tags = body.tags || []
+  const limit = Math.min(Math.max(Number(body.limit) || 20, 1), 50)
+  const offset = Math.max(Number(body.offset) || 0, 0)
+  const requestedSort = (body.sort || 'heat').toLowerCase()
+  const sortByDate = requestedSort === 'date' || requestedSort === 'airdate'
+  const upstreamSort = sortByDate
+    ? 'heat'
+    : SEARCH_SORTS.has(requestedSort)
+      ? requestedSort
+      : 'heat'
+  const tags = Array.isArray(body.tags)
+    ? body.tags.map((t) => String(t).trim()).filter(Boolean).slice(0, 8)
+    : []
+
+  const airDate: string[] = []
+  if (Array.isArray(body.airDate)) {
+    for (const expr of body.airDate) {
+      if (typeof expr !== 'string') continue
+      const s = expr.trim()
+      if (AIR_DATE_EXPR.test(s)) airDate.push(s)
+    }
+  }
+  const year =
+    body.year != null && Number.isFinite(Number(body.year))
+      ? Math.trunc(Number(body.year))
+      : null
+  if (year != null && year >= 1900 && year <= 2100 && airDate.length === 0) {
+    airDate.push(`>=${year}-01-01`, `<${year + 1}-01-01`)
+  }
+
+  const filter: Record<string, unknown> = {
+    type: [2],
+    // Always exclude NSFW — not client-configurable
+    nsfw: false,
+  }
+  if (tags.length) filter.tag = tags
+  if (airDate.length) filter.air_date = airDate
+  // rank sort needs ranked subjects; score sort also benefits from ranked set
+  if (upstreamSort === 'rank' || upstreamSort === 'score') {
+    filter.rank = ['>0', '<=99999']
+  } else {
+    filter.rank = ['>=0', '<=99999']
+  }
+
   const params = {
     keyword: body.keyword || '',
-    sort,
-    filter: {
-      type: [2],
-      tag: tags,
-      rank: sort === 'rank' ? ['>0', '<=99999'] : ['>=0', '<=99999'],
-      nsfw: false,
-    },
+    sort: upstreamSort,
+    filter,
   }
   const url = `${config.bangumiApi}/v0/search/subjects?limit=${limit}&offset=${offset}`
   const res = await bangumiFetch(url, {
@@ -111,7 +162,7 @@ bangumiRoutes.post('/search', async (c) => {
     return c.json({ error: 'upstream', message: await res.text() }, 502)
   }
   const json = (await res.json()) as { data?: unknown[]; total?: number }
-  const items: BangumiItem[] = []
+  let items: BangumiItem[] = []
   for (const entry of json.data || []) {
     try {
       items.push(slimItem(parseBangumiItem(entry as Record<string, unknown>)))
@@ -119,7 +170,24 @@ bangumiRoutes.post('/search', async (c) => {
       /* skip */
     }
   }
-  return c.json({ data: items, total: json.total, limit, offset })
+  if (sortByDate) {
+    items = items.slice().sort((a, b) => {
+      const da = a.airDate || ''
+      const db = b.airDate || ''
+      if (da === db) return 0
+      // empty dates last
+      if (!da) return 1
+      if (!db) return -1
+      return db.localeCompare(da)
+    })
+  }
+  return c.json({
+    data: items,
+    total: json.total,
+    limit,
+    offset,
+    sort: sortByDate ? 'date' : upstreamSort,
+  })
 })
 
 bangumiRoutes.get('/subjects/:id', async (c) => {

@@ -11,6 +11,7 @@ import { useSettingsStore } from '../stores/settings'
 
 const links = [
   { to: '/', label: '首页', end: true },
+  { to: '/anime', label: '番剧' },
   { to: '/timeline', label: '时间表' },
   { to: '/collect', label: '追番' },
   { to: '/history', label: '历史' },

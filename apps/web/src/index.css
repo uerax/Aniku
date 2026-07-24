@@ -219,11 +219,15 @@ img {
 .kz-pill {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-height: 2.25rem;
   border-radius: 9999px;
-  padding: 0.35rem 0.9rem;
+  padding: 0 0.95rem;
   font-size: 0.875rem;
   font-weight: 700;
-  line-height: 1.25;
+  line-height: 1;
+  text-align: center;
   transition:
     background 0.15s,
     color 0.15s,

@@ -10,6 +10,9 @@ const HomePage = lazy(() =>
 const TimelinePage = lazy(() =>
   import('./pages/TimelinePage').then((m) => ({ default: m.TimelinePage })),
 )
+const AnimePage = lazy(() =>
+  import('./pages/AnimePage').then((m) => ({ default: m.AnimePage })),
+)
 const SearchPage = lazy(() =>
   import('./pages/SearchPage').then((m) => ({ default: m.SearchPage })),
 )
@@ -44,6 +47,7 @@ export default function App() {
         <Route element={<Layout />}>
           <Route index element={<HomePage />} />
           <Route path="timeline" element={<TimelinePage />} />
+          <Route path="anime" element={<AnimePage />} />
           <Route path="search" element={<SearchPage />} />
           <Route path="subject/:id" element={<SubjectPage />} />
           <Route path="play/:id" element={<PlayPage />} />

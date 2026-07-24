@@ -19,15 +19,33 @@ export const bangumiApi = {
     api<{ data: BangumiItem[] }>(
       `/api/bangumi/trending?limit=${limit}&offset=${offset}`,
     ),
-  search: (keyword: string, opts?: { limit?: number; offset?: number }) =>
-    api<{ data: BangumiItem[]; total?: number }>('/api/bangumi/search', {
-      method: 'POST',
-      body: JSON.stringify({
-        keyword,
-        limit: opts?.limit ?? 20,
-        offset: opts?.offset ?? 0,
-      }),
-    }),
+  search: (
+    keyword: string,
+    opts?: {
+      limit?: number
+      offset?: number
+      /** heat | rank | score | date (放送时间, page-local) | match */
+      sort?: string
+      tags?: string[]
+      year?: number | null
+      airDate?: string[]
+    },
+  ) =>
+    api<{ data: BangumiItem[]; total?: number; limit?: number; offset?: number }>(
+      '/api/bangumi/search',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          keyword,
+          limit: opts?.limit ?? 20,
+          offset: opts?.offset ?? 0,
+          sort: opts?.sort,
+          tags: opts?.tags,
+          year: opts?.year ?? undefined,
+          airDate: opts?.airDate,
+        }),
+      },
+    ),
   subject: (id: number | string) =>
     api<{ data: BangumiItem }>(`/api/bangumi/subjects/${id}`),
   episodes: (id: number | string) =>
