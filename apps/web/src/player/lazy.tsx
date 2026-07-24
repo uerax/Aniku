@@ -14,7 +14,7 @@ export const LazyEmbedPlayer = lazy(() =>
 
 function PlayerFallback({ text }: { text: string }) {
   return (
-    <div className="kz-player-placeholder text-sm text-zinc-300">{text}</div>
+    <div className="kz-player-placeholder text-sm text-[var(--kz-fg)]">{text}</div>
   )
 }
 

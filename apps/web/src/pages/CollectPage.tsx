@@ -63,7 +63,7 @@ export function CollectPage() {
         <PageHeader title="我的追番" />
         <EmptyState text="请先在设置中配置 Bangumi Access Token" />
         <div className="mt-4 text-center">
-          <Link to="/settings" className="text-sky-400 hover:underline">
+          <Link to="/settings" className="text-[var(--kz-accent)] hover:underline">
             前往设置
           </Link>
         </div>

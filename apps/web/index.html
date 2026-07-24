@@ -14,8 +14,27 @@
       content="Aniku — 浏览器端番剧浏览、规则选源、弹幕与 Bangumi 追番"
     />
   </head>
-  <body class="bg-black text-[#e7e9ea]">
+  <body>
     <div id="root"></div>
+    <script>
+      // Early theme paint before React — match aniku-settings localStorage
+      try {
+        var raw = localStorage.getItem('aniku-settings')
+        var theme = 'dark'
+        if (raw) {
+          var parsed = JSON.parse(raw)
+          if (parsed && (parsed.state?.theme === 'light' || parsed.theme === 'light')) {
+            theme = 'light'
+          } else if (parsed && (parsed.state?.theme === 'dark' || parsed.theme === 'dark')) {
+            theme = 'dark'
+          }
+        }
+        document.documentElement.setAttribute('data-theme', theme)
+        document.documentElement.style.colorScheme = theme
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'dark')
+      }
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

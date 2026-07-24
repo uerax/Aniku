@@ -20,7 +20,7 @@ export function SearchPage() {
         description="在 Bangumi 中搜索动画 · 使用右上角搜索框"
       />
       {!keyword && (
-        <div className="rounded-xl border border-dashed border-zinc-800 py-16 text-center text-sm text-zinc-500">
+        <div className="rounded-xl border border-dashed border-[var(--kz-border)] py-16 text-center text-sm text-[var(--kz-fg-muted)]">
           在右上角输入关键词后回车或点「搜索」
         </div>
       )}

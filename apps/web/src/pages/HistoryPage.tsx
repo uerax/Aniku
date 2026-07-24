@@ -29,7 +29,7 @@ export function HistoryPage() {
               onClick={() => {
                 if (confirm('清空全部观看历史？')) clear()
               }}
-              className="rounded-lg border border-zinc-700 px-3 py-1.5 text-sm text-zinc-400 hover:bg-zinc-900"
+              className="rounded-lg border border-[var(--kz-border)] px-3 py-1.5 text-sm text-[var(--kz-fg-muted)] hover:bg-[var(--kz-bg-hover)]"
             >
               清空
             </button>
@@ -54,7 +54,7 @@ export function HistoryPage() {
           return (
             <div
               key={h.id}
-              className="flex items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-900/40 p-3"
+              className="flex items-center gap-3 rounded-xl border border-[var(--kz-border)] bg-[var(--kz-bg-elevated)]/60 p-3"
             >
               <Link
                 to={`/subject/${h.bangumiId}`}
@@ -67,19 +67,19 @@ export function HistoryPage() {
                     className="h-16 w-12 rounded object-cover"
                   />
                 ) : (
-                  <div className="h-16 w-12 rounded bg-zinc-800" />
+                  <div className="h-16 w-12 rounded bg-[var(--kz-bg-soft)]" />
                 )}
                 <div className="min-w-0 flex-1">
                   <div className="truncate font-medium">{h.title}</div>
-                  <div className="text-xs text-zinc-500">
+                  <div className="text-xs text-[var(--kz-fg-muted)]">
                     {h.pluginName} · 第 {h.episode} 集 ·{' '}
                     {formatTime(h.position)}
                     {h.duration > 0 ? ` / ${formatTime(h.duration)}` : ''}
                   </div>
                   {h.duration > 0 && (
-                    <div className="mt-1.5 h-1 overflow-hidden rounded bg-zinc-800">
+                    <div className="mt-1.5 h-1 overflow-hidden rounded bg-[var(--kz-bg-soft)]">
                       <div
-                        className="h-full bg-sky-500"
+                        className="h-full bg-[var(--kz-accent)]"
                         style={{ width: `${pct}%` }}
                       />
                     </div>
@@ -89,14 +89,14 @@ export function HistoryPage() {
               <div className="flex shrink-0 flex-col gap-1">
                 <Link
                   to={`/play/${h.bangumiId}?${resumeQ}`}
-                  className="rounded-lg px-2 py-1 text-xs text-sky-400 hover:bg-zinc-800"
+                  className="rounded-lg px-2 py-1 text-xs text-[var(--kz-accent)] hover:bg-[var(--kz-bg-hover)]"
                 >
                   续播
                 </Link>
                 <button
                   type="button"
                   onClick={() => remove(h.id)}
-                  className="rounded-lg px-2 py-1 text-xs text-red-400 hover:bg-zinc-800"
+                  className="rounded-lg px-2 py-1 text-xs text-[var(--kz-danger)] hover:bg-[var(--kz-bg-hover)]"
                 >
                   删除
                 </button>

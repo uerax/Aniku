@@ -48,7 +48,7 @@ export function HomePage() {
                   <img
                     src={h.cover}
                     alt=""
-                    className="h-16 w-12 rounded-lg object-cover shadow-md ring-1 ring-white/5"
+                    className="h-16 w-12 rounded-lg object-cover shadow-md ring-1 ring-[var(--kz-border)]"
                   />
                 ) : (
                   <div className="h-16 w-12 rounded-lg bg-[var(--kz-bg-soft)]" />

@@ -1578,7 +1578,7 @@ export function VideoPlayer({
     webFs ? 'kz-web-fs' : '',
     !webFs && embedded ? 'absolute inset-0' : '',
     !webFs && !embedded
-      ? 'kz-player-frame relative rounded-2xl border border-zinc-800'
+      ? 'kz-player-frame relative rounded-2xl border border-[var(--kz-border)]'
       : '',
     srActive ? 'kz-sr-on' : '',
   ]

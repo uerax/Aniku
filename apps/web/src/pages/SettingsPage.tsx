@@ -223,9 +223,9 @@ export function SettingsPage() {
     <div className="mx-auto max-w-3xl space-y-10">
       <PageHeader title="设置" description="Token、规则插件与弹幕偏好" />
 
-      <section className="space-y-3 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5">
+      <section className="space-y-3 rounded-2xl border border-[var(--kz-border)] bg-[var(--kz-bg-elevated)] p-5">
         <h2 className="text-lg font-medium">服务状态</h2>
-        <div className="text-sm text-zinc-400">
+        <div className="text-sm text-[var(--kz-fg-muted)]">
           API：{health.data?.ok ? '正常' : health.isLoading ? '检测中…' : '不可用（请启动 server）'}
           <br />
           弹幕：
@@ -238,9 +238,9 @@ export function SettingsPage() {
         </div>
       </section>
 
-      <section className="space-y-3 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5">
+      <section className="space-y-3 rounded-2xl border border-[var(--kz-border)] bg-[var(--kz-bg-elevated)] p-5">
         <h2 className="text-lg font-medium">Bangumi Access Token</h2>
-        <p className="text-sm text-zinc-400">
+        <p className="text-sm text-[var(--kz-fg-muted)]">
           用于同步追番收藏。在{' '}
           <a
             href="https://next.bgm.tv/demo/access-token"
@@ -257,19 +257,19 @@ export function SettingsPage() {
           onChange={(e) => setTokenInput(e.target.value)}
           rows={3}
           placeholder="粘贴 Access Token…"
-          className="w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm outline-none ring-sky-500 focus:ring-2"
+          className="w-full rounded-xl border border-[var(--kz-border)] bg-[var(--kz-bg)] px-3 py-2 text-sm outline-none ring-[var(--kz-accent)] focus:ring-2"
         />
         <div className="flex flex-wrap items-center gap-3">
           <button
             type="button"
             onClick={saveToken}
-            className="rounded-xl bg-sky-500 px-4 py-2 text-sm hover:bg-sky-500"
+            className="rounded-xl bg-[var(--kz-accent)]hover:bg-[var(--kz-accent-hover)]"
           >
             保存
           </button>
           {tokenMsg && <span className="text-sm text-emerald-400">{tokenMsg}</span>}
           {bangumiToken && me.isSuccess && (
-            <span className="text-sm text-zinc-400">
+            <span className="text-sm text-[var(--kz-fg-muted)]">
               已登录：{me.data.data.nickname || me.data.data.username}
             </span>
           )}
@@ -281,9 +281,9 @@ export function SettingsPage() {
         </div>
       </section>
 
-      <section className="space-y-3 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5">
+      <section className="space-y-3 rounded-2xl border border-[var(--kz-border)] bg-[var(--kz-bg-elevated)] p-5">
         <h2 className="text-lg font-medium">已安装规则</h2>
-        <p className="text-sm text-zinc-400">
+        <p className="text-sm text-[var(--kz-fg-muted)]">
           默认内置可用规则（Anime1 / otage / xifan / MXdm）。可本地导入 JSON，或从下方规则仓库安装。仓库：{' '}
           <a
             href="https://github.com/Predidit/KazumiRules"
@@ -299,7 +299,7 @@ export function SettingsPage() {
           <button
             type="button"
             onClick={() => fileRef.current?.click()}
-            className="rounded-xl bg-zinc-100 px-4 py-2 text-sm font-medium text-zinc-900 hover:bg-white"
+            className="rounded-xl bg-[var(--kz-fg)] px-4 py-2 text-sm font-medium text-[var(--kz-bg)] hover:opacity-90"
           >
             导入 JSON
           </button>
@@ -326,17 +326,17 @@ export function SettingsPage() {
                 setPluginMsg('已恢复默认规则')
               }
             }}
-            className="rounded-xl border border-zinc-700 px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-800"
+            className="rounded-xl border border-[var(--kz-border)] px-4 py-2 text-sm text-[var(--kz-fg)] hover:bg-[var(--kz-bg-soft)]"
           >
             恢复默认
           </button>
         </div>
-        <p className="text-xs text-zinc-500">
+        <p className="text-xs text-[var(--kz-fg-muted)]">
           「测试」使用内置关键词自动跑 搜索 → 分集 → 解析，无需填写。
         </p>
         {pluginMsg && <div className="text-sm text-emerald-400">{pluginMsg}</div>}
         {!plugins.length && (
-          <div className="text-sm text-zinc-500">暂无插件，可恢复默认或从仓库安装</div>
+          <div className="text-sm text-[var(--kz-fg-muted)]">暂无插件，可恢复默认或从仓库安装</div>
         )}
         <ul className="space-y-2">
           {plugins.map((p) => {
@@ -347,17 +347,17 @@ export function SettingsPage() {
             return (
               <li
                 key={p.id}
-                className="space-y-2 rounded-xl border border-zinc-800 px-3 py-2"
+                className="space-y-2 rounded-xl border border-[var(--kz-border)] px-3 py-2"
               >
                 <div className="flex flex-wrap items-center gap-2">
                   <div className="min-w-0 flex-1">
                     <div className="font-medium">
                       {p.name}{' '}
-                      <span className="text-xs text-zinc-500">
+                      <span className="text-xs text-[var(--kz-fg-muted)]">
                         v{p.version || '?'}
                       </span>
                       {p.source && (
-                        <span className="ml-2 text-xs text-zinc-600">
+                        <span className="ml-2 text-xs text-[var(--kz-fg-dim)]">
                           {p.source === 'builtin'
                             ? '内置'
                             : p.source === 'catalog'
@@ -366,11 +366,11 @@ export function SettingsPage() {
                         </span>
                       )}
                     </div>
-                    <div className="truncate text-xs text-zinc-500">
+                    <div className="truncate text-xs text-[var(--kz-fg-muted)]">
                       {p.baseURL}
                     </div>
                   </div>
-                  <label className="flex items-center gap-1 text-xs text-zinc-400">
+                  <label className="flex items-center gap-1 text-xs text-[var(--kz-fg-muted)]">
                     <input
                       type="checkbox"
                       checked={p.enabled}
@@ -379,7 +379,7 @@ export function SettingsPage() {
                     启用
                   </label>
                   <label
-                    className="flex items-center gap-1 text-xs text-zinc-400"
+                    className="flex items-center gap-1 text-xs text-[var(--kz-fg-muted)]"
                     title="HLS 分片广告过滤（#EXT-X-DISCONTINUITY 短段）。需走媒体代理。"
                   >
                     <input
@@ -395,7 +395,7 @@ export function SettingsPage() {
                     type="button"
                     disabled={Boolean(running)}
                     onClick={() => void testPlugin(p)}
-                    className="rounded-lg bg-zinc-800 px-2 py-1 text-xs hover:bg-zinc-700 disabled:opacity-50"
+                    className="rounded-lg bg-[var(--kz-bg-soft)] px-2 py-1 text-xs hover:bg-[var(--kz-bg-soft)] disabled:opacity-50"
                     title="自动搜索→分集→解析（内置关键词）"
                   >
                     {running ? '测试中…' : '测试'}
@@ -403,13 +403,13 @@ export function SettingsPage() {
                   <button
                     type="button"
                     onClick={() => removePlugin(p.id)}
-                    className="rounded-lg px-2 py-1 text-xs text-red-400 hover:bg-zinc-800"
+                    className="rounded-lg px-2 py-1 text-xs text-red-400 hover:bg-[var(--kz-bg-soft)]"
                   >
                     删除
                   </button>
                 </div>
                 {running && (
-                  <div className="text-xs text-zinc-500">
+                  <div className="text-xs text-[var(--kz-fg-muted)]">
                     后台自动测试中（搜索 → 分集 → 解析）…
                   </div>
                 )}
@@ -433,11 +433,11 @@ export function SettingsPage() {
         </ul>
       </section>
 
-      <section className="space-y-3 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5">
+      <section className="space-y-3 rounded-2xl border border-[var(--kz-border)] bg-[var(--kz-bg-elevated)] p-5">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-lg font-medium">规则仓库</h2>
           <div className="flex flex-wrap items-center gap-2 text-sm">
-            <label className="flex items-center gap-1.5 text-zinc-400">
+            <label className="flex items-center gap-1.5 text-[var(--kz-fg-muted)]">
               <input
                 type="checkbox"
                 checked={useMirror}
@@ -449,7 +449,7 @@ export function SettingsPage() {
               type="button"
               onClick={() => void catalog.refetch()}
               disabled={catalog.isFetching}
-              className="rounded-lg bg-zinc-800 px-3 py-1.5 text-xs hover:bg-zinc-700 disabled:opacity-50"
+              className="rounded-lg bg-[var(--kz-bg-soft)] px-3 py-1.5 text-xs hover:bg-[var(--kz-bg-soft)] disabled:opacity-50"
             >
               {catalog.isFetching ? '刷新中…' : '刷新目录'}
             </button>
@@ -457,13 +457,13 @@ export function SettingsPage() {
               type="button"
               onClick={() => void updateAllFromCatalog()}
               disabled={batchBusy || catalog.isLoading || !catalog.data}
-              className="rounded-lg bg-sky-600 px-3 py-1.5 text-xs hover:bg-sky-500 disabled:opacity-50"
+              className="rounded-lg bg-[var(--kz-accent)]hover:bg-[var(--kz-accent-hover)] disabled:opacity-50"
             >
               {batchBusy ? '更新中…' : '更新全部'}
             </button>
           </div>
         </div>
-        <p className="text-sm text-zinc-400">
+        <p className="text-sm text-[var(--kz-fg-muted)]">
           从{' '}
           <a
             href="https://github.com/Predidit/KazumiRules"
@@ -480,12 +480,12 @@ export function SettingsPage() {
             value={catalogFilter}
             onChange={(e) => setCatalogFilter(e.target.value)}
             placeholder="筛选规则名…"
-            className="min-w-[10rem] flex-1 rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"
+            className="min-w-[10rem] flex-1 rounded-xl border border-[var(--kz-border)] bg-[var(--kz-bg)] px-3 py-2 text-sm"
           />
           <select
             value={catalogSort}
             onChange={(e) => setCatalogSort(e.target.value as CatalogSort)}
-            className="rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"
+            className="rounded-xl border border-[var(--kz-border)] bg-[var(--kz-bg)] px-3 py-2 text-sm"
           >
             <option value="lastUpdate">按更新时间</option>
             <option value="name">按名称</option>
@@ -497,14 +497,14 @@ export function SettingsPage() {
             <div className="mt-2 flex gap-2">
               <button
                 type="button"
-                className="rounded-lg bg-zinc-800 px-2 py-1 text-xs"
+                className="rounded-lg bg-[var(--kz-bg-soft)] px-2 py-1 text-xs"
                 onClick={() => setUseMirror((v) => !v)}
               >
                 {useMirror ? '改用主源' : '启用镜像'}
               </button>
               <button
                 type="button"
-                className="rounded-lg bg-zinc-800 px-2 py-1 text-xs"
+                className="rounded-lg bg-[var(--kz-bg-soft)] px-2 py-1 text-xs"
                 onClick={() => void catalog.refetch()}
               >
                 重试
@@ -513,13 +513,13 @@ export function SettingsPage() {
           </div>
         )}
         {catalog.isLoading && (
-          <div className="text-sm text-zinc-500">加载规则目录…</div>
+          <div className="text-sm text-[var(--kz-fg-muted)]">加载规则目录…</div>
         )}
         {catalog.isSuccess && !catalogItems.length && (
-          <div className="text-sm text-zinc-500">规则仓库中暂无匹配规则</div>
+          <div className="text-sm text-[var(--kz-fg-muted)]">规则仓库中暂无匹配规则</div>
         )}
         {catalog.data?.source && (
-          <div className="truncate text-xs text-zinc-600">
+          <div className="truncate text-xs text-[var(--kz-fg-dim)]">
             来源：{catalog.data.source}
           </div>
         )}
@@ -537,12 +537,12 @@ export function SettingsPage() {
             return (
               <li
                 key={item.name}
-                className="flex flex-wrap items-center gap-2 rounded-xl border border-zinc-800 px-3 py-2"
+                className="flex flex-wrap items-center gap-2 rounded-xl border border-[var(--kz-border)] px-3 py-2"
               >
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2 font-medium">
                     <span>{item.name}</span>
-                    <span className="rounded bg-zinc-800 px-1.5 py-0.5 text-xs text-zinc-300">
+                    <span className="rounded bg-[var(--kz-bg-soft)] px-1.5 py-0.5 text-xs text-[var(--kz-fg)]">
                       v{item.version}
                     </span>
                     {item.antiCrawlerEnabled && (
@@ -551,7 +551,7 @@ export function SettingsPage() {
                       </span>
                     )}
                   </div>
-                  <div className="text-xs text-zinc-500">
+                  <div className="text-xs text-[var(--kz-fg-muted)]">
                     {item.lastUpdate > 0
                       ? `更新：${formatLastUpdate(item.lastUpdate)}`
                       : '—'}
@@ -562,7 +562,7 @@ export function SettingsPage() {
                   type="button"
                   disabled={status === 'installed' || busy}
                   onClick={() => void installFromCatalog(item)}
-                  className="rounded-lg bg-zinc-100 px-3 py-1.5 text-xs font-medium text-zinc-900 hover:bg-white disabled:cursor-default disabled:bg-zinc-800 disabled:text-zinc-500"
+                  className="rounded-lg bg-[var(--kz-fg)] px-3 py-1.5 text-xs font-medium text-[var(--kz-bg)] hover:opacity-90 disabled:cursor-default disabled:bg-[var(--kz-bg-soft)] disabled:text-[var(--kz-fg-muted)]"
                 >
                   {busy ? '…' : label}
                 </button>
@@ -572,18 +572,18 @@ export function SettingsPage() {
         </ul>
       </section>
 
-      <section className="space-y-4 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5">
+      <section className="space-y-4 rounded-2xl border border-[var(--kz-border)] bg-[var(--kz-bg-elevated)] p-5">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-medium">播放器</h2>
           <button
             type="button"
             onClick={resetPlayer}
-            className="text-sm text-zinc-400 hover:text-white"
+            className="text-sm text-[var(--kz-fg-muted)] hover:text-white"
           >
             恢复默认
           </button>
         </div>
-        <p className="text-xs text-zinc-500">
+        <p className="text-xs text-[var(--kz-fg-muted)]">
           对齐 agefans-enhance：倍速、自动下一集、记忆进度、跳过片头/片尾。超分对齐
           Kazumi（Anime4K / WebGPU），默认关闭时不占 GPU。也可在播放器控制条切换。
           HLS 广告过滤对齐 Kazumi：按 discontinuity 短段启发式剔除，非域名拦截。
@@ -593,10 +593,10 @@ export function SettingsPage() {
           checked={Boolean(player.forceMediaProxy)}
           onChange={(forceMediaProxy) => setPlayer({ forceMediaProxy })}
         />
-        <p className="text-xs text-zinc-600">
+        <p className="text-xs text-[var(--kz-fg-dim)]">
           默认优先浏览器直连 CDN（省服务器流量）。弱网、跨网或源站对浏览器限流时，勾选后
           m3u8/mp4 一律经本机 API
-          <code className="mx-0.5 text-zinc-500">/api/media/proxy</code>
+          <code className="mx-0.5 text-[var(--kz-fg-muted)]">/api/media/proxy</code>
           拉取。搜索/分集/解析本身已走服务器，此项只影响播放媒体。开启会明显增加服务器出站流量。
         </p>
         <Toggle
@@ -604,7 +604,7 @@ export function SettingsPage() {
           checked={Boolean(player.forceAdBlocker)}
           onChange={(forceAdBlocker) => setPlayer({ forceAdBlocker })}
         />
-        <p className="text-xs text-zinc-600">
+        <p className="text-xs text-[var(--kz-fg-dim)]">
           开启后所有规则播放 m3u8 时强制过滤（忽略下方规则的「广告过滤」关闭）。默认仅
           MXdm 规则开启；Anime1 / otage / xifan 默认关。无 DISCONTINUITY
           的片源无效。过滤本身也需要走媒体代理。
@@ -624,12 +624,12 @@ export function SettingsPage() {
           checked={player.continuePlay}
           onChange={(continuePlay) => setPlayer({ continuePlay })}
         />
-        <label className="flex items-center justify-between gap-3 text-sm text-zinc-300">
+        <label className="flex items-center justify-between gap-3 text-sm text-[var(--kz-fg)]">
           <span>默认倍速</span>
           <select
             value={player.speed}
             onChange={(e) => setPlayer({ speed: Number(e.target.value) || 1 })}
-            className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-1.5 text-sm"
+            className="rounded-lg border border-[var(--kz-border)] bg-[var(--kz-bg)] px-2 py-1.5 text-sm"
           >
             {[0.5, 0.75, 1, 1.25, 1.5, 2, 2.5, 3, 3.5, 4].map((s) => (
               <option key={s} value={s}>
@@ -638,7 +638,7 @@ export function SettingsPage() {
             ))}
           </select>
         </label>
-        <label className="flex items-center justify-between gap-3 text-sm text-zinc-300">
+        <label className="flex items-center justify-between gap-3 text-sm text-[var(--kz-fg)]">
           <span>超分（Anime4K）</span>
           <select
             value={player.superResolution || 'off'}
@@ -650,20 +650,20 @@ export function SettingsPage() {
                   : 'off') as 'off' | 'efficiency' | 'quality',
               })
             }
-            className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-1.5 text-sm"
+            className="rounded-lg border border-[var(--kz-border)] bg-[var(--kz-bg)] px-2 py-1.5 text-sm"
           >
             <option value="off">关闭（默认）</option>
             <option value="efficiency">效率档</option>
             <option value="quality">质量档</option>
           </select>
         </label>
-        <p className="text-xs text-zinc-600">
+        <p className="text-xs text-[var(--kz-fg-dim)]">
           需要 Chrome / Edge 等支持 WebGPU 的浏览器，且页面为安全上下文（HTTPS
           或 localhost）。用局域网 IP 的 HTTP 访问 Docker
           时 WebGPU 不可用。弱显卡请用效率档；iPhone 系统全屏看不到 canvas
           超分，请用「网页全屏」。iframe 降级播放不支持超分。
         </p>
-        <label className="flex items-center justify-between gap-3 text-sm text-zinc-300">
+        <label className="flex items-center justify-between gap-3 text-sm text-[var(--kz-fg)]">
           <span>记忆跳转时长（J 键，秒）</span>
           <input
             type="number"
@@ -673,7 +673,7 @@ export function SettingsPage() {
             onChange={(e) =>
               setPlayer({ customSeekTime: Number(e.target.value) || 85 })
             }
-            className="w-24 rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-1.5 text-sm"
+            className="w-24 rounded-lg border border-[var(--kz-border)] bg-[var(--kz-bg)] px-2 py-1.5 text-sm"
           />
         </label>
         <Toggle
@@ -684,7 +684,7 @@ export function SettingsPage() {
           }
         />
         {player.skipOp.enabled && (
-          <div className="flex flex-wrap gap-4 text-sm text-zinc-400">
+          <div className="flex flex-wrap gap-4 text-sm text-[var(--kz-fg-muted)]">
             <label className="flex items-center gap-2">
               起始（秒）
               <input
@@ -699,7 +699,7 @@ export function SettingsPage() {
                     },
                   })
                 }
-                className="w-20 rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-1"
+                className="w-20 rounded-lg border border-[var(--kz-border)] bg-[var(--kz-bg)] px-2 py-1"
               />
             </label>
             <label className="flex items-center gap-2">
@@ -716,7 +716,7 @@ export function SettingsPage() {
                     },
                   })
                 }
-                className="w-20 rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-1"
+                className="w-20 rounded-lg border border-[var(--kz-border)] bg-[var(--kz-bg)] px-2 py-1"
               />
             </label>
           </div>
@@ -729,7 +729,7 @@ export function SettingsPage() {
           }
         />
         {player.skipEd.enabled && (
-          <div className="flex flex-wrap gap-4 text-sm text-zinc-400">
+          <div className="flex flex-wrap gap-4 text-sm text-[var(--kz-fg-muted)]">
             <label className="flex items-center gap-2">
               起始（秒）
               <input
@@ -744,7 +744,7 @@ export function SettingsPage() {
                     },
                   })
                 }
-                className="w-20 rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-1"
+                className="w-20 rounded-lg border border-[var(--kz-border)] bg-[var(--kz-bg)] px-2 py-1"
               />
             </label>
             <label className="flex items-center gap-2">
@@ -761,20 +761,20 @@ export function SettingsPage() {
                     },
                   })
                 }
-                className="w-20 rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-1"
+                className="w-20 rounded-lg border border-[var(--kz-border)] bg-[var(--kz-bg)] px-2 py-1"
               />
             </label>
           </div>
         )}
       </section>
 
-      <section className="space-y-4 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5">
+      <section className="space-y-4 rounded-2xl border border-[var(--kz-border)] bg-[var(--kz-bg-elevated)] p-5">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-medium">弹幕默认设置</h2>
           <button
             type="button"
             onClick={resetDanmaku}
-            className="text-sm text-zinc-400 hover:text-white"
+            className="text-sm text-[var(--kz-fg-muted)] hover:text-white"
           >
             恢复默认
           </button>
@@ -825,7 +825,7 @@ export function SettingsPage() {
               ['showColor', '彩色'],
             ] as const
           ).map(([key, label]) => (
-            <label key={key} className="flex items-center gap-1.5 text-zinc-300">
+            <label key={key} className="flex items-center gap-1.5 text-[var(--kz-fg)]">
               <input
                 type="checkbox"
                 checked={danmaku[key]}
@@ -836,7 +836,7 @@ export function SettingsPage() {
           ))}
         </div>
         <div>
-          <label className="mb-1 block text-sm text-zinc-400">
+          <label className="mb-1 block text-sm text-[var(--kz-fg-muted)]">
             关键词屏蔽（每行一条，支持 /正则/）
           </label>
           <textarea
@@ -850,15 +850,15 @@ export function SettingsPage() {
               })
             }
             rows={4}
-            className="w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"
+            className="w-full rounded-xl border border-[var(--kz-border)] bg-[var(--kz-bg)] px-3 py-2 text-sm"
           />
         </div>
       </section>
 
-      <section className="space-y-2 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5 text-sm text-zinc-400">
-        <h2 className="text-lg font-medium text-zinc-100">关于</h2>
+      <section className="space-y-2 rounded-2xl border border-[var(--kz-border)] bg-[var(--kz-bg-elevated)] p-5 text-sm text-[var(--kz-fg-muted)]">
+        <h2 className="text-lg font-medium text-[var(--kz-fg)]">关于</h2>
         <p>
-          <strong className="font-medium text-zinc-200">Aniku</strong>{' '}
+          <strong className="font-medium text-[var(--kz-fg)]">Aniku</strong>{' '}
           是浏览器端番剧应用。规则格式兼容{' '}
           <a
             className="kz-link"
@@ -931,7 +931,7 @@ function Slider({
 }) {
   return (
     <label className="block text-sm">
-      <div className="mb-1 text-zinc-300">{label}</div>
+      <div className="mb-1 text-[var(--kz-fg)]">{label}</div>
       <input
         type="range"
         className="w-full"

@@ -49,13 +49,13 @@ interface Props {
 }
 
 const tabBtn =
-  'rounded-md px-2.5 py-1 text-xs transition-colors data-[active=true]:bg-sky-600 data-[active=true]:text-white data-[active=false]:text-zinc-300 data-[active=false]:hover:bg-zinc-700'
+  'rounded-md px-2.5 py-1 text-xs transition-colors data-[active=true]:bg-[var(--kz-accent)] data-[active=true]:text-white data-[active=false]:text-[var(--kz-fg)] data-[active=false]:hover:bg-[var(--kz-bg-soft)]'
 
 const field =
-  'w-full rounded-lg border border-zinc-700 bg-zinc-950/90 px-2.5 py-1.5 text-sm outline-none focus:border-sky-600'
+  'w-full rounded-lg border border-[var(--kz-border)] bg-[var(--kz-bg)] px-2.5 py-1.5 text-sm outline-none focus:border-[var(--kz-accent)]'
 
 const rangeClass =
-  'h-1.5 w-full cursor-pointer appearance-none rounded-full bg-zinc-700 accent-sky-500'
+  'h-1.5 w-full cursor-pointer appearance-none rounded-full bg-[var(--kz-bg-soft)] accent-[var(--kz-accent)]'
 
 export function DanmakuPanel(props: Props) {
   if (!props.open) return null
@@ -79,7 +79,7 @@ export function DanmakuPanel(props: Props) {
 
   return (
     <div
-      className="absolute right-2 z-[60] flex w-[min(22rem,calc(100%-1rem))] flex-col overflow-hidden rounded-xl border border-zinc-600/90 bg-zinc-950/98 shadow-2xl backdrop-blur-md"
+      className="absolute right-2 z-[60] flex w-[min(22rem,calc(100%-1rem))] flex-col overflow-hidden rounded-xl border border-[var(--kz-border)] bg-[var(--kz-bg-elevated)] shadow-2xl backdrop-blur-md"
       style={{ bottom: bottomOffset }}
       onMouseDown={(e) => e.stopPropagation()}
       onClick={(e) => e.stopPropagation()}
@@ -87,7 +87,7 @@ export function DanmakuPanel(props: Props) {
       role="dialog"
       aria-label="弹幕面板"
     >
-      <div className="flex shrink-0 items-center justify-between border-b border-zinc-800 px-3 py-2">
+      <div className="flex shrink-0 items-center justify-between border-b border-[var(--kz-border)] px-3 py-2">
         <div className="flex gap-1">
           {(
             [
@@ -110,7 +110,7 @@ export function DanmakuPanel(props: Props) {
         <button
           type="button"
           onClick={onClose}
-          className="rounded-md px-2 py-1 text-xs text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
+          className="rounded-md px-2 py-1 text-xs text-[var(--kz-fg-muted)] hover:bg-[var(--kz-bg-soft)] hover:text-[var(--kz-fg)]"
           aria-label="关闭弹幕面板"
         >
           ✕
@@ -119,10 +119,10 @@ export function DanmakuPanel(props: Props) {
 
       {/* Fixed body height so 搜索/设置/导入 switch without layout jump */}
       <div className="flex h-[min(20rem,46vh)] min-h-[16rem] flex-col">
-        <div className="shrink-0 border-b border-zinc-800/80 px-3 py-2 text-xs text-zinc-400">
+        <div className="shrink-0 border-b border-[var(--kz-border)] px-3 py-2 text-xs text-[var(--kz-fg-muted)]">
           {status || '—'}
           {commentsCount > 0 ? (
-            <span className="ml-2 text-sky-400/90">
+            <span className="ml-2 text-[var(--kz-accent)]">
               · 共 {commentsCount} 条
               {shown !== commentsCount ? ` · 显示 ${shown}` : ''}
             </span>
@@ -138,8 +138,8 @@ export function DanmakuPanel(props: Props) {
       </div>
 
       {sources && sources.some((s) => s.loaded) && onToggleSource ? (
-        <div className="shrink-0 border-t border-zinc-800 px-3 py-2">
-          <div className="mb-1.5 text-[11px] text-zinc-500">
+        <div className="shrink-0 border-t border-[var(--kz-border)] px-3 py-2">
+          <div className="mb-1.5 text-[11px] text-[var(--kz-fg-muted)]">
             弹幕源 · 亮色显示 / 灰色关闭
           </div>
           <div className="flex flex-wrap gap-1.5">
@@ -157,8 +157,8 @@ export function DanmakuPanel(props: Props) {
                   }
                   className={
                     s.enabled
-                      ? 'rounded-full bg-sky-600/90 px-2.5 py-1 text-[11px] font-medium text-white shadow-sm ring-1 ring-sky-400/40 hover:bg-sky-500'
-                      : 'rounded-full bg-zinc-800 px-2.5 py-1 text-[11px] font-medium text-zinc-500 ring-1 ring-zinc-700 hover:bg-zinc-700 hover:text-zinc-300'
+                      ? 'rounded-full bg-[var(--kz-accent)]hover:bg-[var(--kz-accent-hover)]'
+                      : 'rounded-full bg-[var(--kz-bg-soft)] px-2.5 py-1 text-[11px] font-medium text-[var(--kz-fg-muted)] ring-1 ring-[var(--kz-border)] hover:bg-[var(--kz-bg-soft)] hover:text-[var(--kz-fg)]'
                   }
                 >
                   {s.label}
@@ -176,7 +176,7 @@ function SearchTab(props: Props) {
   return (
     <div className="space-y-2.5">
       <label className="block space-y-1">
-        <span className="text-xs text-zinc-500">弹弹play 番名</span>
+        <span className="text-xs text-[var(--kz-fg-muted)]">弹弹play 番名</span>
         <div className="flex gap-2">
           <input
             className={field}
@@ -191,7 +191,7 @@ function SearchTab(props: Props) {
             type="button"
             disabled={props.searchBusy}
             onClick={props.onSearch}
-            className="shrink-0 rounded-lg bg-sky-600 px-3 py-1.5 text-xs hover:bg-sky-500 disabled:opacity-50"
+            className="shrink-0 rounded-lg bg-[var(--kz-accent)]hover:bg-[var(--kz-accent-hover)] disabled:opacity-50"
           >
             {props.searchBusy ? '…' : '搜索'}
           </button>
@@ -199,7 +199,7 @@ function SearchTab(props: Props) {
       </label>
 
       <label className="block space-y-1">
-        <span className="text-xs text-zinc-500">番剧</span>
+        <span className="text-xs text-[var(--kz-fg-muted)]">番剧</span>
         <select
           className={field}
           value={props.animeId === '' ? '' : String(props.animeId)}
@@ -219,7 +219,7 @@ function SearchTab(props: Props) {
       </label>
 
       <label className="block space-y-1">
-        <span className="text-xs text-zinc-500">章节</span>
+        <span className="text-xs text-[var(--kz-fg-muted)]">章节</span>
         <select
           className={field}
           value={props.episodeId === '' ? '' : String(props.episodeId)}
@@ -237,7 +237,7 @@ function SearchTab(props: Props) {
         </select>
       </label>
 
-      <p className="text-[11px] leading-relaxed text-zinc-500">
+      <p className="text-[11px] leading-relaxed text-[var(--kz-fg-muted)]">
         弹弹play 匹配会写入「弹弹」源。B 站 / XML 导入默认追加，不会覆盖弹弹；可在面板底部开关各源。
       </p>
     </div>
@@ -307,11 +307,11 @@ function SettingsTab({
           onChange={(e) =>
             onDanmakuChange({ timeOffset: Number(e.target.value) || 0 })
           }
-          className="w-20 rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-1 text-right text-sm"
+          className="w-20 rounded-lg border border-[var(--kz-border)] bg-[var(--kz-bg)] px-2 py-1 text-right text-sm"
         />
       </label>
 
-      <div className="flex flex-wrap gap-3 text-xs text-zinc-300">
+      <div className="flex flex-wrap gap-3 text-xs text-[var(--kz-fg)]">
         {(
           [
             ['showScroll', '滚动'],
@@ -338,7 +338,7 @@ function ImportTab(props: Props) {
   return (
     <div className="space-y-3">
       <div className="space-y-1.5">
-        <div className="text-xs text-zinc-500">Bilibili BV 号 / 链接</div>
+        <div className="text-xs text-[var(--kz-fg-muted)]">Bilibili BV 号 / 链接</div>
         <input
           className={field}
           value={props.bvInput}
@@ -349,7 +349,7 @@ function ImportTab(props: Props) {
           }}
         />
         <div className="flex items-center gap-2">
-          <label className="flex items-center gap-1 text-xs text-zinc-400">
+          <label className="flex items-center gap-1 text-xs text-[var(--kz-fg-muted)]">
             分P
             <input
               type="number"
@@ -358,39 +358,39 @@ function ImportTab(props: Props) {
               onChange={(e) =>
                 props.onBvPageChange(Math.max(1, Number(e.target.value) || 1))
               }
-              className="w-14 rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-1 text-sm"
+              className="w-14 rounded-lg border border-[var(--kz-border)] bg-[var(--kz-bg)] px-2 py-1 text-sm"
             />
           </label>
           <button
             type="button"
             disabled={props.bilibiliBusy}
             onClick={props.onLoadBilibili}
-            className="rounded-lg bg-sky-500 px-3 py-1.5 text-xs hover:bg-sky-500 disabled:opacity-50"
+            className="rounded-lg bg-[var(--kz-accent)]hover:bg-[var(--kz-accent-hover)] disabled:opacity-50"
           >
             {props.bilibiliBusy ? '拉取中…' : '追加 B 站弹幕'}
           </button>
         </div>
-        <p className="text-[11px] text-zinc-500">
+        <p className="text-[11px] text-[var(--kz-fg-muted)]">
           默认追加到现有弹幕，不会清空弹弹源。
         </p>
       </div>
 
       <div className="space-y-1.5">
-        <div className="text-xs text-zinc-500">本地弹幕文件</div>
+        <div className="text-xs text-[var(--kz-fg-muted)]">本地弹幕文件</div>
         <button
           type="button"
           onClick={props.onPickXmlFile}
-          className="w-full rounded-lg border border-dashed border-zinc-600 bg-zinc-900/50 px-3 py-3 text-xs text-zinc-300 hover:border-sky-600 hover:text-sky-300"
+          className="w-full rounded-lg border border-dashed border-[var(--kz-border)] bg-[var(--kz-bg-elevated)] px-3 py-3 text-xs text-[var(--kz-fg)] hover:border-[var(--kz-accent)] hover:text-[var(--kz-accent)]"
         >
           选择 XML（B 站 / pakku 导出）
-          <div className="mt-1 text-[11px] text-zinc-500">
+          <div className="mt-1 text-[11px] text-[var(--kz-fg-muted)]">
             默认追加 · 也可把 .xml 拖到播放器上
           </div>
         </button>
       </div>
 
-      <div className="space-y-1.5 border-t border-zinc-800 pt-2">
-        <div className="text-xs text-zinc-500">
+      <div className="space-y-1.5 border-t border-[var(--kz-border)] pt-2">
+        <div className="text-xs text-[var(--kz-fg-muted)]">
           屏蔽词（支持 /正则/）· {props.danmaku.filters.length} 条
         </div>
         <div className="flex gap-2">
@@ -406,7 +406,7 @@ function ImportTab(props: Props) {
           <button
             type="button"
             onClick={props.onAddFilter}
-            className="shrink-0 rounded-lg bg-zinc-700 px-3 py-1.5 text-xs hover:bg-zinc-600"
+            className="shrink-0 rounded-lg bg-[var(--kz-bg-soft)] px-3 py-1.5 text-xs hover:bg-[var(--kz-bg-soft)]"
           >
             添加
           </button>
@@ -416,9 +416,9 @@ function ImportTab(props: Props) {
             {props.danmaku.filters.map((rule) => (
               <li
                 key={rule}
-                className="flex items-center justify-between gap-2 rounded-md bg-zinc-900 px-2 py-1 text-xs"
+                className="flex items-center justify-between gap-2 rounded-md bg-[var(--kz-bg-elevated)] px-2 py-1 text-xs"
               >
-                <span className="truncate font-mono text-zinc-300">{rule}</span>
+                <span className="truncate font-mono text-[var(--kz-fg)]">{rule}</span>
                 <button
                   type="button"
                   className="text-red-400 hover:text-red-300"
@@ -454,9 +454,9 @@ function RangeRow({
 }) {
   return (
     <label className="block space-y-1">
-      <div className="flex justify-between text-xs text-zinc-400">
+      <div className="flex justify-between text-xs text-[var(--kz-fg-muted)]">
         <span>{label}</span>
-        <span className="tabular-nums text-zinc-300">{display}</span>
+        <span className="tabular-nums text-[var(--kz-fg)]">{display}</span>
       </div>
       <input
         type="range"

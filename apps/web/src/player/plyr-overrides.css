@@ -10,12 +10,23 @@
 }
 
 /*
+ * Shared width for player + under-player chrome (danmaku status bar).
+ * Height-capped so 16:9 doesn't push past the window (header + page chrome).
+ */
+.kz-player-stack {
+  width: 100%;
+  max-width: min(100%, calc((100dvh - 11rem) * 16 / 9));
+  margin-inline: auto;
+}
+
+/*
  * 16:9 frame that fits small laptop viewports.
  * Width-driven on large screens; height-capped so aspect-video doesn't push
  * past the window (header + page chrome leave ~30–35vh unusable).
  */
 .kz-player-frame {
   width: 100%;
+  /* Stack already caps width; keep same formula when used alone */
   max-width: min(100%, calc((100dvh - 11rem) * 16 / 9));
   aspect-ratio: 16 / 9;
   max-height: min(100%, calc(100dvh - 11rem));
@@ -24,6 +35,12 @@
      reflow layout when videoWidth/videoHeight become known. */
   flex-shrink: 0;
   contain: layout;
+}
+
+.kz-player-stack .kz-player-frame,
+.kz-player-stack .kz-player-placeholder {
+  max-width: none;
+  margin-inline: 0;
 }
 
 /* Placeholder shells on Play / Subject pages (same cap as live player) */
@@ -37,7 +54,7 @@
   align-items: center;
   justify-content: center;
   border-radius: 1rem;
-  border: 1px solid #2f3336;
+  border: 1px solid var(--kz-border);
   background: #000;
 }
 

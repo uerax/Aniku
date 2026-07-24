@@ -10,16 +10,28 @@ import { migrateLocalStorageKey } from '../lib/storage'
 
 migrateLocalStorageKey('aniku-settings', ['kazumi-web-settings'])
 
+export type AppTheme = 'dark' | 'light'
+
 interface SettingsState {
   bangumiToken: string
-  theme: 'dark' | 'light'
+  theme: AppTheme
   danmaku: DanmakuSettings
   player: PlayerSettings
   setBangumiToken: (token: string) => void
+  setTheme: (theme: AppTheme) => void
+  toggleTheme: () => void
   setDanmaku: (partial: Partial<DanmakuSettings>) => void
   resetDanmaku: () => void
   setPlayer: (partial: Partial<PlayerSettings>) => void
   resetPlayer: () => void
+}
+
+/** Apply theme to <html> for CSS tokens + native color-scheme. */
+export function applyDocumentTheme(theme: AppTheme) {
+  if (typeof document === 'undefined') return
+  const root = document.documentElement
+  root.setAttribute('data-theme', theme)
+  root.style.colorScheme = theme
 }
 
 function mergePlayer(partial?: Partial<PlayerSettings>): PlayerSettings {
@@ -63,6 +75,16 @@ export const useSettingsStore = create<SettingsState>()(
       danmaku: { ...defaultDanmakuSettings },
       player: { ...defaultPlayerSettings },
       setBangumiToken: (bangumiToken) => set({ bangumiToken }),
+      setTheme: (theme) => {
+        applyDocumentTheme(theme)
+        set({ theme })
+      },
+      toggleTheme: () =>
+        set((s) => {
+          const theme: AppTheme = s.theme === 'light' ? 'dark' : 'light'
+          applyDocumentTheme(theme)
+          return { theme }
+        }),
       setDanmaku: (partial) =>
         set((s) => ({ danmaku: { ...s.danmaku, ...partial } })),
       resetDanmaku: () => set({ danmaku: { ...defaultDanmakuSettings } }),
@@ -100,6 +122,17 @@ export const useSettingsStore = create<SettingsState>()(
           ),
         }
       },
+      onRehydrateStorage: () => (state) => {
+        if (state?.theme) applyDocumentTheme(state.theme)
+      },
     },
   ),
 )
+
+// Only seed default if index.html early script didn't already set data-theme.
+if (
+  typeof document !== 'undefined' &&
+  !document.documentElement.getAttribute('data-theme')
+) {
+  applyDocumentTheme('dark')
+}

@@ -22,8 +22,8 @@ export function EmbedPlayer({
   onRetryResolve,
 }: Props) {
   return (
-    <div className="overflow-hidden rounded-2xl border border-zinc-800 bg-black">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-800 bg-amber-950/40 px-3 py-2 text-xs text-amber-100/90">
+    <div className="overflow-hidden rounded-2xl border border-[var(--kz-border)] bg-[var(--kz-bg)]">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--kz-border)] bg-amber-950/40 px-3 py-2 text-xs text-amber-100/90">
         <div className="min-w-0 flex-1 leading-relaxed">
           <span className="font-medium text-amber-200">iframe 源站播放</span>
           <span className="text-amber-100/70">
@@ -41,7 +41,7 @@ export function EmbedPlayer({
             <button
               type="button"
               onClick={onRetryResolve}
-              className="rounded-md bg-zinc-800 px-2.5 py-1 text-zinc-200 hover:bg-zinc-700"
+              className="rounded-md bg-[var(--kz-bg-soft)] px-2.5 py-1 text-[var(--kz-fg)] hover:bg-[var(--kz-bg-hover)]"
             >
               重试直链
             </button>
@@ -50,13 +50,13 @@ export function EmbedPlayer({
             href={pageUrl}
             target="_blank"
             rel="noreferrer"
-            className="rounded-md bg-sky-700 px-2.5 py-1 text-white hover:bg-sky-600"
+            className="rounded-md bg-[var(--kz-accent)]hover:bg-[var(--kz-accent-hover)]"
           >
             新窗口打开
           </a>
         </div>
       </div>
-      <div className="kz-player-frame relative mx-auto bg-black">
+      <div className="kz-player-frame relative mx-auto bg-[var(--kz-bg)]">
         <iframe
           title={title || '源站播放'}
           src={pageUrl}
@@ -67,7 +67,7 @@ export function EmbedPlayer({
           // Do NOT use sandbox that blocks scripts — source players need JS
         />
       </div>
-      <div className="border-t border-zinc-800 px-3 py-2 text-[11px] leading-relaxed text-zinc-500">
+      <div className="border-t border-[var(--kz-border)] px-3 py-2 text-[11px] leading-relaxed text-[var(--kz-fg-muted)]">
         与桌面 WebView 拦截不同：跨域 iframe 无法读取 m3u8，弹幕/续播/跳过片头在此模式下不可用。
         优先仍应换可静态解析的规则或线路。
       </div>

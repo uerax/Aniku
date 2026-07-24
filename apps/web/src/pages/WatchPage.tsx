@@ -134,7 +134,7 @@ export function WatchPage() {
           <button
             type="button"
             onClick={() => setMetaOpen((v) => !v)}
-            className="h-14 w-10 shrink-0 overflow-hidden rounded-lg border border-[var(--kz-border)] bg-[var(--kz-bg-soft)] shadow-md ring-1 ring-white/5 sm:h-16 sm:w-12"
+            className="h-14 w-10 shrink-0 overflow-hidden rounded-lg border border-[var(--kz-border)] bg-[var(--kz-bg-soft)] shadow-md ring-1 ring-[var(--kz-border)] sm:h-16 sm:w-12"
             title="展开/收起简介"
           >
             <img
@@ -146,28 +146,28 @@ export function WatchPage() {
         ) : null}
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h1 className="min-w-0 truncate text-base font-semibold text-zinc-50 sm:text-lg">
+            <h1 className="min-w-0 truncate text-base font-semibold text-[var(--kz-fg)] sm:text-lg">
               {w.title}
             </h1>
             <button
               type="button"
               onClick={() => setMetaOpen((v) => !v)}
-              className="shrink-0 text-[11px] text-zinc-500 hover:text-sky-400"
+              className="shrink-0 text-[11px] text-[var(--kz-fg-muted)] hover:text-[var(--kz-accent)]"
             >
               {metaOpen ? '收起信息' : '简介'}
             </button>
           </div>
-          <p className="truncate text-xs text-zinc-500">
+          <p className="truncate text-xs text-[var(--kz-fg-muted)]">
             {w.pluginName || '未选源'}
             {w.episode ? (
               <>
-                <span className="mx-1.5 text-zinc-700">·</span>
+                <span className="mx-1.5 text-[var(--kz-fg-dim)]">·</span>
                 第 {w.episode.episode} 集
               </>
             ) : null}
             {w.mediaSrc ? (
               <>
-                <span className="mx-1.5 text-zinc-700">·</span>
+                <span className="mx-1.5 text-[var(--kz-fg-dim)]">·</span>
                 {w.playbackMode === 'proxy' ? '经服务器代理' : '直连源站'}
               </>
             ) : null}
@@ -176,11 +176,11 @@ export function WatchPage() {
       </div>
 
       {metaOpen && item && (
-        <div className="mx-4 space-y-2 rounded-xl border border-zinc-800 bg-zinc-900/50 p-3 text-sm sm:mx-0">
+        <div className="mx-4 space-y-2 rounded-xl border border-[var(--kz-border)] bg-[var(--kz-bg-elevated)] p-3 text-sm sm:mx-0">
           {item.nameCn && item.name && item.nameCn !== item.name && (
-            <p className="text-xs text-zinc-500">{item.name}</p>
+            <p className="text-xs text-[var(--kz-fg-muted)]">{item.name}</p>
           )}
-          <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-zinc-500">
+          <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-[var(--kz-fg-muted)]">
             {item.ratingScore > 0 && (
               <span className="text-amber-300/90">
                 ★ {item.ratingScore.toFixed(1)}
@@ -192,12 +192,12 @@ export function WatchPage() {
             ))}
           </div>
           {item.summary && (
-            <div className="text-xs leading-relaxed text-zinc-400">
+            <div className="text-xs leading-relaxed text-[var(--kz-fg-muted)]">
               <p className={summaryOpen ? '' : 'line-clamp-3'}>{item.summary}</p>
               {item.summary.length > 80 && (
                 <button
                   type="button"
-                  className="mt-0.5 text-sky-500 hover:underline"
+                  className="mt-0.5 text-[var(--kz-accent)] hover:underline"
                   onClick={() => setSummaryOpen((v) => !v)}
                 >
                   {summaryOpen ? '收起' : '展开'}
@@ -212,7 +212,7 @@ export function WatchPage() {
                 onChange={(e) =>
                   setCollect.mutate(Number(e.target.value) as CollectType)
                 }
-                className="rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs"
+                className="rounded-lg border border-[var(--kz-border)] bg-[var(--kz-bg-elevated)] px-2 py-1 text-xs"
                 disabled={setCollect.isPending}
               >
                 <option value={CollectType.none}>未收藏</option>
@@ -225,13 +225,13 @@ export function WatchPage() {
             ) : (
               <Link
                 to="/settings"
-                className="text-xs text-zinc-500 hover:text-sky-400"
+                className="text-xs text-[var(--kz-fg-muted)] hover:text-[var(--kz-accent)]"
               >
                 登录 Bangumi 同步追番
               </Link>
             )}
             {item.alias && item.alias.length > 0 && (
-              <span className="text-[11px] text-zinc-600">
+              <span className="text-[11px] text-[var(--kz-fg-dim)]">
                 别名 {item.alias.length} 个（可用于换关键词）
               </span>
             )}
@@ -241,44 +241,45 @@ export function WatchPage() {
 
       {/* Player + right rail */}
       <div className="grid items-start gap-3 lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-4">
-        <div className="min-w-0 space-y-2">
-          {w.resolveLoading && !w.mediaSrc && (
-            <div className="kz-player-placeholder text-sm text-zinc-400">
-              <div className="flex flex-col items-center gap-2">
-                <span className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-zinc-600 border-t-sky-400" />
-                解析播放地址…
+        <div className="min-w-0">
+          {/* Same max-width as 16:9 player so under-player chrome lines up */}
+          <div className="kz-player-stack space-y-2 px-4 sm:px-0">
+            {w.resolveLoading && !w.mediaSrc && (
+              <div className="kz-player-placeholder text-sm text-[var(--kz-fg-muted)]">
+                <div className="flex flex-col items-center gap-2">
+                  <span className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-[var(--kz-border)] border-t-[var(--kz-accent)]" />
+                  解析播放地址…
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {w.mediaSrc && (
-            <VideoPlayerSuspense
-              key={w.playerKey}
-              src={w.mediaSrc}
-              initialTime={w.resumeTime}
-              comments={w.dm.visibleComments}
-              danmaku={w.danmakuSettings}
-              player={w.playerSettings}
-              onPlayerChange={w.setPlayer}
-              onProgress={w.onProgress}
-              onToggleDanmaku={() =>
-                w.setDanmaku({ enabled: !w.danmakuSettings.enabled })
-              }
-              onDanmakuChange={w.setDanmaku}
-              onPrev={() => w.goAdjacentEpisode(-1)}
-              onNext={() => w.goAdjacentEpisode(1)}
-              onMediaAuthExpired={w.onMediaAuthExpired}
-              onMediaLoadFailed={w.onMediaLoadFailed}
-              danmakuPanel={w.dm.panel}
-            />
-          )}
+            {w.mediaSrc && (
+              <VideoPlayerSuspense
+                key={w.playerKey}
+                src={w.mediaSrc}
+                initialTime={w.resumeTime}
+                comments={w.dm.visibleComments}
+                danmaku={w.danmakuSettings}
+                player={w.playerSettings}
+                onPlayerChange={w.setPlayer}
+                onProgress={w.onProgress}
+                onToggleDanmaku={() =>
+                  w.setDanmaku({ enabled: !w.danmakuSettings.enabled })
+                }
+                onDanmakuChange={w.setDanmaku}
+                onPrev={() => w.goAdjacentEpisode(-1)}
+                onNext={() => w.goAdjacentEpisode(1)}
+                onMediaAuthExpired={w.onMediaAuthExpired}
+                onMediaLoadFailed={w.onMediaLoadFailed}
+                danmakuPanel={w.dm.panel}
+              />
+            )}
 
-          {w.selection &&
-            w.episode &&
-            Boolean(w.resolveError) &&
-            !w.mediaSrc &&
-            !w.resolveLoading && (
-              <div className="px-4 sm:px-0">
+            {w.selection &&
+              w.episode &&
+              Boolean(w.resolveError) &&
+              !w.mediaSrc &&
+              !w.resolveLoading && (
                 <EmbedPlayerSuspense
                   pageUrl={w.pageUrl}
                   title={w.title}
@@ -289,47 +290,47 @@ export function WatchPage() {
                   }
                   onRetryResolve={w.refetchResolve}
                 />
+              )}
+
+            {!w.mediaSrc && !w.resolveLoading && !w.resolveError && (
+              <div className="kz-player-placeholder flex-col gap-1.5 text-sm text-[var(--kz-fg-muted)]">
+                <span>
+                  {w.roadLoading
+                    ? `正在加载 ${w.defaultSourceName} 分集…`
+                    : w.selection
+                      ? '在右侧选集区点集数即可播放'
+                      : `已默认搜索 ${w.defaultSourceName}，请稍候或点右侧结果`}
+                </span>
+                <span className="text-xs text-[var(--kz-fg-dim)]">
+                  默认会选中第一条搜索结果并加载分集；其它源需手动点搜
+                </span>
               </div>
             )}
 
-          {!w.mediaSrc && !w.resolveLoading && !w.resolveError && (
-            <div className="kz-player-placeholder flex-col gap-1.5 text-sm text-zinc-500">
-              <span>
-                {w.roadLoading
-                  ? `正在加载 ${w.defaultSourceName} 分集…`
-                  : w.selection
-                    ? '在右侧选集区点集数即可播放'
-                    : `已默认搜索 ${w.defaultSourceName}，请稍候或点右侧结果`}
+            <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[var(--kz-border)] bg-[var(--kz-bg-elevated)] px-3 py-2 text-xs text-[var(--kz-fg-muted)]">
+              <span className="text-[var(--kz-fg-muted)]">弹幕</span>
+              <span className="min-w-0 flex-1 truncate text-[var(--kz-fg)]">
+                {w.dm.statusLine || '未加载'}
               </span>
-              <span className="text-xs text-zinc-600">
-                默认会选中第一条搜索结果并加载分集；其它源需手动点搜
-              </span>
+              {w.dm.chips.map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  disabled={!c.loaded}
+                  onClick={() => w.dm.toggleSource(c.id)}
+                  className={clsx(
+                    'rounded-full px-2 py-0.5 text-[11px]',
+                    !c.loaded && 'opacity-40',
+                    c.loaded && c.enabled
+                      ? 'bg-[var(--kz-accent)] text-white'
+                      : 'bg-[var(--kz-bg-soft)] text-[var(--kz-fg-muted)]',
+                  )}
+                >
+                  {c.label}
+                  {c.loaded ? ` ${c.count}` : ''}
+                </button>
+              ))}
             </div>
-          )}
-
-          <div className="mx-4 flex flex-wrap items-center gap-2 rounded-xl border border-zinc-800/80 bg-zinc-900/50 px-3 py-2 text-xs text-zinc-400 sm:mx-0">
-            <span className="text-zinc-500">弹幕</span>
-            <span className="min-w-0 flex-1 truncate text-zinc-300">
-              {w.dm.statusLine || '未加载'}
-            </span>
-            {w.dm.chips.map((c) => (
-              <button
-                key={c.id}
-                type="button"
-                disabled={!c.loaded}
-                onClick={() => w.dm.toggleSource(c.id)}
-                className={clsx(
-                  'rounded-full px-2 py-0.5 text-[11px]',
-                  !c.loaded && 'opacity-40',
-                  c.loaded && c.enabled
-                    ? 'bg-sky-500/90 text-white'
-                    : 'bg-zinc-800 text-zinc-400',
-                )}
-              >
-                {c.label}
-                {c.loaded ? ` ${c.count}` : ''}
-              </button>
-            ))}
           </div>
         </div>
 
@@ -383,7 +384,7 @@ export function WatchPage() {
                             setKwInput(v)
                             void w.reSearchCurrentSource(v)
                           }}
-                          className="w-full appearance-none truncate rounded-xl border border-[var(--kz-border)] bg-black py-2 pl-3 pr-10 text-[13px] text-[var(--kz-fg)] disabled:opacity-40"
+                          className="w-full appearance-none truncate rounded-xl border border-[var(--kz-border)] bg-[var(--kz-bg)] py-2 pl-3 pr-10 text-[13px] text-[var(--kz-fg)] disabled:opacity-40"
                           title={
                             keywordOptions.includes(w.searchKeyword)
                               ? w.searchKeyword
@@ -440,7 +441,7 @@ export function WatchPage() {
                               }`
                             : '点规则源后再搜'
                         }
-                        className="min-w-0 flex-1 rounded-xl border border-[var(--kz-border)] bg-black px-3 py-2 text-[13px] text-[var(--kz-fg)] outline-none placeholder:text-[var(--kz-fg-dim)] focus:border-[var(--kz-accent)] disabled:opacity-40"
+                        className="min-w-0 flex-1 rounded-xl border border-[var(--kz-border)] bg-[var(--kz-bg)] px-3 py-2 text-[13px] text-[var(--kz-fg)] outline-none placeholder:text-[var(--kz-fg-dim)] focus:border-[var(--kz-accent)] disabled:opacity-40"
                       />
                       <button
                         type="submit"
@@ -485,7 +486,7 @@ export function WatchPage() {
                           'rounded-xl border transition',
                           isTarget
                             ? 'border-[var(--kz-accent)]/45 bg-[var(--kz-accent-soft)]'
-                            : 'border-[var(--kz-border)] bg-black/40',
+                            : 'border-[var(--kz-border)] bg-[var(--kz-bg-elevated)]',
                         )}
                       >
                         <button
