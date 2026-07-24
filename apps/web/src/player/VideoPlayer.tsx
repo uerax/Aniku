@@ -123,6 +123,8 @@ export function VideoPlayer({
   const [dropActive, setDropActive] = useState(false)
   const [speedMenuOpen, setSpeedMenuOpen] = useState(false)
   const [srMenuOpen, setSrMenuOpen] = useState(false)
+  /** Mobile vertical volume popup */
+  const [volumeMenuOpen, setVolumeMenuOpen] = useState(false)
   const [mediaError, setMediaError] = useState('')
   const [loading, setLoading] = useState(true)
   const [paused, setPaused] = useState(true)
@@ -149,7 +151,8 @@ export function VideoPlayer({
   const togglePlayRef = useRef<() => void>(() => {})
 
   const pointerMode = usePointerMode()
-  const menusOpen = panelOpen || speedMenuOpen || srMenuOpen
+  const menusOpen =
+    panelOpen || speedMenuOpen || srMenuOpen || volumeMenuOpen
   const {
     showBar,
     showBarRef,
@@ -241,9 +244,10 @@ export function VideoPlayer({
     hideBar,
     showBarRef,
     closeMenus: () => {
-      if (!speedMenuOpen && !srMenuOpen) return false
+      if (!speedMenuOpen && !srMenuOpen && !volumeMenuOpen) return false
       setSpeedMenuOpen(false)
       setSrMenuOpen(false)
+      setVolumeMenuOpen(false)
       return true
     },
     closePanel: () => {
@@ -909,6 +913,7 @@ export function VideoPlayer({
         setPanelOpen(false)
         setSpeedMenuOpen(false)
         setSrMenuOpen(false)
+        setVolumeMenuOpen(false)
         // Exit CSS web-fs + any DOM fullscreen (browser also exits DOM FS)
         setWebFs(false)
         setPlayerFs(false)
@@ -1361,6 +1366,7 @@ export function VideoPlayer({
     panelOpen,
     speedMenuOpen,
     srMenuOpen,
+    volumeMenuOpen,
     current,
     duration,
     progress,
@@ -1380,17 +1386,26 @@ export function VideoPlayer({
     onTogglePanel: () => {
       setSpeedMenuOpen(false)
       setSrMenuOpen(false)
+      setVolumeMenuOpen(false)
       setPanelOpen((v) => !v)
     },
     onToggleSpeedMenu: () => {
       setPanelOpen(false)
       setSrMenuOpen(false)
+      setVolumeMenuOpen(false)
       setSpeedMenuOpen((v) => !v)
     },
     onToggleSrMenu: () => {
       setPanelOpen(false)
       setSpeedMenuOpen(false)
+      setVolumeMenuOpen(false)
       setSrMenuOpen((v) => !v)
+    },
+    onToggleVolumeMenu: () => {
+      setPanelOpen(false)
+      setSpeedMenuOpen(false)
+      setSrMenuOpen(false)
+      setVolumeMenuOpen((v) => !v)
     },
     onPickSpeed: (s) => {
       const v = videoRef.current
@@ -1406,7 +1421,10 @@ export function VideoPlayer({
       }
     },
     onVolume: (vol) => {
-      if (videoRef.current) videoRef.current.volume = vol
+      if (videoRef.current) {
+        videoRef.current.volume = vol
+        videoRef.current.muted = vol <= 0
+      }
       onPlayerChange?.({ volume: vol })
     },
     onTogglePlayerFs: () => {

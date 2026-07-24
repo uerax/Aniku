@@ -1,3 +1,11 @@
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type SyntheticEvent,
+} from 'react'
 import type { SuperResolutionMode } from '@aniku/shared'
 import type { PlayerControlsProps } from './types'
 import {
@@ -8,15 +16,39 @@ import {
   IconPlay,
   IconPrev,
   IconSettings,
+  IconVolume,
+  IconVolumeMute,
   IconWebFs,
   IconWebFsExit,
 } from './icons'
 
+type PopupPos = { left: number; bottom: number }
+
+function placeAboveButton(btn: HTMLElement | null): PopupPos | null {
+  if (!btn) return null
+  const r = btn.getBoundingClientRect()
+  return {
+    left: r.left + r.width / 2,
+    // viewport bottom → button top + gap (keeps menu above control)
+    bottom: Math.max(8, window.innerHeight - r.top + 8),
+  }
+}
+
+function fixedPopupStyle(pos: PopupPos): CSSProperties {
+  return {
+    position: 'fixed',
+    left: pos.left,
+    bottom: pos.bottom,
+    top: 'auto',
+    right: 'auto',
+    transform: 'translateX(-50%)',
+  }
+}
+
 /**
  * Mobile / touch control bar.
- * - No volume rail in markup (hardware volume; CSS also hides .kz-vol-wrap ≤720px)
- * - Layout density still refined by plyr-overrides.css @media queries
- * Interaction (tap/double-tap) lives in useShellPointerHandlers.
+ * Menus (speed / SR / volume) use position:fixed popups so they are not clipped
+ * by .kz-bar-row { overflow-x:auto; overflow-y:hidden } on narrow screens.
  */
 export function MobileControls(props: PlayerControlsProps) {
   const {
@@ -25,6 +57,7 @@ export function MobileControls(props: PlayerControlsProps) {
     panelOpen,
     speedMenuOpen,
     srMenuOpen,
+    volumeMenuOpen,
     current,
     duration,
     progress,
@@ -44,8 +77,10 @@ export function MobileControls(props: PlayerControlsProps) {
     onTogglePanel,
     onToggleSpeedMenu,
     onToggleSrMenu,
+    onToggleVolumeMenu,
     onPickSpeed,
     onPickSr,
+    onVolume,
     onTogglePlayerFs,
     onToggleWebFs,
     formatTime,
@@ -53,12 +88,65 @@ export function MobileControls(props: PlayerControlsProps) {
     srLabels,
   } = props
 
-  const pinBar = showBar || paused || panelOpen || srMenuOpen || speedMenuOpen
+  const pinBar =
+    showBar ||
+    paused ||
+    panelOpen ||
+    srMenuOpen ||
+    speedMenuOpen ||
+    volumeMenuOpen
+
+  const vol = player.volume ?? 0.7
+  const volPct = Math.round(Math.min(1, Math.max(0, vol)) * 100)
+
+  const speedBtnRef = useRef<HTMLButtonElement>(null)
+  const srBtnRef = useRef<HTMLButtonElement>(null)
+  const volBtnRef = useRef<HTMLButtonElement>(null)
+
+  const [speedPos, setSpeedPos] = useState<PopupPos | null>(null)
+  const [srPos, setSrPos] = useState<PopupPos | null>(null)
+  const [volPos, setVolPos] = useState<PopupPos | null>(null)
+
+  const reposition = () => {
+    if (speedMenuOpen) setSpeedPos(placeAboveButton(speedBtnRef.current))
+    if (srMenuOpen) setSrPos(placeAboveButton(srBtnRef.current))
+    if (volumeMenuOpen) setVolPos(placeAboveButton(volBtnRef.current))
+  }
+
+  useLayoutEffect(() => {
+    if (!speedMenuOpen) setSpeedPos(null)
+    else setSpeedPos(placeAboveButton(speedBtnRef.current))
+  }, [speedMenuOpen, showBar, pinBar])
+
+  useLayoutEffect(() => {
+    if (!srMenuOpen) setSrPos(null)
+    else setSrPos(placeAboveButton(srBtnRef.current))
+  }, [srMenuOpen, showBar, pinBar])
+
+  useLayoutEffect(() => {
+    if (!volumeMenuOpen) setVolPos(null)
+    else setVolPos(placeAboveButton(volBtnRef.current))
+  }, [volumeMenuOpen, showBar, pinBar])
+
+  useEffect(() => {
+    const anyOpen = speedMenuOpen || srMenuOpen || volumeMenuOpen
+    if (!anyOpen) return
+    const onReposition = () => reposition()
+    window.addEventListener('resize', onReposition)
+    window.addEventListener('scroll', onReposition, true)
+    return () => {
+      window.removeEventListener('resize', onReposition)
+      window.removeEventListener('scroll', onReposition, true)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [speedMenuOpen, srMenuOpen, volumeMenuOpen])
+
+  const stop = (e: SyntheticEvent) => e.stopPropagation()
 
   return (
     <div
       className={`kz-bar ${pinBar ? 'kz-bar--show' : ''}`}
-      onMouseDown={(e) => e.stopPropagation()}
+      onMouseDown={stop}
       data-player-chrome
     >
       <input
@@ -126,31 +214,35 @@ export function MobileControls(props: PlayerControlsProps) {
               <IconSettings />
             </button>
           )}
+
+          {/* Speed — button stays in bar; menu is fixed portal-like sibling */}
           <div className="kz-speed-wrap">
-            <button type="button" className="kz-ctrl" onClick={onToggleSpeedMenu}>
-              {player.speed || 1}x
-            </button>
-            {speedMenuOpen && (
-              <div className="kz-speed-menu">
-                {[...speedOptions].reverse().map((s) => (
-                  <button
-                    key={s}
-                    type="button"
-                    data-active={Math.abs((player.speed || 1) - s) < 0.01}
-                    onClick={() => onPickSpeed(s)}
-                  >
-                    {s}x
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-          <div className="kz-speed-wrap kz-sr-wrap">
             <button
+              ref={speedBtnRef}
               type="button"
               className="kz-ctrl"
-              data-active={srMode !== 'off'}
-              onClick={onToggleSrMenu}
+              data-active={speedMenuOpen}
+              onClick={(e) => {
+                e.stopPropagation()
+                onToggleSpeedMenu()
+              }}
+              aria-expanded={speedMenuOpen}
+            >
+              {player.speed || 1}x
+            </button>
+          </div>
+
+          {/* Super-resolution */}
+          <div className="kz-speed-wrap kz-sr-wrap">
+            <button
+              ref={srBtnRef}
+              type="button"
+              className="kz-ctrl"
+              data-active={srMode !== 'off' || srMenuOpen}
+              onClick={(e) => {
+                e.stopPropagation()
+                onToggleSrMenu()
+              }}
               title={
                 webGpuOk === false
                   ? '当前浏览器不支持 WebGPU 超分'
@@ -158,40 +250,33 @@ export function MobileControls(props: PlayerControlsProps) {
                     ? '超分'
                     : `超分：${srLabels[srMode]}`
               }
+              aria-expanded={srMenuOpen}
             >
               {srMode === 'off'
                 ? '超分'
                 : `${srLabels[srMode]}${srActive ? '' : '…'}`}
             </button>
-            {srMenuOpen && (
-              <div className="kz-speed-menu">
-                {webGpuOk === false && (
-                  <div
-                    className="px-2 py-1.5 text-[11px] leading-snug text-amber-200/90"
-                    style={{ maxWidth: '12rem' }}
-                  >
-                    {typeof window !== 'undefined' && !window.isSecureContext
-                      ? 'WebGPU 需 HTTPS 或 localhost'
-                      : '当前环境无 WebGPU'}
-                  </div>
-                )}
-                {(['off', 'efficiency', 'quality'] as SuperResolutionMode[]).map(
-                  (m) => (
-                    <button
-                      key={m}
-                      type="button"
-                      data-active={srMode === m}
-                      onClick={() => onPickSr(m)}
-                    >
-                      {srLabels[m]}
-                      {m === srMode && srActive && m !== 'off' ? ' ✓' : ''}
-                    </button>
-                  ),
-                )}
-              </div>
-            )}
           </div>
-          {/* Volume omitted on mobile — hardware volume; CSS also hides .kz-vol-wrap */}
+
+          {/* Volume */}
+          <div className="kz-vol-popup-wrap">
+            <button
+              ref={volBtnRef}
+              type="button"
+              className="kz-ctrl kz-ctrl-icon"
+              data-active={volumeMenuOpen || volPct === 0}
+              onClick={(e) => {
+                e.stopPropagation()
+                onToggleVolumeMenu()
+              }}
+              title="音量"
+              aria-label="音量"
+              aria-expanded={volumeMenuOpen}
+            >
+              {volPct === 0 ? <IconVolumeMute /> : <IconVolume />}
+            </button>
+          </div>
+
           <button
             type="button"
             className="kz-ctrl kz-ctrl-icon kz-ctrl-fs"
@@ -220,6 +305,96 @@ export function MobileControls(props: PlayerControlsProps) {
           </button>
         </div>
       </div>
+
+      {/* Fixed menus — outside .kz-bar-row overflow clip */}
+      {speedMenuOpen && speedPos && (
+        <div
+          className="kz-speed-menu kz-mobile-fixed-menu"
+          data-player-chrome
+          style={fixedPopupStyle(speedPos)}
+          onMouseDown={stop}
+          onClick={stop}
+          onPointerDown={stop}
+        >
+          {[...speedOptions].reverse().map((s) => (
+            <button
+              key={s}
+              type="button"
+              data-active={Math.abs((player.speed || 1) - s) < 0.01}
+              onClick={() => onPickSpeed(s)}
+            >
+              {s}x
+            </button>
+          ))}
+        </div>
+      )}
+
+      {srMenuOpen && srPos && (
+        <div
+          className="kz-speed-menu kz-mobile-fixed-menu"
+          data-player-chrome
+          style={fixedPopupStyle(srPos)}
+          onMouseDown={stop}
+          onClick={stop}
+          onPointerDown={stop}
+        >
+          {webGpuOk === false && (
+            <div
+              className="px-2 py-1.5 text-[11px] leading-snug text-amber-200/90"
+              style={{ maxWidth: '12rem' }}
+            >
+              {typeof window !== 'undefined' && !window.isSecureContext
+                ? 'WebGPU 需 HTTPS 或 localhost'
+                : '当前环境无 WebGPU'}
+            </div>
+          )}
+          {(['off', 'efficiency', 'quality'] as SuperResolutionMode[]).map(
+            (m) => (
+              <button
+                key={m}
+                type="button"
+                data-active={srMode === m}
+                onClick={() => onPickSr(m)}
+              >
+                {srLabels[m]}
+                {m === srMode && srActive && m !== 'off' ? ' ✓' : ''}
+              </button>
+            ),
+          )}
+        </div>
+      )}
+
+      {volumeMenuOpen && volPos && (
+        <div
+          className="kz-vol-popup"
+          data-player-chrome
+          style={fixedPopupStyle(volPos)}
+          onMouseDown={stop}
+          onClick={stop}
+          onPointerDown={stop}
+        >
+          <span className="kz-vol-popup-label tabular-nums">{volPct}</span>
+          <div className="kz-vol-popup-track">
+            <div
+              className="kz-vol-popup-fill"
+              style={{ height: `${volPct}%` }}
+              aria-hidden
+            />
+            <input
+              type="range"
+              className="kz-vol-popup-range"
+              min={0}
+              max={100}
+              value={volPct}
+              onChange={(e) => onVolume(Number(e.target.value) / 100)}
+              aria-label="音量"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={volPct}
+            />
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -646,6 +646,15 @@
   background: rgba(9, 9, 11, 0.96);
 }
 
+/* Mobile: fixed menus (position set inline) — not clipped by bar overflow */
+.kz-mobile-fixed-menu {
+  z-index: 80;
+  min-width: 5rem;
+  max-height: min(40dvh, 14rem);
+  pointer-events: auto;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+
 .kz-speed-menu button {
   display: block;
   width: 100%;
@@ -663,6 +672,122 @@
 .kz-speed-menu button[data-active='true'] {
   background: rgba(56, 189, 248, 0.15);
   color: #8ecdf8;
+}
+
+/*
+ * Mobile volume: icon button + vertical popup.
+ * Popup is position:fixed (set inline from button rect) so it is not clipped
+ * by .kz-bar-row { overflow-x:auto; overflow-y:hidden } on narrow screens.
+ * Desktop keeps the horizontal .kz-vol-wrap rail.
+ */
+.kz-vol-popup-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  height: var(--kz-ctrl-h);
+  flex: 0 0 auto;
+}
+
+.kz-vol-popup {
+  z-index: 80;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  width: 2.75rem;
+  padding: 0.55rem 0.4rem 0.65rem;
+  border-radius: 0.75rem;
+  border: 1px solid #3f3f46;
+  background: rgba(9, 9, 11, 0.96);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.kz-vol-popup-label {
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  color: #e4e4e7;
+}
+
+.kz-vol-popup-track {
+  position: relative;
+  width: 1.75rem;
+  height: 7.5rem;
+  border-radius: 999px;
+  background: #3f3f46;
+  overflow: hidden;
+}
+
+.kz-vol-popup-fill {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-radius: 999px;
+  background: #1d9bf0;
+  pointer-events: none;
+}
+
+/* Vertical range: native + rotated fallback for WebKit */
+.kz-vol-popup-range {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 7.5rem;
+  height: 1.75rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+  transform: translate(-50%, -50%) rotate(-90deg);
+  transform-origin: center;
+  z-index: 1;
+}
+
+.kz-vol-popup-range::-webkit-slider-runnable-track {
+  height: 100%;
+  background: transparent;
+  border: 0;
+}
+
+.kz-vol-popup-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  margin-top: calc((1.75rem - 14px) / 2);
+  border: 0;
+  border-radius: 50%;
+  background: #fafafa;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+}
+
+.kz-vol-popup-range::-moz-range-track {
+  height: 100%;
+  background: transparent;
+  border: 0;
+}
+
+.kz-vol-popup-range::-moz-range-progress {
+  height: 100%;
+  background: transparent;
+  border: 0;
+}
+
+.kz-vol-popup-range::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border: 0;
+  border-radius: 50%;
+  background: #fafafa;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4);
+  cursor: pointer;
 }
 
 .kz-danmaku-panel-root {
@@ -811,27 +936,26 @@
   /* Keep super-res on phone bar — space is available in single-row layout */
 
   /*
-   * Danmaku panel on short players:
-   * Pin top + bottom so absolute box has a real height (do NOT set height:auto —
-   * that collapses flex children and the scroll body becomes ~0px).
+   * Danmaku panel on short / phone players.
+   * Do NOT set height:auto — it cancels top+bottom stretch and the settings
+   * scroll body collapses to ~0 (settings tab looks "broken").
+   * Use explicit height from the player shell so flex children can scroll.
    */
   .kz-danmaku-panel-root {
-    z-index: 30;
+    z-index: 40;
   }
 
   .kz-danmaku-panel {
-    left: 0.35rem !important;
-    right: 0.35rem !important;
+    left: 0.3rem !important;
+    right: 0.3rem !important;
     width: auto !important;
     max-width: none !important;
-    top: 0.35rem !important;
-    /* Clear single-row control bar */
-    bottom: 3rem !important;
-    /* Explicit stretch — override any max-height from utility classes */
-    height: auto !important; /* with top+bottom this still fills; max-height alone is not enough */
+    top: 0.3rem !important;
+    bottom: auto !important;
+    /* Leave room for single-row control bar (~3rem) + small gap */
+    height: calc(100% - 3.4rem) !important;
     max-height: none !important;
-    /* Force filled height via inset math (works even if height:auto wins) */
-    min-height: calc(100% - 3.35rem) !important;
+    min-height: 0 !important;
   }
 
   .kz-danmaku-panel-body {
@@ -842,8 +966,18 @@
 
   .kz-danmaku-panel-scroll {
     flex: 1 1 0 !important;
-    min-height: 0 !important;
+    min-height: 8rem !important;
     overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    /* Slightly denser settings on phone only */
+    padding: 0.55rem 0.7rem !important;
+    font-size: 13px;
+  }
+
+  /* Compact settings rows without changing desktop markup */
+  .kz-danmaku-panel-scroll > .space-y-3 > * + * {
+    margin-top: 0.55rem !important;
   }
 
   .kz-danmaku-panel-sources {
@@ -878,7 +1012,14 @@
   }
 
   .kz-danmaku-panel {
-    bottom: 2.75rem !important;
-    min-height: calc(100% - 3.1rem) !important;
+    /* Slightly more height when bar is shorter */
+    height: calc(100% - 3.05rem) !important;
+    top: 0.25rem !important;
+  }
+
+  .kz-danmaku-panel-scroll {
+    min-height: 7rem !important;
+    font-size: 12px;
+    padding: 0.45rem 0.55rem !important;
   }
 }

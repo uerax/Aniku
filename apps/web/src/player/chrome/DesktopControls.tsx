@@ -51,6 +51,7 @@ export function DesktopControls(props: PlayerControlsProps) {
     speedOptions,
     srLabels,
   } = props
+  // volumeMenuOpen / onToggleVolumeMenu are mobile-only (icon + vertical popup)
 
   const pinBar = showBar || paused || panelOpen || srMenuOpen || speedMenuOpen
 

@@ -10,6 +10,8 @@ export interface PlayerControlsProps {
   panelOpen: boolean
   speedMenuOpen: boolean
   srMenuOpen: boolean
+  /** Mobile vertical volume popup */
+  volumeMenuOpen: boolean
   current: number
   duration: number
   progress: number
@@ -29,6 +31,7 @@ export interface PlayerControlsProps {
   onTogglePanel: () => void
   onToggleSpeedMenu: () => void
   onToggleSrMenu: () => void
+  onToggleVolumeMenu: () => void
   onPickSpeed: (speed: number) => void
   onPickSr: (mode: SuperResolutionMode) => void
   onVolume: (vol: number) => void

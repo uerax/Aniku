@@ -82,7 +82,7 @@ export function DanmakuPanel(props: Props) {
       className="kz-danmaku-panel absolute right-2 z-[60] flex w-[min(22rem,calc(100%-1rem))] flex-col overflow-hidden rounded-xl border border-[var(--kz-border)] bg-[var(--kz-bg-elevated)] shadow-2xl backdrop-blur-md"
       style={{
         bottom: bottomOffset,
-        // Desktop: cap height from bottom; mobile CSS overrides with top+bottom stretch
+        // Desktop: cap height from bottom; mobile CSS fully overrides layout
         maxHeight: `min(26rem, calc(100% - ${Math.max(bottomOffset, 8)}px - 0.5rem))`,
       }}
       onMouseDown={(e) => e.stopPropagation()}
