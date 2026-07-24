@@ -229,14 +229,33 @@ function filterComments(
 const BILI_DANMAKU_SHADOW =
   '1px 0 1px #000, 0 1px 1px #000, 0 -1px 1px #000, -1px 0 1px #000'
 
-/** Base size ~B 站默认 25px；用户 fontSize 为倍率。 */
+/**
+ * Base size ~B 站默认 25px at a mid-size player; user fontSize is a multiplier.
+ * Small / phone windowed players scale down so 25px doesn't dominate the frame.
+ */
 const BILI_DANMAKU_BASE_PX = 25
+/** Player width at which base 25px is used (≈ tablet / small desktop player). */
+const DANMAKU_REF_WIDTH = 720
+const DANMAKU_MIN_SCALE = 0.48 // ~12px @ default multiplier
+const DANMAKU_MAX_SCALE = 1.1
+
+function danmakuFontScale(containerWidth: number): number {
+  if (!(containerWidth > 0)) return 1
+  return Math.min(
+    DANMAKU_MAX_SCALE,
+    Math.max(DANMAKU_MIN_SCALE, containerWidth / DANMAKU_REF_WIDTH),
+  )
+}
 
 function toIronComments(
   comments: DanmakuComment[],
   settings: DanmakuSettings,
+  containerWidth = 0,
 ): IronComment[] {
-  const fontSize = `${Math.round(BILI_DANMAKU_BASE_PX * (settings.fontSize || 1))}px`
+  const scale = danmakuFontScale(containerWidth)
+  const fontSize = `${Math.round(
+    BILI_DANMAKU_BASE_PX * scale * (settings.fontSize || 1),
+  )}px`
   return filterComments(comments, settings)
     .map((c) => ({
       time: c.time + (settings.timeOffset || 0),
@@ -338,6 +357,8 @@ export function VideoPlayer({
   const layerRef = useRef<HTMLDivElement>(null)
   const hlsRef = useRef<Hls | null>(null)
   const danmakuCoreRef = useRef<Danmaku | null>(null)
+  /** Last player width used for danmaku font scale (reload only on meaningful change). */
+  const lastDanmakuWidthRef = useRef(0)
   const anime4kStopRef = useRef<Anime4KStop | null>(null)
   const genRef = useRef(0)
   const lastSaveRef = useRef(0)
@@ -425,7 +446,14 @@ export function VideoPlayer({
     const layer = layerRef.current
     if (!video || !layer) return
     const dm = danmakuRef.current
-    const iron = toIronComments(commentsRef.current, dm)
+    // Prefer shell width (player frame); fall back to layer / video box.
+    const w =
+      shellRef.current?.clientWidth ||
+      layer.clientWidth ||
+      video.clientWidth ||
+      0
+    const iron = toIronComments(commentsRef.current, dm, w)
+    lastDanmakuWidthRef.current = w
     try {
       if (!danmakuCoreRef.current) {
         danmakuCoreRef.current = new Danmaku({
@@ -1016,7 +1044,19 @@ export function VideoPlayer({
 
     const ro = new ResizeObserver(() => {
       try {
-        danmakuCoreRef.current?.resize()
+        const w = shellRef.current?.clientWidth || 0
+        // Font scale is width-based; re-apply when scale bucket would change
+        // (≈ 24px width step at ref 720), not every pixel.
+        const prev = lastDanmakuWidthRef.current
+        const scaleChanged =
+          w > 0 &&
+          (prev <= 0 ||
+            Math.abs(danmakuFontScale(w) - danmakuFontScale(prev)) >= 0.02)
+        if (scaleChanged && danmakuCoreRef.current) {
+          applyDanmaku()
+        } else {
+          danmakuCoreRef.current?.resize()
+        }
       } catch {
         /* ignore */
       }
