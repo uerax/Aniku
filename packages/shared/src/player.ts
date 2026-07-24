@@ -44,6 +44,12 @@ export interface PlayerSettings {
    * (ignores per-rule `adBlocker` when true). Kazumi: forceAdBlocker.
    */
   forceAdBlocker: boolean
+  /**
+   * Always play via `/api/media/proxy` instead of direct CDN.
+   * Helps when the browser cannot reach source CDNs (poor network / geo / hotlink).
+   * Search/chapters/resolve already go through the API; this only affects media.
+   */
+  forceMediaProxy: boolean
 }
 
 export const PLAYER_SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2, 2.5, 3, 3.5, 4] as const
@@ -65,4 +71,5 @@ export const defaultPlayerSettings: PlayerSettings = {
   skipEd: { enabled: false, start: 0, duration: 90 },
   superResolution: 'off',
   forceAdBlocker: false,
+  forceMediaProxy: false,
 }

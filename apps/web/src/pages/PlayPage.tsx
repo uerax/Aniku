@@ -117,7 +117,7 @@ export function PlayPage() {
     retry: 1,
   })
 
-  // New episode → retry direct CDN first
+  // New episode → clear session-only proxy fallback (settings forceMediaProxy stays)
   useEffect(() => {
     setForceProxy(false)
   }, [pageUrl, pluginName])
@@ -125,15 +125,16 @@ export function PlayPage() {
   const proxyUrl = resolve.data?.data.proxyUrl
   const playUrl = resolve.data?.data.playUrl
   const forceAdFilter = Boolean(playerSettings.forceAdBlocker)
+  const preferMediaProxy = Boolean(playerSettings.forceMediaProxy)
   const playback = useMemo(
     () =>
       pickPlaybackSrc({
         playUrl,
         proxyUrl,
-        forceProxy,
+        forceProxy: preferMediaProxy || forceProxy,
         forceAdFilter,
       }),
-    [playUrl, proxyUrl, forceProxy, forceAdFilter],
+    [playUrl, proxyUrl, preferMediaProxy, forceProxy, forceAdFilter],
   )
   const mediaSrc = playback.src
 

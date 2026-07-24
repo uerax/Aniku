@@ -117,10 +117,17 @@ export function SubjectPage() {
   const [playerRemount, setPlayerRemount] = useState(0)
   /** After direct CDN fails (CORS/hotlink), force media proxy */
   const [forceProxy, setForceProxy] = useState(false)
+  /** Source being loaded (chapters in-flight) — keeps list highlight responsive on slow nets */
+  const [pendingSource, setPendingSource] = useState<{
+    pluginName: string
+    src: string
+  } | null>(null)
   const searchedForId = useRef<number | null>(null)
   const resumeRef = useRef(0)
   /** cancel in-flight per-plugin re-query when a newer one starts */
   const pluginSearchGen = useRef<Record<string, number>>({})
+  /** drop stale chapters responses when user picks another source */
+  const chaptersGen = useRef(0)
 
   const titleRefs = useMemo(() => {
     if (!item) return [] as string[]
@@ -155,6 +162,9 @@ export function SubjectPage() {
     setEpisode(null)
     setVisibleRoad(0)
     setRoadError('')
+    setPendingSource(null)
+    setRoadLoading(false)
+    chaptersGen.current += 1
     dm.resetPools()
     setRetryPlugin(null)
     setRetryMode(null)
@@ -329,13 +339,27 @@ export function SubjectPage() {
 
   /** Click search hit → only load episode list, do NOT start playback */
   async function pickSource(plugin: PluginMeta, searchItem: SearchItem) {
+    // Same source already loaded — no-op (avoid flicker / double fetch)
+    if (
+      !roadLoading &&
+      selection?.plugin.name === plugin.name &&
+      selection?.source.src === searchItem.src
+    ) {
+      return
+    }
+
+    const gen = ++chaptersGen.current
     setRoadLoading(true)
     setRoadError('')
     setEpisode(null)
     setVisibleRoad(0)
+    // Immediate UI feedback: drop old episodes / highlight so slow nets don't look stuck
+    setSelection(null)
+    setPendingSource({ pluginName: plugin.name, src: searchItem.src })
     dm.resetPools()
     try {
       const res = await pluginApi.chapters(plugin, searchItem.src)
+      if (chaptersGen.current !== gen) return
       const roads = res.data.roads
       writeRoadsForSource(subjectId, plugin.name, searchItem.src, roads)
       if (!roads.length || !roads[0]?.data?.length) {
@@ -343,15 +367,19 @@ export function SubjectPage() {
           res.data.diagnostics?.slice(0, 2).join('；') || '未解析到分集',
         )
         setSelection(null)
+        setPendingSource(null)
         return
       }
       setSelection({ plugin, source: searchItem, roads })
       setVisibleRoad(0)
+      setPendingSource(null)
     } catch (e) {
+      if (chaptersGen.current !== gen) return
       setRoadError(e instanceof Error ? e.message : '获取分集失败')
       setSelection(null)
+      setPendingSource(null)
     } finally {
-      setRoadLoading(false)
+      if (chaptersGen.current === gen) setRoadLoading(false)
     }
   }
 
@@ -411,19 +439,21 @@ export function SubjectPage() {
   const proxyUrl = episode ? resolve.data?.data.proxyUrl : undefined
   const playUrl = episode ? resolve.data?.data.playUrl : undefined
   const forceAdFilter = Boolean(playerSettings.forceAdBlocker)
+  const preferMediaProxy = Boolean(playerSettings.forceMediaProxy)
   const playback = useMemo(
     () =>
       pickPlaybackSrc({
         playUrl,
         proxyUrl,
-        forceProxy,
+        // Settings "媒体代理" or session fallback after direct CDN fail
+        forceProxy: preferMediaProxy || forceProxy,
         forceAdFilter,
       }),
-    [playUrl, proxyUrl, forceProxy, forceAdFilter],
+    [playUrl, proxyUrl, preferMediaProxy, forceProxy, forceAdFilter],
   )
   const mediaSrc = episode ? playback.src : ''
 
-  // New episode → retry direct CDN first
+  // New episode → clear session-only proxy fallback (settings forceMediaProxy stays)
   useEffect(() => {
     setForceProxy(false)
   }, [episode?.pageUrl, selection?.plugin.name])
@@ -821,9 +851,12 @@ export function SubjectPage() {
                   )}
                   <ul className="mt-1 max-h-40 space-y-0.5 overflow-y-auto">
                     {r.items.map((it, idx) => {
-                      const active =
+                      const selected =
                         selection?.plugin.name === r.plugin.name &&
                         selection?.source.src === it.src
+                      const pending =
+                        pendingSource?.pluginName === r.plugin.name &&
+                        pendingSource?.src === it.src
                       const score = bestTitleSimilarity(it.name, titleRefs)
                       return (
                         <li key={`${r.plugin.name}:${it.src}:${idx}`}>
@@ -831,9 +864,11 @@ export function SubjectPage() {
                             type="button"
                             onClick={() => void pickSource(r.plugin, it)}
                             className={`flex w-full items-center gap-1 rounded-md px-2 py-1.5 text-left text-sm ${
-                              active
+                              selected
                                 ? 'bg-sky-950 text-sky-200'
-                                : 'text-zinc-300 hover:bg-zinc-800'
+                                : pending
+                                  ? 'bg-sky-950/50 text-sky-300'
+                                  : 'text-zinc-300 hover:bg-zinc-800'
                             }`}
                           >
                             <span className="min-w-0 flex-1 truncate">
@@ -895,7 +930,13 @@ export function SubjectPage() {
                 )}
               </div>
               {roadLoading && (
-                <div className="text-xs text-zinc-500">加载分集…</div>
+                <div className="text-xs text-zinc-500">
+                  加载分集
+                  {pendingSource?.pluginName
+                    ? `（${pendingSource.pluginName}）`
+                    : ''}
+                  …
+                </div>
               )}
               {roadError && (
                 <div className="text-xs text-red-400">{roadError}</div>
@@ -905,7 +946,8 @@ export function SubjectPage() {
                   先点左侧播放源条目，再点某一集开始播放
                 </div>
               )}
-              {selection && (() => {
+              {/* Hide previous source episodes while chapters load — avoids "stuck on old source" */}
+              {selection && !roadLoading && (() => {
                 const roadIndex = Math.min(
                   visibleRoad,
                   Math.max(0, selection.roads.length - 1),

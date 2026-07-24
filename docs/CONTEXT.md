@@ -145,6 +145,7 @@ Browser (WEB_DEV_PORT，默认 5173)
 - **嵌套 m3u8：** 顶层常是 master（无 DISCONTINUITY）；rewrite 子列表 URI 时必须**继续带上** `adFilter=1`，否则只滤 master（空操作）而 `mixed.m3u8` 广告仍在（MXdm 即此结构）。
 - 开关：规则 JSON `adBlocker`（设置页「广告过滤」）；全局 `player.forceAdBlocker`（强制，忽略规则关）。默认内置仅 **MXdm** 开，Anime1 / otage / xifan 关。
 - 开启时 m3u8 **强制走代理**（直连 CDN 会跳过过滤）。无 DISCONTINUITY 的片源无效；iframe 降级无效。
+- **媒体走服务器代理** `player.forceMediaProxy`（设置页）：默认关，优先浏览器直连 CDN；勾选后一律用 `/api/media/proxy`（弱网/跨网/源站限浏览器时）。搜索/分集/解析本就走 API，此项只影响播放媒体。直连失败时页面仍会临时 `forceProxy` 一次。
 
 ### 校验 API 规则时
 

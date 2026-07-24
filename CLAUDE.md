@@ -145,6 +145,7 @@ Kazumi does **not** fuzzy-match titles inside XPath. Site search is exact `@keyw
 - **Resolve:** `scoreMediaUrl` prefers **m3u8** over signed progressive mp4 (qq photo / `dis_k` often expire → 404). Prefer re-click episode over caching short-lived CDN URLs long-term.
 - **Media proxy:** upstream 403 may retry without some headers; 404/502 surfaces clear message. Private-host block stays in `routes/media.ts`.
 - **HLS ad filter (Kazumi-style):** optional discontinuity-group strip in media proxy (`adFilter=1`). Algorithm in `packages/shared/src/m3u8-ad-filter.ts`. Per-rule `adBlocker` + global `player.forceAdBlocker`. Default built-ins: only **MXdm** on. When on, m3u8 must use proxy (not direct CDN). **Propagate `adFilter=1` when rewriting nested `.m3u8` URIs** (master→media); filtering master alone is a no-op. Not a domain adblock; no-op without `#EXT-X-DISCONTINUITY` multi-groups / on iframe embed.
+- **Force media proxy:** `player.forceMediaProxy` (Settings). Default off → `pickPlaybackSrc` prefers direct CDN; on → always `/api/media/proxy`. Session `forceProxy` still flips on after direct-play failure. Search/chapters/resolve already hit the API; this only affects media bytes.
 
 ### Bangumi
 

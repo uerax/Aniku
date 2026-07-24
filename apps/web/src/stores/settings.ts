@@ -36,6 +36,9 @@ function mergePlayer(partial?: Partial<PlayerSettings>): PlayerSettings {
     forceAdBlocker: Boolean(
       p.forceAdBlocker ?? defaultPlayerSettings.forceAdBlocker,
     ),
+    forceMediaProxy: Boolean(
+      p.forceMediaProxy ?? defaultPlayerSettings.forceMediaProxy,
+    ),
     skipOp: {
       ...defaultPlayerSettings.skipOp,
       ...(p.skipOp && typeof p.skipOp === 'object' ? p.skipOp : {}),

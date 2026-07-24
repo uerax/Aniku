@@ -589,6 +589,17 @@ export function SettingsPage() {
           HLS 广告过滤对齐 Kazumi：按 discontinuity 短段启发式剔除，非域名拦截。
         </p>
         <Toggle
+          label="媒体走服务器代理"
+          checked={Boolean(player.forceMediaProxy)}
+          onChange={(forceMediaProxy) => setPlayer({ forceMediaProxy })}
+        />
+        <p className="text-xs text-zinc-600">
+          默认优先浏览器直连 CDN（省服务器流量）。弱网、跨网或源站对浏览器限流时，勾选后
+          m3u8/mp4 一律经本机 API
+          <code className="mx-0.5 text-zinc-500">/api/media/proxy</code>
+          拉取。搜索/分集/解析本身已走服务器，此项只影响播放媒体。开启会明显增加服务器出站流量。
+        </p>
+        <Toggle
           label="强制广告过滤"
           checked={Boolean(player.forceAdBlocker)}
           onChange={(forceAdBlocker) => setPlayer({ forceAdBlocker })}
@@ -596,7 +607,7 @@ export function SettingsPage() {
         <p className="text-xs text-zinc-600">
           开启后所有规则播放 m3u8 时强制过滤（忽略下方规则的「广告过滤」关闭）。默认仅
           MXdm 规则开启；Anime1 / otage / xifan 默认关。无 DISCONTINUITY
-          的片源无效。
+          的片源无效。过滤本身也需要走媒体代理。
         </p>
         <Toggle
           label="自动播放"

@@ -6,7 +6,7 @@
  * - no playUrl
  * - proxy carries cookie= (auth-gated progressive sources)
  * - proxy carries adFilter= (HLS ad strip only works on proxied playlists)
- * - forceProxy (after a direct-play failure)
+ * - forceProxy (session: after direct-play failure, or settings forceMediaProxy)
  * - forceAdFilter with a proxyUrl available (global forceAdBlocker)
  */
 
