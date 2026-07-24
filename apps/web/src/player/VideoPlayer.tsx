@@ -225,20 +225,33 @@ function filterComments(
   })
 }
 
+/** Bilibili-style stroke (four-direction 1px black edge). */
+const BILI_DANMAKU_SHADOW =
+  '1px 0 1px #000, 0 1px 1px #000, 0 -1px 1px #000, -1px 0 1px #000'
+
+/** Base size ~B 站默认 25px；用户 fontSize 为倍率。 */
+const BILI_DANMAKU_BASE_PX = 25
+
 function toIronComments(
   comments: DanmakuComment[],
   settings: DanmakuSettings,
 ): IronComment[] {
-  const fontSize = `${Math.round(22 * (settings.fontSize || 1))}px`
+  const fontSize = `${Math.round(BILI_DANMAKU_BASE_PX * (settings.fontSize || 1))}px`
   return filterComments(comments, settings)
     .map((c) => ({
       time: c.time + (settings.timeOffset || 0),
       mode: c.mode || 'rtl',
       text: c.text,
+      // Font family / weight also set in CSS (.kz-danmaku-layer .danmaku);
+      // inline keeps per-comment color/size and stroke reliable under assign.
       style: {
         color: c.style?.color || '#ffffff',
         fontSize,
-        textShadow: '1px 1px 2px rgba(0,0,0,.85)',
+        fontFamily:
+          "SimHei, 'Microsoft YaHei', 'Microsoft JhengHei', Arial, Helvetica, sans-serif",
+        fontWeight: '700',
+        lineHeight: '1.3',
+        textShadow: BILI_DANMAKU_SHADOW,
         opacity: String(settings.opacity ?? 0.85),
       } as Partial<CSSStyleDeclaration>,
     }))

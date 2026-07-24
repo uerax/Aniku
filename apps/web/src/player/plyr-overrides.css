@@ -110,8 +110,22 @@
   will-change: auto !important;
 }
 
+/* B 站风格弹幕：黑体加粗 + 四向描边（与 ironkinoko 节点 class=danmaku 对齐） */
 .kz-danmaku-layer .danmaku {
   pointer-events: none !important;
+  font-family: SimHei, 'Microsoft YaHei', 'Microsoft JhengHei', Arial, Helvetica,
+    sans-serif;
+  font-weight: 700;
+  line-height: 1.3;
+  text-shadow:
+    1px 0 1px #000,
+    0 1px 1px #000,
+    0 -1px 1px #000,
+    -1px 0 1px #000;
+  /* Avoid soft anti-alias blur that makes thin edges look gray */
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  white-space: nowrap;
 }
 
 .kz-status-layer {
