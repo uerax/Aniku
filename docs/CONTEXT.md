@@ -113,7 +113,7 @@ Browser (WEB_DEV_PORT，默认 5173)
 
 ## 6. 规则引擎（关键路径）
 
-1. **默认 / 导入 / 商店** — `DEFAULT_PLUGIN_RULES`（`Anime1`、`otage`、`xifan`、`MXdm`）；设置页导入或 `GET /api/plugin/catalog`  
+1. **默认 / 导入 / 商店** — `DEFAULT_PLUGIN_RULES`（`Anime1`、`otage`、`xifan`、`MXdm`）；设置页导入或 `GET /api/plugin/catalog`。规则旁「测试」= 内置关键词自动 **search→chapters→resolve** 冒烟（`apps/web/src/lib/plugin-smoke.ts`），无需用户输入  
 2. **搜索** — `POST /api/plugin/search` → `searchWithRule`  
    - XPath：cheerio → xml → xmldom + xpath，失败有 cheerio 卡片回退  
    - API：`searchMode: 'api'` + `searchApiConfig`（如 **sorani**、**TvTFun**）→ `rule-engine/api.ts`  

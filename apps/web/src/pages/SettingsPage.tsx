@@ -4,6 +4,10 @@ import type { PluginCatalogItem, PluginMeta } from '@aniku/shared'
 import { catalogItemStatus } from '@aniku/shared'
 import { bangumiApi } from '../lib/bangumi'
 import { pluginApi } from '../lib/plugin-api'
+import {
+  runPluginSmoke,
+  type SmokeReport,
+} from '../lib/plugin-smoke'
 import { useSettingsStore } from '../stores/settings'
 import { usePluginStore } from '../stores/plugins'
 import { PageHeader } from '../components/ui'
@@ -34,8 +38,11 @@ export function SettingsPage() {
   const [tokenInput, setTokenInput] = useState(bangumiToken)
   const [tokenMsg, setTokenMsg] = useState('')
   const [pluginMsg, setPluginMsg] = useState('')
-  const [testKeyword, setTestKeyword] = useState('')
-  const [testResult, setTestResult] = useState('')
+  /** Per-plugin automatic smoke (search→chapters→resolve); no user keyword */
+  const [smokeById, setSmokeById] = useState<
+    Record<string, SmokeReport | { running: true }>
+  >({})
+  const smokeAbortRef = useRef<AbortController | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
   const [useMirror, setUseMirror] = useState(false)
@@ -179,25 +186,27 @@ export function SettingsPage() {
   }
 
   async function testPlugin(plugin: PluginMeta) {
-    if (!testKeyword.trim()) {
-      setTestResult('请先填写测试关键词')
-      return
-    }
-    setTestResult(`正在用 ${plugin.name} 搜索…`)
+    smokeAbortRef.current?.abort()
+    const ac = new AbortController()
+    smokeAbortRef.current = ac
+    setSmokeById((prev) => ({ ...prev, [plugin.id]: { running: true } }))
     try {
-      const res = await pluginApi.search(plugin, testKeyword.trim())
-      setTestResult(
-        `${plugin.name}: ${res.data.items.length} 条\n` +
-          res.data.items
-            .slice(0, 8)
-            .map((i) => `- ${i.name}`)
-            .join('\n') +
-          (res.data.diagnostics?.length
-            ? `\n诊断: ${res.data.diagnostics.join('; ')}`
-            : ''),
-      )
+      const report = await runPluginSmoke(plugin, { signal: ac.signal })
+      if (ac.signal.aborted) return
+      setSmokeById((prev) => ({ ...prev, [plugin.id]: report }))
     } catch (e) {
-      setTestResult(`${plugin.name} 失败: ${e instanceof Error ? e.message : e}`)
+      if (ac.signal.aborted) return
+      setSmokeById((prev) => ({
+        ...prev,
+        [plugin.id]: {
+          pluginName: plugin.name,
+          ok: false,
+          steps: [],
+          summary: '测试失败',
+          detail: e instanceof Error ? e.message : String(e),
+          finishedAt: Date.now(),
+        },
+      }))
     }
   }
 
@@ -321,80 +330,107 @@ export function SettingsPage() {
           >
             恢复默认
           </button>
-          <input
-            value={testKeyword}
-            onChange={(e) => setTestKeyword(e.target.value)}
-            placeholder="测试搜索关键词"
-            className="rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"
-          />
         </div>
+        <p className="text-xs text-zinc-500">
+          「测试」使用内置关键词自动跑 搜索 → 分集 → 解析，无需填写。
+        </p>
         {pluginMsg && <div className="text-sm text-emerald-400">{pluginMsg}</div>}
         {!plugins.length && (
           <div className="text-sm text-zinc-500">暂无插件，可恢复默认或从仓库安装</div>
         )}
         <ul className="space-y-2">
-          {plugins.map((p) => (
-            <li
-              key={p.id}
-              className="flex flex-wrap items-center gap-2 rounded-xl border border-zinc-800 px-3 py-2"
-            >
-              <div className="min-w-0 flex-1">
-                <div className="font-medium">
-                  {p.name}{' '}
-                  <span className="text-xs text-zinc-500">v{p.version || '?'}</span>
-                  {p.source && (
-                    <span className="ml-2 text-xs text-zinc-600">
-                      {p.source === 'builtin'
-                        ? '内置'
-                        : p.source === 'catalog'
-                          ? '仓库'
-                          : '导入'}
-                    </span>
-                  )}
+          {plugins.map((p) => {
+            const smoke = smokeById[p.id]
+            const running = smoke && 'running' in smoke && smoke.running
+            const report =
+              smoke && !('running' in smoke) ? (smoke as SmokeReport) : null
+            return (
+              <li
+                key={p.id}
+                className="space-y-2 rounded-xl border border-zinc-800 px-3 py-2"
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="font-medium">
+                      {p.name}{' '}
+                      <span className="text-xs text-zinc-500">
+                        v{p.version || '?'}
+                      </span>
+                      {p.source && (
+                        <span className="ml-2 text-xs text-zinc-600">
+                          {p.source === 'builtin'
+                            ? '内置'
+                            : p.source === 'catalog'
+                              ? '仓库'
+                              : '导入'}
+                        </span>
+                      )}
+                    </div>
+                    <div className="truncate text-xs text-zinc-500">
+                      {p.baseURL}
+                    </div>
+                  </div>
+                  <label className="flex items-center gap-1 text-xs text-zinc-400">
+                    <input
+                      type="checkbox"
+                      checked={p.enabled}
+                      onChange={() => togglePlugin(p.id)}
+                    />
+                    启用
+                  </label>
+                  <label
+                    className="flex items-center gap-1 text-xs text-zinc-400"
+                    title="HLS 分片广告过滤（#EXT-X-DISCONTINUITY 短段）。需走媒体代理。"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={Boolean(p.adBlocker)}
+                      onChange={(e) =>
+                        setPluginAdBlocker(p.id, e.target.checked)
+                      }
+                    />
+                    广告过滤
+                  </label>
+                  <button
+                    type="button"
+                    disabled={Boolean(running)}
+                    onClick={() => void testPlugin(p)}
+                    className="rounded-lg bg-zinc-800 px-2 py-1 text-xs hover:bg-zinc-700 disabled:opacity-50"
+                    title="自动搜索→分集→解析（内置关键词）"
+                  >
+                    {running ? '测试中…' : '测试'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => removePlugin(p.id)}
+                    className="rounded-lg px-2 py-1 text-xs text-red-400 hover:bg-zinc-800"
+                  >
+                    删除
+                  </button>
                 </div>
-                <div className="truncate text-xs text-zinc-500">{p.baseURL}</div>
-              </div>
-              <label className="flex items-center gap-1 text-xs text-zinc-400">
-                <input
-                  type="checkbox"
-                  checked={p.enabled}
-                  onChange={() => togglePlugin(p.id)}
-                />
-                启用
-              </label>
-              <label
-                className="flex items-center gap-1 text-xs text-zinc-400"
-                title="HLS 分片广告过滤（#EXT-X-DISCONTINUITY 短段）。需走媒体代理。"
-              >
-                <input
-                  type="checkbox"
-                  checked={Boolean(p.adBlocker)}
-                  onChange={(e) => setPluginAdBlocker(p.id, e.target.checked)}
-                />
-                广告过滤
-              </label>
-              <button
-                type="button"
-                onClick={() => testPlugin(p)}
-                className="rounded-lg bg-zinc-800 px-2 py-1 text-xs hover:bg-zinc-700"
-              >
-                测试
-              </button>
-              <button
-                type="button"
-                onClick={() => removePlugin(p.id)}
-                className="rounded-lg px-2 py-1 text-xs text-red-400 hover:bg-zinc-800"
-              >
-                删除
-              </button>
-            </li>
-          ))}
+                {running && (
+                  <div className="text-xs text-zinc-500">
+                    后台自动测试中（搜索 → 分集 → 解析）…
+                  </div>
+                )}
+                {report && (
+                  <div
+                    className={`rounded-lg px-2.5 py-2 text-xs ${
+                      report.ok
+                        ? 'bg-emerald-950/40 text-emerald-300/90'
+                        : 'bg-amber-950/30 text-amber-200/90'
+                    }`}
+                  >
+                    <div className="font-medium">{report.summary}</div>
+                    <pre className="mt-1 overflow-x-auto whitespace-pre-wrap font-sans text-[11px] leading-relaxed opacity-90">
+                      {report.detail}
+                    </pre>
+                  </div>
+                )}
+              </li>
+            )
+          })}
         </ul>
-        {testResult && (
-          <pre className="overflow-x-auto whitespace-pre-wrap rounded-xl bg-zinc-950 p-3 text-xs text-zinc-300">
-            {testResult}
-          </pre>
-        )}
       </section>
 
       <section className="space-y-3 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5">
