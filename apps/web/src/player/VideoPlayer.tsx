@@ -556,10 +556,9 @@ export function VideoPlayer({
   }
 
   /**
-   * Mainstream mobile UX:
-   * - single tap empty stage → show/hide control bar (not play/pause)
-   * - double tap → play/pause
-   * Fullscreen stays on the FS button / F key (not double-click).
+   * Click / double-click on empty stage:
+   * - Desktop (fine pointer): single-click play/pause; double-click fullscreen
+   * - Touch: single-tap show/hide bar; double-tap play/pause
    */
   function isPlayerChromeTarget(target: EventTarget | null): boolean {
     const el = target as HTMLElement | null
@@ -573,11 +572,30 @@ export function VideoPlayer({
 
   function onShellClick(e: ReactMouseEvent) {
     if (isPlayerChromeTarget(e.target)) return
-    // Wait to see if a dblclick follows — otherwise single-tap would always race pause.
+
+    // Desktop: immediate play/pause (classic video players)
+    if (isFinePointerHover()) {
+      window.clearTimeout(shellClickTimerRef.current)
+      shellClickTimerRef.current = 0
+      if (speedMenuOpen || srMenuOpen) {
+        setSpeedMenuOpen(false)
+        setSrMenuOpen(false)
+        bumpBar()
+        return
+      }
+      if (panelOpen) {
+        setPanelOpen(false)
+        bumpBar()
+        return
+      }
+      togglePlay()
+      return
+    }
+
+    // Touch: wait for possible double-tap before toggling chrome
     window.clearTimeout(shellClickTimerRef.current)
     shellClickTimerRef.current = window.setTimeout(() => {
       shellClickTimerRef.current = 0
-      // Close floating menus first, then toggle bar visibility.
       if (speedMenuOpen || srMenuOpen) {
         setSpeedMenuOpen(false)
         setSrMenuOpen(false)
@@ -599,6 +617,12 @@ export function VideoPlayer({
     e.preventDefault()
     window.clearTimeout(shellClickTimerRef.current)
     shellClickTimerRef.current = 0
+    if (isFinePointerHover()) {
+      // Desktop: double-click → fullscreen (same as F / FS button)
+      toggleFs()
+      return
+    }
+    // Touch: double-tap → play/pause
     togglePlay()
   }
 
@@ -2139,7 +2163,8 @@ export function VideoPlayer({
             }
             sources={danmakuPanel.sources}
             onToggleSource={danmakuPanel.onToggleSource}
-            bottomOffset={72}
+            /* Desktop: clear the control bar. Mobile CSS pins panel as a sheet. */
+            bottomOffset={56}
           />
         </div>
       )}

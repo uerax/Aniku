@@ -79,13 +79,18 @@ export function DanmakuPanel(props: Props) {
 
   return (
     <div
-      className="absolute right-2 z-[60] flex w-[min(22rem,calc(100%-1rem))] flex-col overflow-hidden rounded-xl border border-[var(--kz-border)] bg-[var(--kz-bg-elevated)] shadow-2xl backdrop-blur-md"
-      style={{ bottom: bottomOffset }}
+      className="kz-danmaku-panel absolute right-2 z-[60] flex w-[min(22rem,calc(100%-1rem))] flex-col overflow-hidden rounded-xl border border-[var(--kz-border)] bg-[var(--kz-bg-elevated)] shadow-2xl backdrop-blur-md"
+      style={{
+        bottom: bottomOffset,
+        // Desktop: cap height from bottom; mobile CSS overrides with top+bottom stretch
+        maxHeight: `min(26rem, calc(100% - ${Math.max(bottomOffset, 8)}px - 0.5rem))`,
+      }}
       onMouseDown={(e) => e.stopPropagation()}
       onClick={(e) => e.stopPropagation()}
       onPointerDown={(e) => e.stopPropagation()}
       role="dialog"
       aria-label="弹幕面板"
+      data-player-chrome
     >
       <div className="flex shrink-0 items-center justify-between border-b border-[var(--kz-border)] px-3 py-2">
         <div className="flex gap-1">
@@ -117,9 +122,12 @@ export function DanmakuPanel(props: Props) {
         </button>
       </div>
 
-      {/* Fixed body height so 搜索/设置/导入 switch without layout jump */}
-      <div className="flex h-[min(20rem,46vh)] min-h-[16rem] flex-col">
-        <div className="shrink-0 border-b border-[var(--kz-border)] px-3 py-2 text-xs text-[var(--kz-fg-muted)]">
+      {/*
+        Body owns scrollable tab content. Keep status + scroll inside one flex
+        column so the footer never collapses into the form (mobile height bug).
+      */}
+      <div className="kz-danmaku-panel-body flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div className="shrink-0 border-b border-[var(--kz-border)] px-3 py-2 text-xs leading-snug text-[var(--kz-fg-muted)]">
           {status || '—'}
           {commentsCount > 0 ? (
             <span className="ml-2 text-[var(--kz-accent)]">
@@ -128,7 +136,7 @@ export function DanmakuPanel(props: Props) {
             </span>
           ) : null}
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 text-sm">
+        <div className="kz-danmaku-panel-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 text-sm">
           {tab === 'search' && <SearchTab {...props} />}
           {tab === 'settings' && (
             <SettingsTab danmaku={danmaku} onDanmakuChange={onDanmakuChange} />
@@ -138,7 +146,7 @@ export function DanmakuPanel(props: Props) {
       </div>
 
       {sources && sources.some((s) => s.loaded) && onToggleSource ? (
-        <div className="shrink-0 border-t border-[var(--kz-border)] px-3 py-2">
+        <div className="kz-danmaku-panel-sources shrink-0 border-t border-[var(--kz-border)] px-3 py-2">
           <div className="mb-1.5 text-[11px] text-[var(--kz-fg-muted)]">
             弹幕源 · 亮色显示 / 灰色关闭
           </div>
@@ -157,8 +165,8 @@ export function DanmakuPanel(props: Props) {
                   }
                   className={
                     s.enabled
-                      ? 'rounded-full bg-[var(--kz-accent)]hover:bg-[var(--kz-accent-hover)]'
-                      : 'rounded-full bg-[var(--kz-bg-soft)] px-2.5 py-1 text-[11px] font-medium text-[var(--kz-fg-muted)] ring-1 ring-[var(--kz-border)] hover:bg-[var(--kz-bg-soft)] hover:text-[var(--kz-fg)]'
+                      ? 'rounded-full bg-[var(--kz-accent)] px-2.5 py-1 text-[11px] font-medium text-white hover:bg-[var(--kz-accent-hover)]'
+                      : 'rounded-full bg-[var(--kz-bg-soft)] px-2.5 py-1 text-[11px] font-medium text-[var(--kz-fg-muted)] ring-1 ring-[var(--kz-border)] hover:text-[var(--kz-fg)]'
                   }
                 >
                   {s.label}
@@ -191,7 +199,7 @@ function SearchTab(props: Props) {
             type="button"
             disabled={props.searchBusy}
             onClick={props.onSearch}
-            className="shrink-0 rounded-lg bg-[var(--kz-accent)]hover:bg-[var(--kz-accent-hover)] disabled:opacity-50"
+            className="shrink-0 rounded-lg bg-[var(--kz-accent)] px-3 py-1.5 text-sm font-medium text-white hover:bg-[var(--kz-accent-hover)] disabled:opacity-50"
           >
             {props.searchBusy ? '…' : '搜索'}
           </button>
@@ -365,7 +373,7 @@ function ImportTab(props: Props) {
             type="button"
             disabled={props.bilibiliBusy}
             onClick={props.onLoadBilibili}
-            className="rounded-lg bg-[var(--kz-accent)]hover:bg-[var(--kz-accent-hover)] disabled:opacity-50"
+            className="rounded-lg bg-[var(--kz-accent)] px-3 py-1.5 text-sm font-medium text-white hover:bg-[var(--kz-accent-hover)] disabled:opacity-50"
           >
             {props.bilibiliBusy ? '拉取中…' : '追加 B 站弹幕'}
           </button>

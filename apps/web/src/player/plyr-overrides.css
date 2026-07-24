@@ -655,43 +655,41 @@
 }
 
 /*
- * Narrow / mobile control bar:
- * - row1: play / prev / next / time
- * - row2: tools + fullscreen icons (never clip)
- * - hide volume rail (use hardware volume)
+ * Narrow / mobile control bar — keep ONE row, compress by width:
+ * - hide volume rail (hardware volume)
+ * - allow the whole row to scroll horizontally if still tight
+ * - drop low-priority controls at smaller breakpoints
  */
 @media (max-width: 720px) {
   .kz-bar {
-    padding: 0.25rem 0.4rem 0.4rem;
+    padding: 0.2rem 0.35rem 0.35rem;
   }
 
   .kz-bar-row {
-    flex-wrap: wrap;
-    height: auto;
+    flex-wrap: nowrap;
+    height: var(--kz-ctrl-h);
     min-height: var(--kz-ctrl-h);
-    max-height: none;
-    row-gap: 2px;
-    align-items: stretch;
-  }
-
-  .kz-bar-left {
-    flex: 1 1 auto;
-    min-width: 0;
-  }
-
-  .kz-bar-right {
-    flex: 1 1 100%;
-    width: 100%;
-    margin-left: 0;
-    justify-content: flex-start;
+    max-height: var(--kz-ctrl-h);
     overflow-x: auto;
     overflow-y: hidden;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
+    gap: 0;
   }
 
-  .kz-bar-right::-webkit-scrollbar {
+  .kz-bar-row::-webkit-scrollbar {
     display: none;
+  }
+
+  .kz-bar-left,
+  .kz-bar-right {
+    flex: 0 0 auto;
+    overflow: visible;
+  }
+
+  .kz-bar-right {
+    margin-left: auto;
+    justify-content: flex-end;
   }
 
   .kz-vol-wrap {
@@ -705,7 +703,7 @@
   }
 
   .kz-ctrl {
-    padding: 0 6px;
+    padding: 0 5px;
     font-size: 11px;
   }
 
@@ -713,7 +711,7 @@
     padding: 0;
   }
 
-  /* Icon-only fullscreen on narrow screens — always visible, no clipped text */
+  /* Icon-only fullscreen on narrow screens — no clipped text */
   .kz-ctrl-fs,
   .kz-ctrl-web-fs {
     width: var(--kz-ctrl-h);
@@ -724,6 +722,48 @@
   .kz-ctrl-fs .kz-ctrl-label,
   .kz-ctrl-web-fs .kz-ctrl-label {
     display: none;
+  }
+
+  /* Keep super-res on phone bar — space is available in single-row layout */
+
+  /*
+   * Danmaku panel on short players:
+   * Pin top + bottom so absolute box has a real height (do NOT set height:auto —
+   * that collapses flex children and the scroll body becomes ~0px).
+   */
+  .kz-danmaku-panel-root {
+    z-index: 30;
+  }
+
+  .kz-danmaku-panel {
+    left: 0.35rem !important;
+    right: 0.35rem !important;
+    width: auto !important;
+    max-width: none !important;
+    top: 0.35rem !important;
+    /* Clear single-row control bar */
+    bottom: 3rem !important;
+    /* Explicit stretch — override any max-height from utility classes */
+    height: auto !important; /* with top+bottom this still fills; max-height alone is not enough */
+    max-height: none !important;
+    /* Force filled height via inset math (works even if height:auto wins) */
+    min-height: calc(100% - 3.35rem) !important;
+  }
+
+  .kz-danmaku-panel-body {
+    flex: 1 1 0 !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .kz-danmaku-panel-scroll {
+    flex: 1 1 0 !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+  }
+
+  .kz-danmaku-panel-sources {
+    flex-shrink: 0;
   }
 }
 
@@ -748,8 +788,13 @@
     font-size: 10px;
   }
 
-  /* Hide super-res on very small phones (still in settings page) */
-  .kz-sr-wrap {
+  /* Webpage FS is redundant next to FS on tiny bars */
+  .kz-ctrl-web-fs {
     display: none;
+  }
+
+  .kz-danmaku-panel {
+    bottom: 2.75rem !important;
+    min-height: calc(100% - 3.1rem) !important;
   }
 }
