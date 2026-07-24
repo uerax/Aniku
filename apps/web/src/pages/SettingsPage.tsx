@@ -224,7 +224,7 @@ export function SettingsPage() {
       <PageHeader title="设置" description="Token、规则插件与弹幕偏好" />
 
       <section className="space-y-3 rounded-2xl border border-[var(--kz-border)] bg-[var(--kz-bg-elevated)] p-5">
-        <h2 className="text-lg font-medium">服务状态</h2>
+        <h2 className="text-lg font-bold tracking-tight text-[var(--kz-fg)]">服务状态</h2>
         <div className="text-sm text-[var(--kz-fg-muted)]">
           API：{health.data?.ok ? '正常' : health.isLoading ? '检测中…' : '不可用（请启动 server）'}
           <br />
@@ -239,7 +239,7 @@ export function SettingsPage() {
       </section>
 
       <section className="space-y-3 rounded-2xl border border-[var(--kz-border)] bg-[var(--kz-bg-elevated)] p-5">
-        <h2 className="text-lg font-medium">Bangumi Access Token</h2>
+        <h2 className="text-lg font-bold tracking-tight text-[var(--kz-fg)]">Bangumi Access Token</h2>
         <p className="text-sm text-[var(--kz-fg-muted)]">
           用于同步追番收藏。在{' '}
           <a
@@ -263,7 +263,7 @@ export function SettingsPage() {
           <button
             type="button"
             onClick={saveToken}
-            className="rounded-xl bg-[var(--kz-accent)]hover:bg-[var(--kz-accent-hover)]"
+            className="rounded-xl bg-[var(--kz-accent)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--kz-accent-hover)]"
           >
             保存
           </button>
@@ -282,7 +282,7 @@ export function SettingsPage() {
       </section>
 
       <section className="space-y-3 rounded-2xl border border-[var(--kz-border)] bg-[var(--kz-bg-elevated)] p-5">
-        <h2 className="text-lg font-medium">已安装规则</h2>
+        <h2 className="text-lg font-bold tracking-tight text-[var(--kz-fg)]">已安装规则</h2>
         <p className="text-sm text-[var(--kz-fg-muted)]">
           默认内置可用规则（Anime1 / otage / xifan / MXdm）。可本地导入 JSON，或从下方规则仓库安装。仓库：{' '}
           <a
@@ -395,7 +395,7 @@ export function SettingsPage() {
                     type="button"
                     disabled={Boolean(running)}
                     onClick={() => void testPlugin(p)}
-                    className="rounded-lg bg-[var(--kz-bg-soft)] px-2 py-1 text-xs hover:bg-[var(--kz-bg-soft)] disabled:opacity-50"
+                    className="rounded-lg border border-[var(--kz-border)] bg-[var(--kz-bg)] px-2 py-1 text-xs text-[var(--kz-fg)] hover:bg-[var(--kz-bg-hover)] disabled:opacity-50"
                     title="自动搜索→分集→解析（内置关键词）"
                   >
                     {running ? '测试中…' : '测试'}
@@ -435,7 +435,7 @@ export function SettingsPage() {
 
       <section className="space-y-3 rounded-2xl border border-[var(--kz-border)] bg-[var(--kz-bg-elevated)] p-5">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-lg font-medium">规则仓库</h2>
+          <h2 className="text-lg font-bold tracking-tight text-[var(--kz-fg)]">规则仓库</h2>
           <div className="flex flex-wrap items-center gap-2 text-sm">
             <label className="flex items-center gap-1.5 text-[var(--kz-fg-muted)]">
               <input
@@ -449,7 +449,7 @@ export function SettingsPage() {
               type="button"
               onClick={() => void catalog.refetch()}
               disabled={catalog.isFetching}
-              className="rounded-lg bg-[var(--kz-bg-soft)] px-3 py-1.5 text-xs hover:bg-[var(--kz-bg-soft)] disabled:opacity-50"
+              className="rounded-lg border border-[var(--kz-border)] bg-[var(--kz-bg)] px-3 py-1.5 text-xs text-[var(--kz-fg)] hover:bg-[var(--kz-bg-hover)] disabled:opacity-50"
             >
               {catalog.isFetching ? '刷新中…' : '刷新目录'}
             </button>
@@ -457,7 +457,7 @@ export function SettingsPage() {
               type="button"
               onClick={() => void updateAllFromCatalog()}
               disabled={batchBusy || catalog.isLoading || !catalog.data}
-              className="rounded-lg bg-[var(--kz-accent)]hover:bg-[var(--kz-accent-hover)] disabled:opacity-50"
+              className="rounded-lg bg-[var(--kz-accent)] px-3 py-1.5 text-xs font-medium text-white hover:bg-[var(--kz-accent-hover)] disabled:opacity-50"
             >
               {batchBusy ? '更新中…' : '更新全部'}
             </button>
@@ -497,14 +497,14 @@ export function SettingsPage() {
             <div className="mt-2 flex gap-2">
               <button
                 type="button"
-                className="rounded-lg bg-[var(--kz-bg-soft)] px-2 py-1 text-xs"
+                className="rounded-lg border border-[var(--kz-border)] bg-[var(--kz-bg)] px-2 py-1 text-xs text-[var(--kz-fg)] hover:bg-[var(--kz-bg-hover)]"
                 onClick={() => setUseMirror((v) => !v)}
               >
                 {useMirror ? '改用主源' : '启用镜像'}
               </button>
               <button
                 type="button"
-                className="rounded-lg bg-[var(--kz-bg-soft)] px-2 py-1 text-xs"
+                className="rounded-lg border border-[var(--kz-border)] bg-[var(--kz-bg)] px-2 py-1 text-xs text-[var(--kz-fg)] hover:bg-[var(--kz-bg-hover)]"
                 onClick={() => void catalog.refetch()}
               >
                 重试
@@ -542,7 +542,7 @@ export function SettingsPage() {
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2 font-medium">
                     <span>{item.name}</span>
-                    <span className="rounded bg-[var(--kz-bg-soft)] px-1.5 py-0.5 text-xs text-[var(--kz-fg)]">
+                    <span className="rounded border border-[var(--kz-border)] bg-[var(--kz-bg)] px-1.5 py-0.5 text-xs text-[var(--kz-fg-muted)]">
                       v{item.version}
                     </span>
                     {item.antiCrawlerEnabled && (
@@ -562,7 +562,7 @@ export function SettingsPage() {
                   type="button"
                   disabled={status === 'installed' || busy}
                   onClick={() => void installFromCatalog(item)}
-                  className="rounded-lg bg-[var(--kz-fg)] px-3 py-1.5 text-xs font-medium text-[var(--kz-bg)] hover:opacity-90 disabled:cursor-default disabled:bg-[var(--kz-bg-soft)] disabled:text-[var(--kz-fg-muted)]"
+                  className="rounded-lg bg-[var(--kz-fg)] px-3 py-1.5 text-xs font-medium text-[var(--kz-bg)] hover:opacity-90 disabled:cursor-default disabled:border disabled:border-[var(--kz-border)] disabled:bg-[var(--kz-bg)] disabled:text-[var(--kz-fg-muted)]"
                 >
                   {busy ? '…' : label}
                 </button>
@@ -574,11 +574,11 @@ export function SettingsPage() {
 
       <section className="space-y-4 rounded-2xl border border-[var(--kz-border)] bg-[var(--kz-bg-elevated)] p-5">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-medium">播放器</h2>
+          <h2 className="text-lg font-bold tracking-tight text-[var(--kz-fg)]">播放器</h2>
           <button
             type="button"
             onClick={resetPlayer}
-            className="text-sm text-[var(--kz-fg-muted)] hover:text-white"
+            className="rounded-lg border border-[var(--kz-border)] bg-[var(--kz-bg)] px-3 py-1.5 text-xs text-[var(--kz-fg)] hover:bg-[var(--kz-bg-hover)]"
           >
             恢复默认
           </button>
@@ -770,11 +770,11 @@ export function SettingsPage() {
 
       <section className="space-y-4 rounded-2xl border border-[var(--kz-border)] bg-[var(--kz-bg-elevated)] p-5">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-medium">弹幕默认设置</h2>
+          <h2 className="text-lg font-bold tracking-tight text-[var(--kz-fg)]">弹幕默认设置</h2>
           <button
             type="button"
             onClick={resetDanmaku}
-            className="text-sm text-[var(--kz-fg-muted)] hover:text-white"
+            className="rounded-lg border border-[var(--kz-border)] bg-[var(--kz-bg)] px-3 py-1.5 text-xs text-[var(--kz-fg)] hover:bg-[var(--kz-bg-hover)]"
           >
             恢复默认
           </button>
@@ -856,7 +856,7 @@ export function SettingsPage() {
       </section>
 
       <section className="space-y-2 rounded-2xl border border-[var(--kz-border)] bg-[var(--kz-bg-elevated)] p-5 text-sm text-[var(--kz-fg-muted)]">
-        <h2 className="text-lg font-medium text-[var(--kz-fg)]">关于</h2>
+        <h2 className="text-lg font-bold tracking-tight text-[var(--kz-fg)]">关于</h2>
         <p>
           <strong className="font-medium text-[var(--kz-fg)]">Aniku</strong>{' '}
           是浏览器端番剧应用。规则格式兼容{' '}

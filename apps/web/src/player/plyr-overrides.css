@@ -327,12 +327,13 @@
 /*
  * Control row — fixed 32px band, one shared horizontal midline (y = 50%).
  * Volume track is painted as a div on that line (not native range track math).
+ * Desktop: single row (left transport | right tools). Mobile: two rows.
  */
 .kz-bar-row {
   --kz-ctrl-h: 32px;
   display: flex;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: space-between;
   gap: 0;
   flex-wrap: nowrap;
   height: var(--kz-ctrl-h);
@@ -341,7 +342,29 @@
   overflow: visible;
 }
 
-.kz-bar-row > * {
+.kz-bar-left,
+.kz-bar-right {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  height: var(--kz-ctrl-h);
+  min-width: 0;
+}
+
+.kz-bar-left {
+  flex: 0 1 auto;
+  gap: 0;
+}
+
+.kz-bar-right {
+  flex: 0 1 auto;
+  justify-content: flex-end;
+  margin-left: auto;
+  gap: 0;
+}
+
+.kz-bar-left > *,
+.kz-bar-right > * {
   flex-shrink: 0;
   height: var(--kz-ctrl-h);
   box-sizing: border-box;
@@ -416,13 +439,6 @@
   color: #d4d4d8;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-}
-
-.kz-bar-spacer {
-  flex: 1 1 auto;
-  flex-shrink: 1 !important;
-  min-width: 8px;
-  height: var(--kz-ctrl-h);
 }
 
 /*
@@ -619,13 +635,118 @@
   object-fit: contain !important;
 }
 
+/* Icon+label fullscreen controls: label visible on wide bars */
+.kz-ctrl-fs,
+.kz-ctrl-web-fs {
+  gap: 4px;
+  min-width: var(--kz-ctrl-h);
+  padding: 0 8px;
+  width: auto;
+}
+
+.kz-ctrl-fs .kz-ctrl-label,
+.kz-ctrl-web-fs .kz-ctrl-label {
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+}
+
 /*
- * On very small touch devices, keep both FS buttons but slightly denser.
- * (「全屏」uses video.webkitEnterFullscreen on iPhone; 「网页全屏」is CSS fallback.)
+ * Narrow / mobile control bar:
+ * - row1: play / prev / next / time
+ * - row2: tools + fullscreen icons (never clip)
+ * - hide volume rail (use hardware volume)
  */
-@media (max-width: 480px) {
+@media (max-width: 720px) {
+  .kz-bar {
+    padding: 0.25rem 0.4rem 0.4rem;
+  }
+
+  .kz-bar-row {
+    flex-wrap: wrap;
+    height: auto;
+    min-height: var(--kz-ctrl-h);
+    max-height: none;
+    row-gap: 2px;
+    align-items: stretch;
+  }
+
+  .kz-bar-left {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .kz-bar-right {
+    flex: 1 1 100%;
+    width: 100%;
+    margin-left: 0;
+    justify-content: flex-start;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .kz-bar-right::-webkit-scrollbar {
+    display: none;
+  }
+
+  .kz-vol-wrap {
+    display: none;
+  }
+
+  .kz-time {
+    font-size: 11px;
+    padding: 0 2px;
+    margin-left: 2px;
+  }
+
+  .kz-ctrl {
+    padding: 0 6px;
+    font-size: 11px;
+  }
+
+  .kz-ctrl-icon {
+    padding: 0;
+  }
+
+  /* Icon-only fullscreen on narrow screens — always visible, no clipped text */
+  .kz-ctrl-fs,
   .kz-ctrl-web-fs {
-    /* keep visible — primary fallback when shell FS API missing */
-    font-size: 12px;
+    width: var(--kz-ctrl-h);
+    min-width: var(--kz-ctrl-h);
+    padding: 0;
+  }
+
+  .kz-ctrl-fs .kz-ctrl-label,
+  .kz-ctrl-web-fs .kz-ctrl-label {
+    display: none;
+  }
+}
+
+/* Extra-tight phones */
+@media (max-width: 400px) {
+  .kz-bar-row {
+    --kz-ctrl-h: 30px;
+  }
+
+  .kz-ctrl-icon svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .kz-ctrl {
+    line-height: 30px;
+    font-size: 11px;
+  }
+
+  .kz-time {
+    line-height: 30px;
+    font-size: 10px;
+  }
+
+  /* Hide super-res on very small phones (still in settings page) */
+  .kz-sr-wrap {
+    display: none;
   }
 }
