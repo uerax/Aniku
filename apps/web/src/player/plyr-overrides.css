@@ -23,6 +23,90 @@
 }
 
 /*
+ * Watch page (Bilibili-style):
+ * - Player max height: 100dvh - 11rem (header + page chrome)
+ * - Right rail sources column aligns to the same max height
+ * - Episode grid uses a shorter cap under the sources panel
+ */
+.kz-watch {
+  --kz-player-max-h: calc(100dvh - 11rem);
+  --kz-player-max-w: min(100%, calc(var(--kz-player-max-h) * 16 / 9));
+  --kz-watch-rail-w: 320px;
+  --kz-watch-cinema-gap: 0.75rem; /* ~12px — player ↔ rail */
+  /* Desktop only: sources panel ≤ player height */
+  --kz-watch-sources-max-h: var(--kz-player-max-h);
+  /* Desktop only: episode grid cap */
+  --kz-watch-eps-max-h: min(42dvh, 20rem);
+}
+
+.kz-watch-cinema {
+  width: 100%;
+  margin-inline: auto;
+}
+
+/* Desktop: player + rail as one centered unit */
+.kz-watch-cinema--desktop {
+  max-width: min(
+    100%,
+    calc(var(--kz-player-max-w) + var(--kz-watch-rail-w) + var(--kz-watch-cinema-gap))
+  );
+}
+
+.kz-watch-cinema--desktop .kz-player-stack {
+  max-width: none;
+  margin-inline: 0;
+  width: 100%;
+}
+
+/* Mobile: full width stack, player uses normal stack max-width */
+.kz-watch-cinema--mobile {
+  max-width: 100%;
+}
+
+.kz-watch-meta {
+  width: 100%;
+}
+
+/*
+ * Height caps only on desktop — mobile has no nested max-height so the
+ * page scrolls as one surface (avoids touch scroll fighting inner panels).
+ */
+.kz-watch-cinema--desktop .kz-watch-sources {
+  display: flex;
+  flex-direction: column;
+  max-height: var(--kz-watch-sources-max-h);
+}
+
+.kz-watch-cinema--desktop .kz-watch-sources-body {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.kz-watch-cinema--desktop .kz-watch-eps-body {
+  max-height: var(--kz-watch-eps-max-h);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.kz-watch-cinema--mobile .kz-watch-sources,
+.kz-watch-cinema--mobile .kz-watch-sources-body,
+.kz-watch-cinema--mobile .kz-watch-eps-body {
+  max-height: none;
+  overflow: visible;
+}
+
+.kz-watch-cinema--desktop .kz-watch-rail {
+  width: var(--kz-watch-rail-w);
+  position: sticky;
+  top: 4.5rem;
+  max-height: calc(100dvh - 5.5rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/*
  * 16:9 frame that fits small laptop viewports.
  * Width-driven on large screens; height-capped so aspect-video doesn't push
  * past the window (header + page chrome leave ~30–35vh unusable).

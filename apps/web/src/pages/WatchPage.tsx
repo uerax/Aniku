@@ -1,12 +1,8 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import clsx from 'clsx'
-import {
-  CollectType,
-  CollectTypeLabel,
-  coverOf,
-} from '@aniku/shared'
+import { CollectType } from '@aniku/shared'
 import {
   useWatchSession,
   bestTitleSimilarity,
@@ -18,21 +14,26 @@ import {
   EmbedPlayerSuspense,
   VideoPlayerSuspense,
 } from '../player/lazy'
+import { useWatchLayoutMode } from './watch/useWatchLayoutMode'
+import { DesktopWatchLayout } from './watch/DesktopWatchLayout'
+import { MobileWatchLayout } from './watch/MobileWatchLayout'
+import { WatchMeta } from './watch/WatchMeta'
+import { WatchCollapseChevron } from './watch/WatchCollapseChevron'
 
 /**
  * Unified subject + cinema page (Bilibili-style).
  * Used for both /subject/:id and /play/:id — no separate pages.
- * Plugins stay idle until clicked; sources & episodes panels collapse.
+ * Desktop vs mobile page chrome is split (DesktopWatchLayout / MobileWatchLayout).
  */
 export function WatchPage() {
   const { id } = useParams()
   const bangumiId = Number(id)
   const w = useWatchSession(Number.isFinite(bangumiId) ? bangumiId : 0)
+  const layoutMode = useWatchLayoutMode()
 
   const token = useSettingsStore((s) => s.bangumiToken)
   const qc = useQueryClient()
   const [summaryOpen, setSummaryOpen] = useState(false)
-  const [metaOpen, setMetaOpen] = useState(false)
   /** Sources panel open by default so user can pick a rule */
   const [sourcesOpen, setSourcesOpen] = useState(true)
   /** Episodes open when we have a selection / resume */
@@ -93,18 +94,10 @@ export function WatchPage() {
   const activeRoad = w.selection?.roads[activeRoadIndex]
   const epCount = activeRoad?.identifier?.length ?? 0
 
-  // Auto-expand episodes when chapters arrive; keep sources open
+  // Auto-expand episodes when chapters arrive
   useEffect(() => {
     if (w.selection?.roads?.length) setEpsOpen(true)
   }, [w.selection])
-
-  // On resume with media, collapse sources to give player room (user can re-open)
-  useEffect(() => {
-    if (w.mediaSrc && w.episode) {
-      setSourcesOpen(false)
-      setEpsOpen(true)
-    }
-  }, [w.mediaSrc, w.episode?.pageUrl])
 
   function onKeywordSubmit(e: FormEvent) {
     e.preventDefault()
@@ -126,247 +119,151 @@ export function WatchPage() {
   )
   const item = w.bangumiItem
 
-  return (
-    <div className="kz-watch -mx-4 -mt-2 space-y-3 sm:mx-0 sm:mt-0">
-      {/* Compact title + meta toggle */}
-      <div className="flex items-start gap-3 px-4 sm:px-0">
-        {item && coverOf(item, 'thumb') ? (
-          <button
-            type="button"
-            onClick={() => setMetaOpen((v) => !v)}
-            className="h-14 w-10 shrink-0 overflow-hidden rounded-lg border border-[var(--kz-border)] bg-[var(--kz-bg-soft)] shadow-md ring-1 ring-[var(--kz-border)] sm:h-16 sm:w-12"
-            title="展开/收起简介"
-          >
-            <img
-              src={coverOf(item, 'thumb')}
-              alt=""
-              className="h-full w-full object-cover"
-            />
-          </button>
-        ) : null}
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="min-w-0 truncate text-base font-semibold text-[var(--kz-fg)] sm:text-lg">
-              {w.title}
-            </h1>
-            <button
-              type="button"
-              onClick={() => setMetaOpen((v) => !v)}
-              className="shrink-0 text-[11px] text-[var(--kz-fg-muted)] hover:text-[var(--kz-accent)]"
-            >
-              {metaOpen ? '收起信息' : '简介'}
-            </button>
-          </div>
-          <p className="truncate text-xs text-[var(--kz-fg-muted)]">
-            {w.pluginName || '未选源'}
-            {w.episode ? (
-              <>
-                <span className="mx-1.5 text-[var(--kz-fg-dim)]">·</span>
-                第 {w.episode.episode} 集
-              </>
-            ) : null}
-            {w.mediaSrc ? (
-              <>
-                <span className="mx-1.5 text-[var(--kz-fg-dim)]">·</span>
-                {w.playbackMode === 'proxy' ? '经服务器代理' : '直连源站'}
-              </>
-            ) : null}
-          </p>
-        </div>
-      </div>
-
-      {metaOpen && item && (
-        <div className="mx-4 space-y-2 rounded-xl border border-[var(--kz-border)] bg-[var(--kz-bg-elevated)] p-3 text-sm sm:mx-0">
-          {item.nameCn && item.name && item.nameCn !== item.name && (
-            <p className="text-xs text-[var(--kz-fg-muted)]">{item.name}</p>
-          )}
-          <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-[var(--kz-fg-muted)]">
-            {item.ratingScore > 0 && (
-              <span className="text-amber-300/90">
-                ★ {item.ratingScore.toFixed(1)}
-              </span>
-            )}
-            {item.airDate && <span>{item.airDate}</span>}
-            {item.tags?.slice(0, 6).map((t) => (
-              <span key={t.name}>{t.name}</span>
-            ))}
-          </div>
-          {item.summary && (
-            <div className="text-xs leading-relaxed text-[var(--kz-fg-muted)]">
-              <p className={summaryOpen ? '' : 'line-clamp-3'}>{item.summary}</p>
-              {item.summary.length > 80 && (
-                <button
-                  type="button"
-                  className="mt-0.5 text-[var(--kz-accent)] hover:underline"
-                  onClick={() => setSummaryOpen((v) => !v)}
-                >
-                  {summaryOpen ? '收起' : '展开'}
-                </button>
-              )}
-            </div>
-          )}
-          <div className="flex flex-wrap items-center gap-2 pt-1">
-            {token ? (
-              <select
-                value={collectType}
-                onChange={(e) =>
-                  setCollect.mutate(Number(e.target.value) as CollectType)
-                }
-                className="rounded-lg border border-[var(--kz-border)] bg-[var(--kz-bg-elevated)] px-2 py-1 text-xs"
-                disabled={setCollect.isPending}
-              >
-                <option value={CollectType.none}>未收藏</option>
-                {collectOptions.map((t) => (
-                  <option key={t} value={t}>
-                    {CollectTypeLabel[t]}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <Link
-                to="/settings"
-                className="text-xs text-[var(--kz-fg-muted)] hover:text-[var(--kz-accent)]"
-              >
-                登录 Bangumi 同步追番
-              </Link>
-            )}
-            {item.alias && item.alias.length > 0 && (
-              <span className="text-[11px] text-[var(--kz-fg-dim)]">
-                别名 {item.alias.length} 个（可用于换关键词）
-              </span>
-            )}
+  const playerBlock = (
+    <div className="space-y-2">
+      {w.resolveLoading && !w.mediaSrc && (
+        <div className="kz-player-placeholder text-sm text-[var(--kz-fg-muted)]">
+          <div className="flex flex-col items-center gap-2">
+            <span className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-[var(--kz-border)] border-t-[var(--kz-accent)]" />
+            解析播放地址…
           </div>
         </div>
       )}
 
-      {/* Player + right rail */}
-      <div className="grid items-start gap-3 lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-4">
-        <div className="min-w-0">
-          {/* Same max-width as 16:9 player so under-player chrome lines up */}
-          <div className="kz-player-stack space-y-2 px-4 sm:px-0">
-            {w.resolveLoading && !w.mediaSrc && (
-              <div className="kz-player-placeholder text-sm text-[var(--kz-fg-muted)]">
-                <div className="flex flex-col items-center gap-2">
-                  <span className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-[var(--kz-border)] border-t-[var(--kz-accent)]" />
-                  解析播放地址…
-                </div>
-              </div>
-            )}
+      {w.mediaSrc && (
+        <VideoPlayerSuspense
+          key={w.playerKey}
+          src={w.mediaSrc}
+          initialTime={w.resumeTime}
+          comments={w.dm.visibleComments}
+          danmaku={w.danmakuSettings}
+          player={w.playerSettings}
+          onPlayerChange={w.setPlayer}
+          onProgress={w.onProgress}
+          onToggleDanmaku={() =>
+            w.setDanmaku({ enabled: !w.danmakuSettings.enabled })
+          }
+          onDanmakuChange={w.setDanmaku}
+          onPrev={() => w.goAdjacentEpisode(-1)}
+          onNext={() => w.goAdjacentEpisode(1)}
+          onMediaAuthExpired={w.onMediaAuthExpired}
+          onMediaLoadFailed={w.onMediaLoadFailed}
+          danmakuPanel={w.dm.panel}
+        />
+      )}
 
-            {w.mediaSrc && (
-              <VideoPlayerSuspense
-                key={w.playerKey}
-                src={w.mediaSrc}
-                initialTime={w.resumeTime}
-                comments={w.dm.visibleComments}
-                danmaku={w.danmakuSettings}
-                player={w.playerSettings}
-                onPlayerChange={w.setPlayer}
-                onProgress={w.onProgress}
-                onToggleDanmaku={() =>
-                  w.setDanmaku({ enabled: !w.danmakuSettings.enabled })
-                }
-                onDanmakuChange={w.setDanmaku}
-                onPrev={() => w.goAdjacentEpisode(-1)}
-                onNext={() => w.goAdjacentEpisode(1)}
-                onMediaAuthExpired={w.onMediaAuthExpired}
-                onMediaLoadFailed={w.onMediaLoadFailed}
-                danmakuPanel={w.dm.panel}
-              />
-            )}
+      {w.selection &&
+        w.episode &&
+        Boolean(w.resolveError) &&
+        !w.mediaSrc &&
+        !w.resolveLoading && (
+          <EmbedPlayerSuspense
+            pageUrl={w.pageUrl}
+            title={w.title}
+            reason={
+              w.resolveError instanceof Error
+                ? w.resolveError.message
+                : '静态解析失败'
+            }
+            onRetryResolve={w.refetchResolve}
+          />
+        )}
 
-            {w.selection &&
-              w.episode &&
-              Boolean(w.resolveError) &&
-              !w.mediaSrc &&
-              !w.resolveLoading && (
-                <EmbedPlayerSuspense
-                  pageUrl={w.pageUrl}
-                  title={w.title}
-                  reason={
-                    w.resolveError instanceof Error
-                      ? w.resolveError.message
-                      : '静态解析失败'
-                  }
-                  onRetryResolve={w.refetchResolve}
-                />
-              )}
-
-            {!w.mediaSrc && !w.resolveLoading && !w.resolveError && (
-              <div className="kz-player-placeholder flex-col gap-1.5 text-sm text-[var(--kz-fg-muted)]">
-                <span>
-                  {w.roadLoading
-                    ? `正在加载 ${w.defaultSourceName} 分集…`
-                    : w.selection
-                      ? '在右侧选集区点集数即可播放'
-                      : `已默认搜索 ${w.defaultSourceName}，请稍候或点右侧结果`}
-                </span>
-                <span className="text-xs text-[var(--kz-fg-dim)]">
-                  默认会选中第一条搜索结果并加载分集；其它源需手动点搜
-                </span>
-              </div>
-            )}
-
-            <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[var(--kz-border)] bg-[var(--kz-bg-elevated)] px-3 py-2 text-xs text-[var(--kz-fg-muted)]">
-              <span className="text-[var(--kz-fg-muted)]">弹幕</span>
-              <span className="min-w-0 flex-1 truncate text-[var(--kz-fg)]">
-                {w.dm.statusLine || '未加载'}
-              </span>
-              {w.dm.chips.map((c) => (
-                <button
-                  key={c.id}
-                  type="button"
-                  disabled={!c.loaded}
-                  onClick={() => w.dm.toggleSource(c.id)}
-                  className={clsx(
-                    'rounded-full px-2 py-0.5 text-[11px]',
-                    !c.loaded && 'opacity-40',
-                    c.loaded && c.enabled
-                      ? 'bg-[var(--kz-accent)] text-white'
-                      : 'bg-[var(--kz-bg-soft)] text-[var(--kz-fg-muted)]',
-                  )}
-                >
-                  {c.label}
-                  {c.loaded ? ` ${c.count}` : ''}
-                </button>
-              ))}
-            </div>
-          </div>
+      {!w.mediaSrc && !w.resolveLoading && !w.resolveError && (
+        <div className="kz-player-placeholder flex-col gap-1.5 text-sm text-[var(--kz-fg-muted)]">
+          <span>
+            {w.roadLoading
+              ? `正在加载 ${w.defaultSourceName} 分集…`
+              : w.selection
+                ? '在选集区点集数即可播放'
+                : `已默认搜索 ${w.defaultSourceName}，请稍候或点下方结果`}
+          </span>
+          <span className="text-xs text-[var(--kz-fg-dim)]">
+            默认会选中第一条搜索结果并加载分集；其它源需手动点搜
+          </span>
         </div>
+      )}
 
-        {/* RIGHT rail — two separate panels (sources / episodes) */}
-        <aside className="mx-4 flex flex-col gap-3 sm:mx-0 lg:sticky lg:top-[4.5rem] lg:max-h-[calc(100dvh-5.5rem)] lg:overflow-y-auto">
-          {/* —— 视频源 —— */}
-          <section className="overflow-hidden rounded-2xl border border-[var(--kz-border)] bg-[var(--kz-bg-elevated)]">
-            <button
-              type="button"
-              onClick={() => setSourcesOpen((v) => !v)}
-              className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-[var(--kz-bg-hover)]"
-            >
-              <span
-                className={clsx(
-                  'inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-[11px] text-[var(--kz-fg-muted)] transition-transform',
-                  sourcesOpen && 'rotate-90 text-[var(--kz-accent)]',
-                )}
-                aria-hidden
-              >
-                ▸
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-[15px] font-bold tracking-tight text-[var(--kz-fg)]">
-                  视频源
-                </span>
-                <span className="mt-0.5 block text-[12px] text-[var(--kz-fg-muted)]">
-                  默认 {w.defaultSourceName}
-                  {w.searchResults.length
-                    ? ` · ${w.searchResults.filter((r) => r.searched).length}/${w.searchResults.length} 已搜索`
-                    : ''}
-                </span>
-              </span>
-            </button>
+      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[var(--kz-border)] bg-[var(--kz-bg-elevated)] px-3 py-2 text-xs text-[var(--kz-fg-muted)]">
+        <span className="text-[var(--kz-fg-muted)]">弹幕</span>
+        <span className="min-w-0 flex-1 truncate text-[var(--kz-fg)]">
+          {w.dm.statusLine || '未加载'}
+        </span>
+        {w.dm.chips.map((c) => (
+          <button
+            key={c.id}
+            type="button"
+            disabled={!c.loaded}
+            onClick={() => w.dm.toggleSource(c.id)}
+            className={clsx(
+              'rounded-full px-2 py-0.5 text-[11px]',
+              !c.loaded && 'opacity-40',
+              c.loaded && c.enabled
+                ? 'bg-[var(--kz-accent)] text-white'
+                : 'bg-[var(--kz-bg-soft)] text-[var(--kz-fg-muted)]',
+            )}
+          >
+            {c.label}
+            {c.loaded ? ` ${c.count}` : ''}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+
+  const metaBlock = (
+    <WatchMeta
+      item={item}
+      title={w.title}
+      pluginName={w.pluginName}
+      episodeLabel={w.episode ? `第 ${w.episode.episode} 集` : null}
+      mediaHint={
+        w.mediaSrc
+          ? w.playbackMode === 'proxy'
+            ? '经服务器代理'
+            : '直连源站'
+          : null
+      }
+      summaryOpen={summaryOpen}
+      onToggleSummary={() => setSummaryOpen((v) => !v)}
+      token={token}
+      collectType={collectType}
+      collectOptions={collectOptions}
+      onCollectChange={(t) => setCollect.mutate(t)}
+      collectPending={setCollect.isPending}
+      compact={layoutMode === 'mobile'}
+    />
+  )
+
+  const sourcesPanel = (
+    <section
+      className={clsx(
+        'shrink-0 overflow-hidden rounded-2xl border border-[var(--kz-border)] bg-[var(--kz-bg-elevated)]',
+        sourcesOpen && 'kz-watch-sources',
+      )}
+    >
+      <button
+        type="button"
+        onClick={() => setSourcesOpen((v) => !v)}
+        className="flex w-full shrink-0 items-center gap-3 px-4 py-3 text-left transition hover:bg-[var(--kz-bg-hover)]"
+        aria-expanded={sourcesOpen}
+      >
+        <span className="min-w-0 flex-1">
+          <span className="block text-[15px] font-bold tracking-tight text-[var(--kz-fg)]">
+            视频源
+          </span>
+          <span className="mt-0.5 block text-[12px] text-[var(--kz-fg-muted)]">
+            默认 {w.defaultSourceName}
+            {w.searchResults.length
+              ? ` · ${w.searchResults.filter((r) => r.searched).length}/${w.searchResults.length} 已搜索`
+              : ''}
+          </span>
+        </span>
+        <WatchCollapseChevron open={sourcesOpen} />
+      </button>
 
             {sourcesOpen && (
-              <div className="border-t border-[var(--kz-border)]">
+              <div className="kz-watch-sources-body border-t border-[var(--kz-border)]">
                 <div className="space-y-2 px-4 py-3">
                   <form onSubmit={onKeywordSubmit} className="space-y-2">
                     <div className="flex items-center gap-2">
@@ -454,7 +351,8 @@ export function WatchPage() {
                   </form>
                 </div>
 
-                <div className="max-h-[min(42dvh,20rem)] space-y-2 overflow-y-auto px-3 pb-3">
+                {/* List scrolls with the whole sources body (capped ≈ player height) */}
+                <div className="space-y-2 px-3 pb-3">
                   {!w.searchResults.length && (
                     <p className="px-1 py-8 text-center text-[13px] text-[var(--kz-fg-muted)]">
                       没有启用的规则。请到设置中启用或导入。
@@ -613,48 +511,42 @@ export function WatchPage() {
                     )
                   })}
                 </div>
-              </div>
-            )}
-          </section>
+      </div>
+    )}
+    </section>
+  )
 
-          {/* —— 选集 —— */}
-          <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-[var(--kz-border)] bg-[var(--kz-bg-elevated)]">
-            <button
-              type="button"
-              onClick={() => setEpsOpen((v) => !v)}
-              className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-[var(--kz-bg-hover)]"
-            >
-              <span
-                className={clsx(
-                  'inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-[11px] text-[var(--kz-fg-muted)] transition-transform',
-                  epsOpen && 'rotate-90 text-[var(--kz-accent)]',
-                )}
-                aria-hidden
-              >
-                ▸
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-[15px] font-bold tracking-tight text-[var(--kz-fg)]">
-                  选集
-                </span>
-                <span className="mt-0.5 block text-[12px] text-[var(--kz-fg-muted)]">
-                  {epCount > 0
-                    ? w.episode
-                      ? `正在播放第 ${w.episode.episode} 集 · 共 ${epCount} 集`
-                      : `共 ${epCount} 集`
-                    : '选择搜索结果后加载分集'}
-                  {w.selection && w.selection.roads.length > 1
-                    ? ` · ${w.selection.roads.length} 条线路`
-                    : ''}
-                </span>
-              </span>
-            </button>
+  const epsPanel = (
+    <section className="shrink-0 overflow-hidden rounded-2xl border border-[var(--kz-border)] bg-[var(--kz-bg-elevated)]">
+      <button
+        type="button"
+        onClick={() => setEpsOpen((v) => !v)}
+        className="flex w-full shrink-0 items-center gap-3 px-4 py-3 text-left transition hover:bg-[var(--kz-bg-hover)]"
+        aria-expanded={epsOpen}
+      >
+        <span className="min-w-0 flex-1">
+          <span className="block text-[15px] font-bold tracking-tight text-[var(--kz-fg)]">
+            选集
+          </span>
+          <span className="mt-0.5 block text-[12px] text-[var(--kz-fg-muted)]">
+            {epCount > 0
+              ? w.episode
+                ? `正在播放第 ${w.episode.episode} 集 · 共 ${epCount} 集`
+                : `共 ${epCount} 集`
+              : '选择搜索结果后加载分集'}
+            {w.selection && w.selection.roads.length > 1
+              ? ` · ${w.selection.roads.length} 条线路`
+              : ''}
+          </span>
+        </span>
+        <WatchCollapseChevron open={epsOpen} />
+      </button>
 
             {epsOpen && (
-              <div className="flex min-h-0 flex-1 flex-col border-t border-[var(--kz-border)]">
+              <div className="border-t border-[var(--kz-border)]">
                 {/* 线路分类：多线路时必须用 Tab，避免 1/2/3/4 混在同一网格 */}
                 {w.selection && w.selection.roads.length > 0 && (
-                  <div className="shrink-0 space-y-2 border-b border-[var(--kz-border)] px-3 py-2.5">
+                  <div className="space-y-2 border-b border-[var(--kz-border)] px-3 py-2.5">
                     <div className="text-[11px] font-medium text-[var(--kz-fg-muted)]">
                       线路
                     </div>
@@ -686,7 +578,9 @@ export function WatchPage() {
                               <span
                                 className={clsx(
                                   'ml-1 tabular-nums',
-                                  active ? 'text-white/80' : 'text-[var(--kz-fg-dim)]',
+                                  active
+                                    ? 'text-white/80'
+                                    : 'text-[var(--kz-fg-dim)]',
                                 )}
                               >
                                 {road.data.length}
@@ -704,7 +598,8 @@ export function WatchPage() {
                   </div>
                 )}
 
-                <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
+                {/* Only scroll when episode grid exceeds --kz-watch-eps-max-h */}
+                <div className="kz-watch-eps-body px-3 py-3">
                   {w.roadLoading && (
                     <p className="py-6 text-center text-[13px] text-[var(--kz-fg-muted)]">
                       加载分集
@@ -753,31 +648,61 @@ export function WatchPage() {
                       })}
                     </div>
                   )}
+                  {w.selection &&
+                    !w.roadLoading &&
+                    !activeRoad &&
+                    w.selection.roads.length > 0 && (
+                      <p className="py-6 text-center text-[13px] text-[var(--kz-fg-muted)]">
+                        请选择上方线路查看集数
+                      </p>
+                    )}
                 </div>
               </div>
             )}
 
-            <div className="flex shrink-0 gap-2 border-t border-[var(--kz-border)] px-3 py-2.5">
-              <button
-                type="button"
-                onClick={() => w.goAdjacentEpisode(-1)}
-                disabled={!w.episode}
-                className="flex-1 rounded-xl border border-[var(--kz-border)] bg-transparent py-2 text-[13px] font-medium text-[var(--kz-fg)] hover:bg-[var(--kz-bg-hover)] disabled:opacity-40"
-              >
-                上一集
-              </button>
-              <button
-                type="button"
-                onClick={() => w.goAdjacentEpisode(1)}
-                disabled={!w.episode}
-                className="flex-1 rounded-xl border border-[var(--kz-border)] bg-transparent py-2 text-[13px] font-medium text-[var(--kz-fg)] hover:bg-[var(--kz-bg-hover)] disabled:opacity-40"
-              >
-                下一集
-              </button>
-            </div>
-          </section>
-        </aside>
+            <div className="flex gap-2 border-t border-[var(--kz-border)] px-3 py-2.5">
+        <button
+          type="button"
+          onClick={() => w.goAdjacentEpisode(-1)}
+          disabled={!w.episode}
+          className="flex-1 rounded-xl border border-[var(--kz-border)] bg-transparent py-2 text-[13px] font-medium text-[var(--kz-fg)] hover:bg-[var(--kz-bg-hover)] disabled:opacity-40"
+        >
+          上一集
+        </button>
+        <button
+          type="button"
+          onClick={() => w.goAdjacentEpisode(1)}
+          disabled={!w.episode}
+          className="flex-1 rounded-xl border border-[var(--kz-border)] bg-transparent py-2 text-[13px] font-medium text-[var(--kz-fg)] hover:bg-[var(--kz-bg-hover)] disabled:opacity-40"
+        >
+          下一集
+        </button>
       </div>
+    </section>
+  )
+
+  const rail = (
+    <>
+      {sourcesPanel}
+      {epsPanel}
+    </>
+  )
+
+  return (
+    <div className="kz-watch -mx-4 -mt-2 sm:mx-0 sm:mt-0">
+      {layoutMode === 'desktop' ? (
+        <DesktopWatchLayout
+          player={playerBlock}
+          meta={metaBlock}
+          rail={rail}
+        />
+      ) : (
+        <MobileWatchLayout
+          meta={metaBlock}
+          player={playerBlock}
+          rail={rail}
+        />
+      )}
     </div>
   )
 }
