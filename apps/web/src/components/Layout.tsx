@@ -235,7 +235,7 @@ export function Layout() {
   return (
     <div className="flex min-h-screen flex-col bg-[var(--kz-bg)] text-[var(--kz-fg)]">
       <header className="sticky top-0 z-40 border-b border-[var(--kz-border)] bg-[var(--kz-header-bg)] backdrop-blur-xl">
-        <div className="mx-auto flex max-w-[1760px] items-center gap-2 px-3 py-2 sm:gap-3 sm:px-5 lg:px-6">
+        <div className="relative mx-auto flex max-w-[1760px] items-center gap-2 px-3 py-2 sm:gap-3 sm:px-5 lg:px-6">
           <NavLink
             to="/"
             className="flex shrink-0 items-center gap-2.5 font-semibold tracking-tight"
@@ -353,57 +353,64 @@ export function Layout() {
             </button>
           </form>
 
-          {/* Mobile search — icon, expands to field */}
-          <div className="flex shrink-0 items-center gap-1.5 md:hidden">
-            {mobileSearchOpen ? (
-              <form
-                onSubmit={onSearch}
-                className="flex items-center gap-1"
-                role="search"
-              >
-                <input
-                  ref={mobileSearchInputRef}
-                  value={q}
-                  onChange={(e) => setQ(e.target.value)}
-                  placeholder="搜索番剧…"
-                  aria-label="搜索番剧"
-                  className="w-[min(42vw,11rem)] rounded-full border border-[var(--kz-accent)] bg-[var(--kz-bg)] py-1.5 pl-3 pr-2 text-[14px] text-[var(--kz-fg)] outline-none placeholder:text-[var(--kz-fg-muted)]"
-                />
-                <button
-                  type="submit"
-                  className="kz-btn-primary !px-2.5 !py-1.5 text-[13px]"
-                >
-                  搜
-                </button>
-                <button
-                  type="button"
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-full text-[var(--kz-fg-muted)] hover:bg-[var(--kz-bg-hover)] hover:text-[var(--kz-fg)]"
-                  aria-label="关闭搜索"
-                  onClick={() => {
-                    setMobileSearchOpen(false)
-                    if (location.pathname !== '/search') setQ('')
-                  }}
-                >
-                  <MenuIcon open />
-                </button>
-              </form>
-            ) : (
-              <button
-                type="button"
-                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--kz-border)] bg-[var(--kz-bg-elevated)] text-[var(--kz-fg)] transition-colors hover:bg-[var(--kz-bg-hover)]"
-                aria-label="搜索番剧"
-                title="搜索"
-                onClick={() => {
-                  setMenuOpen(false)
-                  setMobileSearchOpen(true)
-                }}
-              >
-                <SearchIcon />
-              </button>
+          {/* Mobile: search icon only (expanded overlay is below) */}
+          <button
+            type="button"
+            className={clsx(
+              'inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[var(--kz-border)] bg-[var(--kz-bg-elevated)] text-[var(--kz-fg)] transition-colors hover:bg-[var(--kz-bg-hover)] md:hidden',
+              mobileSearchOpen && 'invisible',
             )}
-          </div>
+            aria-label="搜索番剧"
+            title="搜索"
+            aria-hidden={mobileSearchOpen}
+            tabIndex={mobileSearchOpen ? -1 : 0}
+            onClick={() => {
+              setMenuOpen(false)
+              setMobileSearchOpen(true)
+            }}
+          >
+            <SearchIcon />
+          </button>
 
           <ThemeToggleButton />
+
+          {/*
+            Mobile search overlay — covers logo/nav so the field never
+            squeezes next to 首页/番剧 and collides with text.
+          */}
+          {mobileSearchOpen && (
+            <form
+              onSubmit={onSearch}
+              role="search"
+              className="absolute inset-0 z-50 flex items-center gap-2 bg-[var(--kz-header-bg)] px-3 backdrop-blur-xl md:hidden"
+            >
+              <input
+                ref={mobileSearchInputRef}
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="搜索番剧…"
+                aria-label="搜索番剧"
+                className="min-w-0 flex-1 rounded-full border border-[var(--kz-accent)] bg-[var(--kz-bg)] py-2 pl-3.5 pr-3 text-[15px] text-[var(--kz-fg)] outline-none placeholder:text-[var(--kz-fg-muted)]"
+              />
+              <button
+                type="submit"
+                className="kz-btn-primary shrink-0 !px-3.5 !py-2 text-[14px]"
+              >
+                搜索
+              </button>
+              <button
+                type="button"
+                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[var(--kz-fg-muted)] hover:bg-[var(--kz-bg-hover)] hover:text-[var(--kz-fg)]"
+                aria-label="关闭搜索"
+                onClick={() => {
+                  setMobileSearchOpen(false)
+                  if (location.pathname !== '/search') setQ('')
+                }}
+              >
+                <MenuIcon open />
+              </button>
+            </form>
+          )}
         </div>
       </header>
 

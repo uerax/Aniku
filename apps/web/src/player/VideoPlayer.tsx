@@ -508,20 +508,48 @@ export function VideoPlayer({
     }
   }
 
+  /**
+   * Desktop (fine pointer + hover):
+   * - mouse inside player → show bar
+   * - idle inside for a while → auto-hide (while playing)
+   * - mouse leave player → hide immediately (while playing)
+   * Touch: no hover path; single-tap toggles bar, double-tap play/pause.
+   */
+  function isFinePointerHover(): boolean {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      return false
+    }
+    return window.matchMedia('(hover: hover) and (pointer: fine)').matches
+  }
+
+  const DESKTOP_BAR_IDLE_MS = 2800
+  const TOUCH_BAR_IDLE_MS = 4000
+
+  function chromeMenusOpen(): boolean {
+    return panelOpen || speedMenuOpen || srMenuOpen
+  }
+
+  function scheduleBarAutoHide() {
+    window.clearTimeout(hideBarTimer.current)
+    const ms = isFinePointerHover() ? DESKTOP_BAR_IDLE_MS : TOUCH_BAR_IDLE_MS
+    hideBarTimer.current = window.setTimeout(() => {
+      const v = videoRef.current
+      // Keep bar while paused, menus open, or user is mid-interaction
+      if (!v || v.paused || chromeMenusOpen()) return
+      showBarRef.current = false
+      setShowBar(false)
+    }, ms)
+  }
+
   function bumpBar() {
     showBarRef.current = true
     setShowBar(true)
-    window.clearTimeout(hideBarTimer.current)
-    hideBarTimer.current = window.setTimeout(() => {
-      const v = videoRef.current
-      if (v && !v.paused) {
-        showBarRef.current = false
-        setShowBar(false)
-      }
-    }, 2800)
+    scheduleBarAutoHide()
   }
 
   function hideBar() {
+    // Don't yank the bar out from under an open menu / panel
+    if (chromeMenusOpen()) return
     showBarRef.current = false
     setShowBar(false)
     window.clearTimeout(hideBarTimer.current)
@@ -572,6 +600,24 @@ export function VideoPlayer({
     window.clearTimeout(shellClickTimerRef.current)
     shellClickTimerRef.current = 0
     togglePlay()
+  }
+
+  function onShellMouseMove() {
+    // Hover-reveal is desktop-only; on touch, mousemove is synthetic and fights tap toggle.
+    if (!isFinePointerHover()) return
+    bumpBar()
+  }
+
+  function onShellMouseLeave() {
+    // Mobile browsers fire mouseleave after tap → bar would flash then vanish.
+    if (!isFinePointerHover()) return
+    // Playing: leave player → hide bar. Paused: keep bar (and CSS also pins it).
+    if (!videoRef.current?.paused) hideBar()
+  }
+
+  function onShellMouseEnter() {
+    if (!isFinePointerHover()) return
+    bumpBar()
   }
 
   // Load media
@@ -1680,10 +1726,9 @@ export function VideoPlayer({
     <div
       ref={shellRef}
       className={shellClass}
-      onMouseMove={bumpBar}
-      onMouseLeave={() => {
-        if (!paused) hideBar()
-      }}
+      onMouseEnter={onShellMouseEnter}
+      onMouseMove={onShellMouseMove}
+      onMouseLeave={onShellMouseLeave}
       onClick={onShellClick}
       onDoubleClick={onShellDoubleClick}
       onDrop={danmakuPanel ? handleDrop : undefined}
