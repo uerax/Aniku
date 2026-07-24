@@ -7,6 +7,9 @@
      while audio still plays. Controls are absolute inside and clip visually fine. */
   overflow: visible;
   user-select: none;
+  /* Faster double-tap; avoid browser double-tap-to-zoom stealing play/pause */
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 /*

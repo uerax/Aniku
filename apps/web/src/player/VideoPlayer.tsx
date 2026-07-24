@@ -3,7 +3,13 @@
  * Plyr fought MSE (black screen while .ts still 200). This path matches
  * what worked with DPlayer: attach HLS to a real video element and paint it full-size.
  */
-import { useEffect, useRef, useState, type DragEvent } from 'react'
+import {
+  useEffect,
+  useRef,
+  useState,
+  type DragEvent,
+  type MouseEvent as ReactMouseEvent,
+} from 'react'
 import './plyr-overrides.css'
 import Danmaku from '@ironkinoko/danmaku'
 import type { Comment as IronComment } from '@ironkinoko/danmaku'
@@ -88,6 +94,11 @@ interface Props {
   }) => void
 }
 
+/**
+ * ironkinoko `speed` is px/s; duration = stage.width / speed.
+ * Fixed 130 makes ~10s on desktop and ~2.8s on a 360px phone — too fast on mobile.
+ * Scale down only when narrower than DANMAKU_REF_WIDTH so desktop stay the same.
+ */
 const BASE_DANMAKU_SPEED = 130
 
 /* -------------------------------------------------------------------------- */
@@ -245,6 +256,15 @@ function danmakuFontScale(containerWidth: number): number {
     DANMAKU_MAX_SCALE,
     Math.max(DANMAKU_MIN_SCALE, containerWidth / DANMAKU_REF_WIDTH),
   )
+}
+
+/** Pixel speed for scroll comments; slower on narrow stages, × user multiplier. */
+function danmakuPixelSpeed(containerWidth: number, userSpeed: number): number {
+  const mult = userSpeed > 0 ? userSpeed : 1
+  const w = containerWidth > 0 ? containerWidth : DANMAKU_REF_WIDTH
+  // Cap at 1: never faster than desktop base for the same user multiplier
+  const scale = Math.min(1, Math.max(0.45, w / DANMAKU_REF_WIDTH))
+  return Math.max(40, BASE_DANMAKU_SPEED * scale * mult)
 }
 
 function toIronComments(
@@ -406,6 +426,9 @@ export function VideoPlayer({
   const [seekingUi, setSeekingUi] = useState(false)
   const [bufferingUi, setBufferingUi] = useState(false)
   const [showBar, setShowBar] = useState(true)
+  const showBarRef = useRef(true)
+  /** Distinguishes single tap (toggle chrome) vs double tap (play/pause). */
+  const shellClickTimerRef = useRef(0)
   /** player shell Fullscreen API */
   const [playerFs, setPlayerFs] = useState(false)
   /** CSS fill viewport without Fullscreen API (agefans-style webpage FS) */
@@ -453,6 +476,7 @@ export function VideoPlayer({
       video.clientWidth ||
       0
     const iron = toIronComments(commentsRef.current, dm, w)
+    const pixelSpeed = danmakuPixelSpeed(w, dm.speed || 1)
     lastDanmakuWidthRef.current = w
     try {
       if (!danmakuCoreRef.current) {
@@ -464,13 +488,13 @@ export function VideoPlayer({
           overlap: false,
           scrollAreaPercent: Math.min(1, Math.max(0.15, dm.area || 0.5)),
           opacity: dm.opacity ?? 0.85,
-          speed: BASE_DANMAKU_SPEED * (dm.speed || 1),
+          speed: pixelSpeed,
         })
       } else {
         const core = danmakuCoreRef.current
         core.reload(iron)
         core.opacity = dm.opacity ?? 0.85
-        core.speed = BASE_DANMAKU_SPEED * (dm.speed || 1)
+        core.speed = pixelSpeed
         core.scrollAreaPercent = Math.min(1, Math.max(0.15, dm.area || 0.5))
       }
       const core = danmakuCoreRef.current
@@ -485,12 +509,69 @@ export function VideoPlayer({
   }
 
   function bumpBar() {
+    showBarRef.current = true
     setShowBar(true)
     window.clearTimeout(hideBarTimer.current)
     hideBarTimer.current = window.setTimeout(() => {
       const v = videoRef.current
-      if (v && !v.paused) setShowBar(false)
+      if (v && !v.paused) {
+        showBarRef.current = false
+        setShowBar(false)
+      }
     }, 2800)
+  }
+
+  function hideBar() {
+    showBarRef.current = false
+    setShowBar(false)
+    window.clearTimeout(hideBarTimer.current)
+  }
+
+  /**
+   * Mainstream mobile UX:
+   * - single tap empty stage → show/hide control bar (not play/pause)
+   * - double tap → play/pause
+   * Fullscreen stays on the FS button / F key (not double-click).
+   */
+  function isPlayerChromeTarget(target: EventTarget | null): boolean {
+    const el = target as HTMLElement | null
+    if (!el?.closest) return false
+    return Boolean(
+      el.closest(
+        '.kz-bar, .kz-big-play, .kz-speed-menu, .kz-sr-menu, button, a, input, select, textarea, label, [role="dialog"], [data-player-chrome]',
+      ),
+    )
+  }
+
+  function onShellClick(e: ReactMouseEvent) {
+    if (isPlayerChromeTarget(e.target)) return
+    // Wait to see if a dblclick follows — otherwise single-tap would always race pause.
+    window.clearTimeout(shellClickTimerRef.current)
+    shellClickTimerRef.current = window.setTimeout(() => {
+      shellClickTimerRef.current = 0
+      // Close floating menus first, then toggle bar visibility.
+      if (speedMenuOpen || srMenuOpen) {
+        setSpeedMenuOpen(false)
+        setSrMenuOpen(false)
+        bumpBar()
+        return
+      }
+      if (panelOpen) {
+        setPanelOpen(false)
+        bumpBar()
+        return
+      }
+      if (showBarRef.current) hideBar()
+      else bumpBar()
+    }, 280)
+  }
+
+  function onShellDoubleClick(e: ReactMouseEvent) {
+    if (isPlayerChromeTarget(e.target)) return
+    e.preventDefault()
+    window.clearTimeout(shellClickTimerRef.current)
+    shellClickTimerRef.current = 0
+    togglePlay()
   }
 
   // Load media
@@ -901,6 +982,7 @@ export function VideoPlayer({
 
     const onPause = () => {
       setPaused(true)
+      showBarRef.current = true
       setShowBar(true)
       if (Number.isFinite(video.duration) && video.duration > 0) {
         onProgressRef.current?.(video.currentTime, video.duration)
@@ -1052,10 +1134,15 @@ export function VideoPlayer({
           w > 0 &&
           (prev <= 0 ||
             Math.abs(danmakuFontScale(w) - danmakuFontScale(prev)) >= 0.02)
-        if (scaleChanged && danmakuCoreRef.current) {
+        const core = danmakuCoreRef.current
+        if (scaleChanged && core) {
           applyDanmaku()
-        } else {
-          danmakuCoreRef.current?.resize()
+        } else if (core) {
+          // Keep px/s width-aware (duration = width/speed); pure resize alone
+          // would leave mobile on the old desktop-rate base.
+          const dm = danmakuRef.current
+          core.speed = danmakuPixelSpeed(w, dm.speed || 1)
+          core.resize()
         }
       } catch {
         /* ignore */
@@ -1206,6 +1293,7 @@ export function VideoPlayer({
       }
       window.clearTimeout(hideBarTimer.current)
       window.clearTimeout(offsetHintTimer.current)
+      window.clearTimeout(shellClickTimerRef.current)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [src])
@@ -1387,11 +1475,14 @@ export function VideoPlayer({
       void v.play().catch(() => {
         userPausedRef.current = true
       })
+      bumpBar()
     } else {
       userPausedRef.current = true
       bufferGatePausedRef.current = false
       setBufferingUi(false)
       v.pause()
+      showBarRef.current = true
+      setShowBar(true)
     }
   }
 
@@ -1591,8 +1682,10 @@ export function VideoPlayer({
       className={shellClass}
       onMouseMove={bumpBar}
       onMouseLeave={() => {
-        if (!paused) setShowBar(false)
+        if (!paused) hideBar()
       }}
+      onClick={onShellClick}
+      onDoubleClick={onShellDoubleClick}
       onDrop={danmakuPanel ? handleDrop : undefined}
       onDragOver={
         danmakuPanel
@@ -1625,14 +1718,6 @@ export function VideoPlayer({
           objectFit: 'contain',
           background: '#000',
           zIndex: 0,
-        }}
-        onClick={(e) => {
-          if ((e.target as HTMLElement).closest('.kz-bar')) return
-          togglePlay()
-        }}
-        onDoubleClick={(e) => {
-          e.preventDefault()
-          toggleFs()
         }}
       />
 
