@@ -365,7 +365,7 @@ function ImportTab(props: Props) {
             type="button"
             disabled={props.bilibiliBusy}
             onClick={props.onLoadBilibili}
-            className="rounded-lg bg-pink-600 px-3 py-1.5 text-xs hover:bg-pink-500 disabled:opacity-50"
+            className="rounded-lg bg-sky-500 px-3 py-1.5 text-xs hover:bg-sky-500 disabled:opacity-50"
           >
             {props.bilibiliBusy ? '拉取中…' : '追加 B 站弹幕'}
           </button>

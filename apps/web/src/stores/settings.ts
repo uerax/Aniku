@@ -29,9 +29,14 @@ function mergePlayer(partial?: Partial<PlayerSettings>): PlayerSettings {
     sr === 'efficiency' || sr === 'quality' || sr === 'off'
       ? sr
       : defaultPlayerSettings.superResolution
+  // Drop legacy playLayout if present in localStorage (unified WatchPage only).
+  const { playLayout: _legacyLayout, ...rest } = p as Partial<PlayerSettings> & {
+    playLayout?: unknown
+  }
+  void _legacyLayout
   return {
     ...defaultPlayerSettings,
-    ...p,
+    ...rest,
     superResolution,
     forceAdBlocker: Boolean(
       p.forceAdBlocker ?? defaultPlayerSettings.forceAdBlocker,

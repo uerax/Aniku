@@ -1724,26 +1724,44 @@ export function VideoPlayer({
           aria-label="进度"
         />
         <div className="kz-bar-row">
-          <button type="button" className="kz-ctrl" onClick={togglePlay}>
-            {paused ? '▶' : '❚❚'}
+          <button
+            type="button"
+            className="kz-ctrl kz-ctrl-icon"
+            onClick={togglePlay}
+            title={paused ? '播放' : '暂停'}
+            aria-label={paused ? '播放' : '暂停'}
+          >
+            {paused ? (
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <path d="M8 5v14l11-7L8 5z" />
+              </svg>
+            ) : (
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <path d="M7 5h3v14H7V5zm7 0h3v14h-3V5z" />
+              </svg>
+            )}
           </button>
           <button
             type="button"
-            className="kz-ctrl"
+            className="kz-ctrl kz-ctrl-icon"
             onClick={() => onPrev?.()}
             title="上一集 (P)"
             aria-label="上一集"
           >
-            ⏮
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M6 6h2v12H6V6zm3.5 6 8.5 6V6l-8.5 6z" />
+            </svg>
           </button>
           <button
             type="button"
-            className="kz-ctrl"
+            className="kz-ctrl kz-ctrl-icon"
             onClick={() => onNext?.()}
             title="下一集 (N)"
             aria-label="下一集"
           >
-            ⏭
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M16 6h2v12h-2V6zM6 6v12l8.5-6L6 6z" />
+            </svg>
           </button>
           <span className="kz-time">
             {formatTime(current)} / {formatTime(duration)}
@@ -1772,13 +1790,12 @@ export function VideoPlayer({
               aria-label="设置"
             >
               <svg
-                width="16"
-                height="16"
+                width="18"
+                height="18"
                 viewBox="0 0 24 24"
                 fill="currentColor"
                 aria-hidden="true"
               >
-                {/* simple gear */}
                 <path d="M19.14 12.94c.04-.31.06-.63.06-.94s-.02-.63-.06-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.49.49 0 0 0-.59-.22l-2.39.96a7.15 7.15 0 0 0-1.63-.94l-.36-2.54A.48.48 0 0 0 14 2h-4a.48.48 0 0 0-.48.41l-.36 2.54c-.59.24-1.13.56-1.63.94l-2.39-.96a.49.49 0 0 0-.59.22L2.25 8.87a.48.48 0 0 0 .12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94L2.37 14.5a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.39.3.59.22l2.39-.96c.5.38 1.04.7 1.63.94l.36 2.54c.05.24.25.41.48.41h4c.24 0 .44-.17.48-.41l.36-2.54c.59-.24 1.13-.56 1.63-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.49.49 0 0 0-.12-.61l-2.03-1.58zM12 15.5A3.5 3.5 0 1 1 12 8.5a3.5 3.5 0 0 1 0 7z" />
               </svg>
             </button>
@@ -1881,22 +1898,29 @@ export function VideoPlayer({
               </div>
             )}
           </div>
-          <input
-            type="range"
-            className="kz-vol"
-            min={0}
-            max={100}
-            value={Math.round((player.volume ?? 0.7) * 100)}
-            onChange={(e) => {
-              const vol = Number(e.target.value) / 100
-              if (videoRef.current) videoRef.current.volume = vol
-              onPlayerChange?.({ volume: vol })
-            }}
-            style={{
-              ['--kz-progress' as string]: `${Math.round((player.volume ?? 0.7) * 100)}%`,
-            }}
-            aria-label="音量"
-          />
+          <div className="kz-vol-wrap">
+            <div className="kz-vol-rail" aria-hidden>
+              <div
+                className="kz-vol-fill"
+                style={{
+                  width: `${Math.round((player.volume ?? 0.7) * 100)}%`,
+                }}
+              />
+            </div>
+            <input
+              type="range"
+              className="kz-vol"
+              min={0}
+              max={100}
+              value={Math.round((player.volume ?? 0.7) * 100)}
+              onChange={(e) => {
+                const vol = Number(e.target.value) / 100
+                if (videoRef.current) videoRef.current.volume = vol
+                onPlayerChange?.({ volume: vol })
+              }}
+              aria-label="音量"
+            />
+          </div>
           <button
             type="button"
             className="kz-ctrl"

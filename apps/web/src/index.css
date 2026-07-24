@@ -1,18 +1,61 @@
 @import 'tailwindcss';
 
+/*
+ * Aniku visual system — Twitter / X dark (Lights out)
+ * Near-black canvas, cool gray layers, blue accent #1d9bf0.
+ * Tokens + Tailwind only; no heavy UI kit.
+ */
+
 :root {
   color-scheme: dark;
+
+  /* Canvas — X Lights out */
+  --kz-bg: #000000;
+  --kz-bg-elevated: #16181c;
+  --kz-bg-card: #16181c;
+  --kz-bg-soft: #1e2024;
+  --kz-bg-hover: #181818;
+
+  /* Lines — X hairline */
+  --kz-border: #2f3336;
+  --kz-border-subtle: #1e2024;
+
+  /* Type — X primary / secondary */
+  --kz-fg: #e7e9ea;
+  --kz-fg-muted: #71767b;
+  --kz-fg-dim: #536471;
+
+  /* Accent — X blue */
+  --kz-accent: #1d9bf0;
+  --kz-accent-hover: #1a8cd8;
+  --kz-accent-soft: rgba(29, 155, 240, 0.12);
+  --kz-accent-ring: rgba(29, 155, 240, 0.4);
+  --kz-accent-fg: #ffffff;
+
+  /* Score chip (warm, readable on dark covers) */
+  --kz-score: #ffd400;
+
+  /* Semantic (X-adjacent) */
+  --kz-like: #f91880;
+  --kz-success: #00ba7c;
+  --kz-danger: #f4212e;
+
   font-family:
     'Segoe UI',
     system-ui,
     -apple-system,
     'PingFang SC',
+    'Hiragino Sans GB',
+    'Microsoft YaHei UI',
     'Microsoft YaHei',
     sans-serif;
   line-height: 1.5;
   font-weight: 400;
-  background: #09090b;
-  color: #fafafa;
+  font-feature-settings: 'kern' 1;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: var(--kz-bg);
+  color: var(--kz-fg);
 }
 
 * {
@@ -22,6 +65,8 @@
 body {
   margin: 0;
   min-height: 100vh;
+  background: var(--kz-bg);
+  color: var(--kz-fg);
 }
 
 /* Nav / buttons that happen to be <a> stay neutral */
@@ -30,25 +75,22 @@ a {
   text-decoration: none;
 }
 
-/* Inline convenience links (Settings / about / docs) — distinct from body copy */
+/* Inline convenience links */
 a.kz-link {
-  color: #38bdf8;
+  color: var(--kz-accent);
   font-weight: 500;
-  text-decoration: underline;
-  text-decoration-color: rgba(56, 189, 248, 0.45);
-  text-underline-offset: 0.18em;
-  transition:
-    color 0.15s,
-    text-decoration-color 0.15s;
+  text-decoration: none;
+  transition: color 0.15s;
 }
 
 a.kz-link:hover {
-  color: #7dd3fc;
-  text-decoration-color: rgba(125, 211, 252, 0.9);
+  color: var(--kz-accent-hover);
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
 }
 
 a.kz-link:focus-visible {
-  outline: 2px solid rgba(56, 189, 248, 0.7);
+  outline: 2px solid var(--kz-accent-ring);
   outline-offset: 2px;
   border-radius: 2px;
 }
@@ -58,6 +100,30 @@ input,
 select,
 textarea {
   font: inherit;
+}
+
+/*
+ * Native <select> chevron: keep a little air from the right edge.
+ * Windows/Chrome draws the system arrow flush against the border otherwise.
+ * Skip when the control opts into a fully custom indicator (appearance-none).
+ */
+select:not([class*='appearance-none']) {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none'%3E%3Cpath d='M3 4.5L6 7.5L9 4.5' stroke='%2371767b' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.7rem center;
+  background-size: 0.75rem;
+  padding-right: 1.85rem;
+}
+
+/* Soft focus for form controls — X blue ring */
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: none;
+  border-color: var(--kz-accent);
+  box-shadow: 0 0 0 1px var(--kz-accent);
 }
 
 #root {
@@ -71,12 +137,144 @@ textarea {
   overflow: hidden;
 }
 
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 /* Skip off-screen card layout/paint while scrolling */
 .bangumi-card {
   content-visibility: auto;
-  contain-intrinsic-size: auto 280px;
+  contain-intrinsic-size: auto 380px;
+}
+
+/* Cover card hover — scale image only, not shell */
+.bangumi-card .bangumi-card-cover img {
+  transition: transform 0.35s ease;
+}
+
+.bangumi-card:hover .bangumi-card-cover img {
+  transform: scale(1.04);
 }
 
 img {
   content-visibility: auto;
+}
+
+/* Accent pill (filters / active chips) */
+.kz-pill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 9999px;
+  padding: 0.35rem 0.9rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  line-height: 1.25;
+  transition:
+    background 0.15s,
+    color 0.15s,
+    border-color 0.15s;
+}
+
+.kz-pill-active {
+  background: var(--kz-accent);
+  color: var(--kz-accent-fg);
+}
+
+.kz-pill-idle {
+  background: transparent;
+  color: var(--kz-fg-muted);
+}
+
+.kz-pill-idle:hover {
+  color: var(--kz-fg);
+  background: var(--kz-bg-hover);
+}
+
+/* Primary CTA — X Post button style */
+.kz-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  border-radius: 9999px;
+  background: var(--kz-accent);
+  color: var(--kz-accent-fg);
+  font-weight: 700;
+  font-size: 0.875rem;
+  padding: 0.5rem 1.15rem;
+  border: none;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    transform 0.1s;
+}
+
+.kz-btn-primary:hover {
+  background: var(--kz-accent-hover);
+}
+
+.kz-btn-primary:active {
+  transform: scale(0.98);
+}
+
+.kz-btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Subtle surface card — X elevated panel */
+.kz-surface {
+  background: var(--kz-bg-elevated);
+  border: 1px solid var(--kz-border);
+  border-radius: 1rem;
+}
+
+/* Ghost / secondary button */
+.kz-btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  border-radius: 9999px;
+  background: transparent;
+  color: var(--kz-fg);
+  font-weight: 700;
+  font-size: 0.875rem;
+  padding: 0.45rem 1rem;
+  border: 1px solid var(--kz-border);
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+
+.kz-btn-ghost:hover {
+  background: var(--kz-bg-hover);
+  border-color: var(--kz-fg-dim);
+}
+
+/* Scrollbar — thin X-like */
+@media (pointer: fine) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #3e4144 transparent;
+  }
+
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background: #3e4144;
+    border-radius: 9999px;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background: #536471;
+  }
 }

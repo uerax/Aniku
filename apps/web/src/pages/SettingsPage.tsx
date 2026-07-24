@@ -257,13 +257,13 @@ export function SettingsPage() {
           onChange={(e) => setTokenInput(e.target.value)}
           rows={3}
           placeholder="粘贴 Access Token…"
-          className="w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm outline-none ring-sky-600 focus:ring-2"
+          className="w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm outline-none ring-sky-500 focus:ring-2"
         />
         <div className="flex flex-wrap items-center gap-3">
           <button
             type="button"
             onClick={saveToken}
-            className="rounded-xl bg-sky-600 px-4 py-2 text-sm hover:bg-sky-500"
+            className="rounded-xl bg-sky-500 px-4 py-2 text-sm hover:bg-sky-500"
           >
             保存
           </button>
@@ -457,7 +457,7 @@ export function SettingsPage() {
               type="button"
               onClick={() => void updateAllFromCatalog()}
               disabled={batchBusy || catalog.isLoading || !catalog.data}
-              className="rounded-lg bg-sky-700 px-3 py-1.5 text-xs hover:bg-sky-600 disabled:opacity-50"
+              className="rounded-lg bg-sky-600 px-3 py-1.5 text-xs hover:bg-sky-500 disabled:opacity-50"
             >
               {batchBusy ? '更新中…' : '更新全部'}
             </button>

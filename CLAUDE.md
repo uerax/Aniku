@@ -106,7 +106,7 @@ Server entry: `apps/server/src/index.ts` mounts routes under `/api/{bangumi,danm
 | Area | Location |
 |------|----------|
 | Routes | `apps/web/src/App.tsx` — `/`, `/timeline`, `/search`, `/subject/:id`, `/play/:id`, `/collect`, `/history`, `/settings` |
-| Pages | `apps/web/src/pages/*` |
+| Pages | `apps/web/src/pages/*` — **`/subject/:id` and `/play/:id` both render `WatchPage`** (unified cinema) |
 | API clients | `lib/api.ts` (fetch + `ApiError`), `lib/bangumi.ts`, `lib/plugin-api.ts` |
 | State | Zustand + `localStorage`: `stores/settings.ts` (Bangumi token, danmaku + player prefs), `stores/plugins.ts` (rules), `stores/history.ts` (progress) |
 | Player | `player/VideoPlayer.tsx` — see **Player & danmaku** below |
@@ -262,8 +262,8 @@ OP/ED skip: `PlayerSettings.skipOp` / `skipEd`; when `skipEd.start === 0`, treat
 | Danmaku proxy | `apps/server/src/routes/danmaku.ts` + `lib/dandan.ts` |
 | Bilibili BV danmaku | `apps/server/src/routes/bilibili-danmaku.ts` → `GET /api/danmaku/bilibili` |
 | XML parse | `packages/shared/src/danmaku.ts` (`parseDanmakuXml`, `extractBvid`) |
-| Subject search UX | `apps/web/src/pages/SubjectPage.tsx` |
-| Playback shell | `apps/web/src/pages/PlayPage.tsx` |
+| Subject search UX | `apps/web/src/pages/SubjectPage.tsx` (meta only; watch on `/play`) |
+| Playback shell | `WatchPage.tsx` + `lib/use-watch-session.ts` |
 | Player + danmaku layer | `apps/web/src/player/VideoPlayer.tsx` (native video + hls.js) + `DanmakuPanel.tsx` + `anime4k.ts` + `plyr-overrides.css` |
 | Default rules | `apps/web/src/data/default-plugins/` |
 | App entry (no StrictMode) | `apps/web/src/main.tsx` |
@@ -274,5 +274,6 @@ OP/ED skip: `PlayerSettings.skipOp` / `skipEd`; when `skipEd.start === 0`, treat
 2. **Audio without video** → compositing (overflow/radius/isolation/danmaku stage transform), not m3u8 404.
 3. **`.ts` proxy 200 spam** while black → pipeline OK; fix UI stacking / player chrome.
 4. **Danmaku “not configured”** with empty `.env` → ensure `dandan.ts` fallback + status route still ships.
-5. **Always wire `danmakuPanel` on SubjectPage** if the control bar should show 「幕」.
+5. **Always wire `danmakuPanel` on WatchPage** if the control bar should show 「幕」.
 6. **Do not bring back Plyr** without a full isolation plan for MSE + remount.
+7. **Watch is unified on `/play/:id`** — Subject has no inline player; keyword re-search is **per selected source only**.

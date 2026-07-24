@@ -9,10 +9,9 @@ import { EMPTY_ARRAY } from '../lib/stable'
 export function HomePage() {
   const trending = useQuery({
     queryKey: ['trending'],
-    queryFn: () => bangumiApi.trending(24, 0),
+    queryFn: () => bangumiApi.trending(28, 0),
     staleTime: 5 * 60_000,
   })
-  // Select stable array reference from store; slice in useMemo
   const items = useHistoryStore((s) =>
     Array.isArray(s.items) ? s.items : EMPTY_ARRAY,
   )
@@ -27,31 +26,52 @@ export function HomePage() {
 
       {recent.length > 0 && (
         <section>
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-lg font-medium">继续观看</h2>
-            <Link to="/history" className="text-sm text-sky-400 hover:underline">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-[20px] font-bold tracking-tight text-[var(--kz-fg)]">
+              继续观看
+            </h2>
+            <Link
+              to="/history"
+              className="text-[15px] font-medium text-[var(--kz-accent)] hover:underline"
+            >
               全部历史
             </Link>
           </div>
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {recent.map((h) => (
               <Link
                 key={h.id}
-                to={`/play/${h.bangumiId}?plugin=${encodeURIComponent(h.pluginName)}&pageUrl=${encodeURIComponent(h.pageUrl)}&ep=${h.episode}&road=${h.road}&title=${encodeURIComponent(h.title)}`}
-                className="flex items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-900/50 p-3 hover:border-sky-800"
+                to={`/play/${h.bangumiId}?plugin=${encodeURIComponent(h.pluginName)}&pageUrl=${encodeURIComponent(h.pageUrl)}&ep=${h.episode}&road=${h.road}&title=${encodeURIComponent(h.title)}${h.cover ? `&cover=${encodeURIComponent(h.cover)}` : ''}`}
+                className="flex items-center gap-3 rounded-2xl border border-[var(--kz-border)] bg-[var(--kz-bg-elevated)] p-3 transition hover:bg-[var(--kz-bg-hover)]"
               >
                 {h.cover ? (
-                  <img src={h.cover} alt="" className="h-14 w-10 rounded object-cover" />
+                  <img
+                    src={h.cover}
+                    alt=""
+                    className="h-16 w-12 rounded-lg object-cover shadow-md ring-1 ring-white/5"
+                  />
                 ) : (
-                  <div className="h-14 w-10 rounded bg-zinc-800" />
+                  <div className="h-16 w-12 rounded-lg bg-[var(--kz-bg-soft)]" />
                 )}
                 <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-medium">{h.title}</div>
-                  <div className="text-xs text-zinc-500">
+                  <div className="truncate text-[13px] font-medium text-[var(--kz-fg)]">
+                    {h.title}
+                  </div>
+                  <div className="mt-0.5 text-[13px] text-[var(--kz-fg-muted)]">
                     第 {h.episode} 集 · {h.pluginName}
                     {h.duration > 0 &&
                       ` · ${Math.floor((h.position / h.duration) * 100)}%`}
                   </div>
+                  {h.duration > 0 && (
+                    <div className="mt-2 h-0.5 overflow-hidden rounded-full bg-[var(--kz-border)]">
+                      <div
+                        className="h-full rounded-full bg-[var(--kz-accent)]"
+                        style={{
+                          width: `${Math.min(100, Math.round((h.position / h.duration) * 100))}%`,
+                        }}
+                      />
+                    </div>
+                  )}
                 </div>
               </Link>
             ))}
@@ -60,7 +80,12 @@ export function HomePage() {
       )}
 
       <section>
-        <h2 className="mb-3 text-lg font-medium">热门趋势</h2>
+        <div className="mb-4 flex items-end justify-between gap-2">
+          <h2 className="text-[20px] font-bold tracking-tight text-[var(--kz-fg)]">
+            热门趋势
+          </h2>
+          <span className="text-[13px] text-[var(--kz-fg-muted)]">Bangumi</span>
+        </div>
         {trending.isLoading && <LoadingState />}
         {trending.isError && (
           <ErrorState error={trending.error} onRetry={() => trending.refetch()} />

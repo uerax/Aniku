@@ -79,7 +79,7 @@ export function HistoryPage() {
                   {h.duration > 0 && (
                     <div className="mt-1.5 h-1 overflow-hidden rounded bg-zinc-800">
                       <div
-                        className="h-full bg-sky-600"
+                        className="h-full bg-sky-500"
                         style={{ width: `${pct}%` }}
                       />
                     </div>

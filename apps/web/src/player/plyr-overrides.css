@@ -37,7 +37,7 @@
   align-items: center;
   justify-content: center;
   border-radius: 1rem;
-  border: 1px solid #27272a;
+  border: 1px solid #2f3336;
   background: #000;
 }
 
@@ -195,7 +195,7 @@
 }
 
 .kz-big-play:hover {
-  background: #38bdf8;
+  background: #1d9bf0;
 }
 
 .kz-bar {
@@ -224,7 +224,7 @@
    paint played portion via --kz-progress + WebKit/Moz pseudo elements. */
 .kz-seek {
   --kz-progress: 0%;
-  --kz-seek-fill: #38bdf8;
+  --kz-seek-fill: #1d9bf0;
   --kz-seek-rest: #3f3f46;
   --kz-seek-h: 6px;
   display: block;
@@ -306,36 +306,71 @@
   cursor: pointer;
 }
 
+
+/*
+ * Control row — fixed 32px band, one shared horizontal midline (y = 50%).
+ * Volume track is painted as a div on that line (not native range track math).
+ */
 .kz-bar-row {
+  --kz-ctrl-h: 32px;
   display: flex;
   align-items: center;
-  gap: 0.35rem;
-  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: 0;
+  flex-wrap: nowrap;
+  height: var(--kz-ctrl-h);
+  min-height: var(--kz-ctrl-h);
+  max-height: var(--kz-ctrl-h);
+  overflow: visible;
+}
+
+.kz-bar-row > * {
+  flex-shrink: 0;
+  height: var(--kz-ctrl-h);
+  box-sizing: border-box;
 }
 
 .kz-ctrl {
-  min-width: 2rem;
-  height: 1.75rem;
-  padding: 0 0.4rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  height: var(--kz-ctrl-h);
+  min-width: var(--kz-ctrl-h);
+  margin: 0;
+  padding: 0 8px;
   border: 0;
-  border-radius: 0.35rem;
+  border-radius: 6px;
   background: transparent;
   color: #fafafa;
-  font-size: 0.75rem;
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    'Microsoft YaHei UI',
+    'PingFang SC',
+    sans-serif;
+  font-size: 12px;
   font-weight: 600;
+  line-height: 32px;
+  letter-spacing: 0;
+  white-space: nowrap;
   cursor: pointer;
 }
 
 .kz-ctrl-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 0.35rem;
+  width: var(--kz-ctrl-h);
+  min-width: var(--kz-ctrl-h);
+  padding: 0;
+  line-height: 0;
 }
 
 .kz-ctrl-icon svg {
   display: block;
-  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  flex: none;
 }
 
 .kz-ctrl:hover {
@@ -343,49 +378,89 @@
 }
 
 .kz-ctrl[data-active='true'] {
-  color: #38bdf8;
+  color: #1d9bf0;
 }
 
 .kz-time {
-  font-size: 0.7rem;
+  display: inline-flex;
+  align-items: center;
+  height: var(--kz-ctrl-h);
+  margin: 0 0 0 4px;
+  padding: 0 4px;
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    'Microsoft YaHei UI',
+    sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 32px;
   color: #d4d4d8;
   font-variant-numeric: tabular-nums;
-  margin-left: 0.25rem;
+  white-space: nowrap;
 }
 
 .kz-bar-spacer {
-  flex: 1;
+  flex: 1 1 auto;
+  flex-shrink: 1 !important;
+  min-width: 8px;
+  height: var(--kz-ctrl-h);
 }
 
-/* Volume: same Mac/Safari fill issue as seek */
+/*
+ * Volume — decorative rail absolutely centered on the row mid-line.
+ * Native <input type=range> is transparent (hit-testing + thumb only).
+ */
+.kz-vol-wrap {
+  position: relative;
+  width: 80px;
+  height: var(--kz-ctrl-h);
+  margin: 0 4px;
+}
+
+.kz-vol-rail {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 3px;
+  margin: 0;
+  transform: translateY(-50%);
+  border-radius: 999px;
+  background: #3f3f46;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.kz-vol-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: #1d9bf0;
+  pointer-events: none;
+}
+
 .kz-vol {
-  --kz-progress: 70%;
-  --kz-seek-fill: #38bdf8;
-  --kz-seek-rest: #3f3f46;
-  --kz-seek-h: 4px;
-  width: 4.5rem;
-  height: 1.25rem;
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
   margin: 0;
   padding: 0;
   border: 0;
   background: transparent;
-  accent-color: var(--kz-seek-fill);
   cursor: pointer;
   appearance: none;
   -webkit-appearance: none;
-  vertical-align: middle;
+  z-index: 1;
 }
 
+/* Hide native track completely — we draw .kz-vol-rail ourselves */
 .kz-vol::-webkit-slider-runnable-track {
-  height: var(--kz-seek-h);
-  border-radius: 999px;
-  background: linear-gradient(
-    to right,
-    var(--kz-seek-fill) 0%,
-    var(--kz-seek-fill) var(--kz-progress),
-    var(--kz-seek-rest) var(--kz-progress),
-    var(--kz-seek-rest) 100%
-  );
+  height: 100%;
+  background: transparent;
+  border: 0;
 }
 
 .kz-vol::-webkit-slider-thumb {
@@ -393,25 +468,27 @@
   appearance: none;
   width: 12px;
   height: 12px;
-  margin-top: calc((var(--kz-seek-h) - 12px) / 2);
+  /* Center thumb in the full 32px input → sits on mid-line with the rail */
+  margin-top: calc((32px - 12px) / 2);
   border: 0;
   border-radius: 50%;
   background: #fafafa;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4);
   cursor: pointer;
+  position: relative;
+  z-index: 2;
 }
 
 .kz-vol::-moz-range-track {
-  height: var(--kz-seek-h);
+  height: 100%;
+  background: transparent;
   border: 0;
-  border-radius: 999px;
-  background: var(--kz-seek-rest);
 }
 
 .kz-vol::-moz-range-progress {
-  height: var(--kz-seek-h);
+  height: 100%;
+  background: transparent;
   border: 0;
-  border-radius: 999px;
-  background: var(--kz-seek-fill);
 }
 
 .kz-vol::-moz-range-thumb {
@@ -420,11 +497,19 @@
   border: 0;
   border-radius: 50%;
   background: #fafafa;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4);
   cursor: pointer;
 }
 
 .kz-speed-wrap {
   position: relative;
+  display: inline-flex;
+  align-items: center;
+  height: var(--kz-ctrl-h);
+}
+
+.kz-speed-wrap > .kz-ctrl {
+  height: var(--kz-ctrl-h);
 }
 
 .kz-speed-menu {
@@ -457,7 +542,7 @@
 .kz-speed-menu button:hover,
 .kz-speed-menu button[data-active='true'] {
   background: rgba(56, 189, 248, 0.15);
-  color: #7dd3fc;
+  color: #8ecdf8;
 }
 
 .kz-danmaku-panel-root {

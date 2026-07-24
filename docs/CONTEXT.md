@@ -192,11 +192,20 @@ Anime4K (可选)   → WebGPU canvas 覆盖层（默认关，不占 GPU）
 - 需要 **WebGPU**（Chrome/Edge 等）且页面为 **安全上下文**（HTTPS 或 `localhost` / `127.0.0.1`）。Docker 用 `http://局域网IP:PORT` 打开时 `navigator.gpu` 不存在，超分不可用（菜单仍可打开并提示原因）。**iframe 降级不做超分**。iOS **系统视频全屏**看不到 canvas，用「网页全屏」
 - 控制条「超分」菜单始终可点；无 WebGPU 时仅禁用效率/质量项。设置页下拉共用同一字段
 
+### 播放页（统一影院）
+
+- **`/subject/:id` 与 `/play/:id` 同一套 `WatchPage`**（详情+播放不拆页）。
+- 左播放器 + 右可折叠「视频源 / 选集」。默认源（MXdm）进入时自动搜索标题并选中第一条结果加载分集；其它源点击才搜。
+- 点搜索结果才 `chapters`；点集才 resolve。关键词下拉+手输只作用于当前源。
+- 历史/首页续播仍可用 `/play` query；与从详情进入体验一致。
+- 逻辑：`useWatchSession`。旧「经典布局」选项已移除。
+
 ### 布局雷区
 
 - 播放页结构：`VideoPlayer` 自带 `aspect-video`；**不要**用 `embedded` 填满再被圆角裁切父级包住  
 - 避免 `isolation: isolate` 盖在 video 上；注意 ironkinoko stage 的 `translateZ(0)` 可能黑屏  
 - 全屏遮罩层全屏区域 `pointer-events: none`，只有真正控件可点  
+- 现代页侧栏可 `overflow`；**不要**给播放器外层再加 `overflow-hidden` + `rounded-*`  
 
 ### 开发 remount
 
@@ -254,8 +263,8 @@ Anime4K (可选)   → WebGPU canvas 覆盖层（默认关，不占 GPU）
 | 弹弹 | `routes/danmaku.ts` + `lib/dandan.ts` |
 | B 站弹幕 | `routes/bilibili-danmaku.ts` |
 | 配置 / UA | `apps/server/src/config.ts` |
-| 详情选源 | `apps/web/src/pages/SubjectPage.tsx` |
-| 播放页 | `apps/web/src/pages/PlayPage.tsx` |
+| 详情选源 | `SubjectPage.tsx` — 元数据 +「开始观看」→ `/play`（选源/播放不在详情页） |
+| 播放页 | `WatchPage.tsx` + `use-watch-session.ts`（`/subject` 与 `/play` 共用） |
 | 默认规则 | `apps/web/src/data/default-plugins/` |
 | 入口（无 StrictMode） | `apps/web/src/main.tsx` |
 

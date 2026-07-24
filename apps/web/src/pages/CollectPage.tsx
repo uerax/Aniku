@@ -94,8 +94,8 @@ export function CollectPage() {
             onClick={() => setTab(i)}
             className={
               tab === i
-                ? 'rounded-full bg-sky-600 px-3 py-1 text-sm'
-                : 'rounded-full bg-zinc-900 px-3 py-1 text-sm text-zinc-400 hover:bg-zinc-800'
+                ? 'kz-pill kz-pill-active'
+                : 'kz-pill kz-pill-idle border border-[var(--kz-border)]'
             }
           >
             {t.label}

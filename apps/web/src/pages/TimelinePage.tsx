@@ -46,8 +46,8 @@ export function TimelinePage() {
             onClick={() => onSelectDay(i)}
             className={
               day === i
-                ? 'rounded-full bg-sky-600 px-4 py-1.5 text-sm text-white'
-                : 'rounded-full bg-zinc-900 px-4 py-1.5 text-sm text-zinc-300 hover:bg-zinc-800'
+                ? 'kz-pill kz-pill-active'
+                : 'kz-pill kz-pill-idle border border-[var(--kz-border)]'
             }
           >
             {label}
