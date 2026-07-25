@@ -240,33 +240,18 @@ html[data-theme='light'] .kz-watch-road-chip[aria-selected='true'] {
   background: transparent !important;
 }
 
-/* ironkinoko injects .danmaku-stage with transform:translateZ(0) which can
-   cover the video with an empty GPU layer — neutralize that */
-.kz-danmaku-layer .danmaku-stage {
-  background: transparent !important;
+/* Canvas engine: single bitmap layer, media-time positions (no DOM nodes). */
+.kz-danmaku-layer .kz-danmaku-canvas {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
   pointer-events: none !important;
-  /* keep position/size from lib, drop 3d transform that blanks video */
-  transform: none !important;
-  -webkit-transform: none !important;
-  will-change: auto !important;
-}
-
-/* B 站风格弹幕：黑体加粗 + 四向描边（与 ironkinoko 节点 class=danmaku 对齐） */
-.kz-danmaku-layer .danmaku {
-  pointer-events: none !important;
-  font-family: SimHei, 'Microsoft YaHei', 'Microsoft JhengHei', Arial, Helvetica,
-    sans-serif;
-  font-weight: 700;
-  line-height: 1.3;
-  text-shadow:
-    1px 0 1px #000,
-    0 1px 1px #000,
-    0 -1px 1px #000,
-    -1px 0 1px #000;
-  /* Avoid soft anti-alias blur that makes thin edges look gray */
-  -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
-  white-space: nowrap;
+  display: block;
+  /* Promote one layer only — cheaper than N DOM comments */
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
 }
 
 .kz-status-layer {

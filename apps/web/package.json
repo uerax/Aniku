@@ -12,7 +12,6 @@
   },
   "dependencies": {
     "@aniku/shared": "workspace:*",
-    "@ironkinoko/danmaku": "^1.4.5",
     "@tanstack/react-query": "^5.69.0",
     "anime4k-webgpu": "^1.0.0",
     "clsx": "^2.1.1",

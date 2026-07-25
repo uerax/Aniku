@@ -1,23 +1,15 @@
-import type { Comment as IronComment } from '@ironkinoko/danmaku'
 import type { DanmakuComment, DanmakuSettings } from '@aniku/shared'
 
 /**
- * ironkinoko `speed` is px/s; duration = stage.width / speed.
- * Fixed 130 makes ~10s on desktop and ~2.8s on a 360px phone — too fast on mobile.
- * Scale down only when narrower than DANMAKU_REF_WIDTH so desktop stay the same.
+ * Pixel speed helpers for canvas (and legacy) danmaku.
+ * Canvas engine uses duration = (stageW + textW) / speed → constant visual px/s.
  */
 export const BASE_DANMAKU_SPEED = 130
-
-/** Bilibili-style stroke (four-direction 1px black edge). */
-const BILI_DANMAKU_SHADOW =
-  '1px 0 1px #000, 0 1px 1px #000, 0 -1px 1px #000, -1px 0 1px #000'
 
 /**
  * Base size ~B 站默认 25px at a mid-size player; user fontSize is a multiplier.
  * Small / phone windowed players scale down so 25px doesn't dominate the frame.
  */
-const BILI_DANMAKU_BASE_PX = 25
-/** Player width at which base 25px is used (≈ tablet / small desktop player). */
 const DANMAKU_REF_WIDTH = 720
 const DANMAKU_MIN_SCALE = 0.48 // ~12px @ default multiplier
 const DANMAKU_MAX_SCALE = 1.1
@@ -92,34 +84,4 @@ export function danmakuPixelSpeed(
   // Cap at 1: never faster than desktop base for the same user multiplier
   const scale = Math.min(1, Math.max(0.45, w / DANMAKU_REF_WIDTH))
   return Math.max(40, BASE_DANMAKU_SPEED * scale * mult)
-}
-
-export function toIronComments(
-  comments: DanmakuComment[],
-  settings: DanmakuSettings,
-  containerWidth = 0,
-): IronComment[] {
-  const scale = danmakuFontScale(containerWidth)
-  const fontSize = `${Math.round(
-    BILI_DANMAKU_BASE_PX * scale * (settings.fontSize || 1),
-  )}px`
-  return filterComments(comments, settings)
-    .map((c) => ({
-      time: c.time + (settings.timeOffset || 0),
-      mode: c.mode || 'rtl',
-      text: c.text,
-      // Font family / weight also set in CSS (.kz-danmaku-layer .danmaku);
-      // inline keeps per-comment color/size and stroke reliable under assign.
-      style: {
-        color: c.style?.color || '#ffffff',
-        fontSize,
-        fontFamily:
-          "SimHei, 'Microsoft YaHei', 'Microsoft JhengHei', Arial, Helvetica, sans-serif",
-        fontWeight: '700',
-        lineHeight: '1.3',
-        textShadow: BILI_DANMAKU_SHADOW,
-        opacity: String(settings.opacity ?? 0.85),
-      } as Partial<CSSStyleDeclaration>,
-    }))
-    .sort((a, b) => a.time - b.time)
 }

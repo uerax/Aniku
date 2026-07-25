@@ -50,9 +50,6 @@ importers:
       '@aniku/shared':
         specifier: workspace:*
         version: link:../../packages/shared
-      '@ironkinoko/danmaku':
-        specifier: ^1.4.5
-        version: 1.5.0
       '@tanstack/react-query':
         specifier: ^5.69.0
         version: 5.101.4(react@19.2.8)
@@ -511,9 +508,6 @@ packages:
     engines: {node: '>=18.14.1'}
     peerDependencies:
       hono: ^4
-
-  '@ironkinoko/danmaku@1.5.0':
-    resolution: {integrity: sha512-9AlE8+IGhm3Ig4/EOKO+4gX6ljAWLlMHQ8UcJmQbcwHguimKCWWOfjBUGEjKMy7msqKO7m+ySvu+pdSO1Wl+nw==}
 
   '@jridgewell/gen-mapping@0.3.13':
     resolution: {integrity: sha512-2kkt/7niJ6MgEPxF0bYdQ6etZaA+fQvDcLKckhy1yIQOzaoKjBBjSj63/aLVjYE3qhRt5dvM+uUyfCg6UKCBbA==}
@@ -1506,8 +1500,6 @@ snapshots:
   '@hono/node-server@1.19.14(hono@4.12.31)':
     dependencies:
       hono: 4.12.31
-
-  '@ironkinoko/danmaku@1.5.0': {}
 
   '@jridgewell/gen-mapping@0.3.13':
     dependencies:

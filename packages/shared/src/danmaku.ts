@@ -50,7 +50,7 @@ export const defaultDanmakuSettings: DanmakuSettings = {
   timeOffset: 0,
 }
 
-/** Map bilibili / dandan type codes → ironkinoko modes */
+/** Map bilibili / dandan type codes → DanmakuMode */
 const MODE_MAP: Record<string, DanmakuMode> = {
   '1': 'rtl',
   '2': 'rtl',

@@ -9,7 +9,6 @@
  */
 import { useEffect, useRef, useState, type DragEvent } from 'react'
 import './plyr-overrides.css'
-import Danmaku from '@ironkinoko/danmaku'
 /** Instance type only — runtime constructor is dynamic-imported for m3u8 */
 import type Hls from 'hls.js'
 import {
@@ -36,11 +35,8 @@ import {
   isShellFullscreen,
   requestDomFullscreen,
 } from './media/fullscreen'
-import {
-  danmakuFontScale,
-  danmakuPixelSpeed,
-  toIronComments,
-} from './media/danmaku-utils'
+import { CanvasDanmaku } from './media/canvas-danmaku'
+import { danmakuFontScale, danmakuPixelSpeed } from './media/danmaku-utils'
 import {
   bufferedAhead,
   formatTime,
@@ -86,7 +82,7 @@ export function VideoPlayer({
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const layerRef = useRef<HTMLDivElement>(null)
   const hlsRef = useRef<Hls | null>(null)
-  const danmakuCoreRef = useRef<Danmaku | null>(null)
+  const danmakuCoreRef = useRef<CanvasDanmaku | null>(null)
   /** Last player width used for danmaku font scale (reload only on meaningful change). */
   const lastDanmakuWidthRef = useRef(0)
   const anime4kStopRef = useRef<Anime4KStop | null>(null)
@@ -197,28 +193,31 @@ export function VideoPlayer({
   }
 
   /**
-   * Apply danmaku settings / comments.
-   * Visual-only (opacity/speed/area/enabled) updates core props without reload.
-   * Content changes (comments, filters, modes, offset, fontSize) full reload.
+   * Apply danmaku settings / comments (Canvas time-based engine).
+   * Visual-only (opacity/speed/area/enabled) → applyVisual, no list rebuild.
+   * Content changes (comments, filters, modes, offset, fontSize) → full reload.
+   * Never resize() on every apply — only when width/font bucket changes.
    */
   function applyDanmaku(forceReload = false) {
     const video = videoRef.current
     const layer = layerRef.current
     if (!video || !layer) return
     const dm = danmakuRef.current
-    // Prefer shell width (player frame); fall back to layer / video box.
     const w =
       shellRef.current?.clientWidth ||
       layer.clientWidth ||
       video.clientWidth ||
       0
     const pixelSpeed = danmakuPixelSpeed(w, dm.speed || 1)
+    const prevW = lastDanmakuWidthRef.current
+    const widthBucketChanged =
+      w > 0 &&
+      (prevW <= 0 ||
+        Math.abs(danmakuFontScale(w) - danmakuFontScale(prevW)) >= 0.02)
     lastDanmakuWidthRef.current = w
 
-    // Content-affecting fingerprint — visual-only keys omitted
     const contentKey = [
       commentsRef.current.length,
-      // cheap identity: first/last time + text len sum proxy
       commentsRef.current[0]?.time ?? 0,
       commentsRef.current[commentsRef.current.length - 1]?.time ?? 0,
       dm.timeOffset ?? 0,
@@ -228,7 +227,6 @@ export function VideoPlayer({
       dm.showBottom ? 1 : 0,
       dm.showColor ? 1 : 0,
       (dm.filters || []).join('\0'),
-      // width bucket for font scale
       Math.round(danmakuFontScale(w) * 50),
     ].join('|')
 
@@ -239,39 +237,30 @@ export function VideoPlayer({
         contentKey !== danmakuContentKeyRef.current
 
       if (!danmakuCoreRef.current) {
-        const iron = toIronComments(commentsRef.current, dm, w)
-        danmakuCoreRef.current = new Danmaku({
+        danmakuCoreRef.current = new CanvasDanmaku({
           container: layer,
           media: video,
-          comments: iron,
-          merge: false,
-          overlap: false,
-          scrollAreaPercent: Math.min(1, Math.max(0.15, dm.area || 0.5)),
-          opacity: dm.opacity ?? 0.85,
-          speed: pixelSpeed,
+          comments: commentsRef.current,
+          settings: dm,
+          width: w,
         })
         danmakuContentKeyRef.current = contentKey
       } else if (needReload) {
-        const iron = toIronComments(commentsRef.current, dm, w)
         const core = danmakuCoreRef.current
-        core.reload(iron)
-        core.opacity = dm.opacity ?? 0.85
+        core.reload(commentsRef.current, dm)
         core.speed = pixelSpeed
-        core.scrollAreaPercent = Math.min(1, Math.max(0.15, dm.area || 0.5))
         danmakuContentKeyRef.current = contentKey
+        if (widthBucketChanged) core.resize(w)
       } else {
-        // Visual-only: no filter/map/sort/reload
         const core = danmakuCoreRef.current
-        core.opacity = dm.opacity ?? 0.85
+        core.applyVisual(dm)
         core.speed = pixelSpeed
-        core.scrollAreaPercent = Math.min(1, Math.max(0.15, dm.area || 0.5))
+        // Geometry only when player width actually moved a font-scale bucket
+        if (widthBucketChanged) core.resize(w)
       }
       const core = danmakuCoreRef.current
       if (dm.enabled === false) core.hide()
-      else {
-        core.show()
-        core.resize()
-      }
+      else core.show()
     } catch (e) {
       console.warn('[danmaku]', e)
     }
@@ -472,17 +461,10 @@ export function VideoPlayer({
       // Wait for buffer gate then play; attach danmaku after a frame
       // (early full-size GPU stage above video blacks out some Chrome builds)
       softPlay()
+      // One frame after layout so container has non-zero size for canvas
       requestAnimationFrame(() => {
         if (!alive()) return
         applyDanmaku()
-        requestAnimationFrame(() => {
-          if (!alive()) return
-          try {
-            danmakuCoreRef.current?.resize()
-          } catch {
-            /* ignore */
-          }
-        })
       })
     }
 
@@ -884,22 +866,20 @@ export function VideoPlayer({
     const ro = new ResizeObserver(() => {
       try {
         const w = shellRef.current?.clientWidth || 0
-        // Font scale is width-based; re-apply when scale bucket would change
-        // (≈ 24px width step at ref 720), not every pixel.
+        const core = danmakuCoreRef.current
+        if (!core || w <= 0) return
+        // Font scale is width-based; full content re-apply only when scale bucket
+        // would change. Pure geometry uses resize() (media-time progress kept).
         const prev = lastDanmakuWidthRef.current
         const scaleChanged =
-          w > 0 &&
-          (prev <= 0 ||
-            Math.abs(danmakuFontScale(w) - danmakuFontScale(prev)) >= 0.02)
-        const core = danmakuCoreRef.current
-        if (scaleChanged && core) {
+          prev <= 0 ||
+          Math.abs(danmakuFontScale(w) - danmakuFontScale(prev)) >= 0.02
+        if (scaleChanged) {
           applyDanmaku()
-        } else if (core) {
-          // Keep px/s width-aware (duration = width/speed); pure resize alone
-          // would leave mobile on the old desktop-rate base.
+        } else {
           const dm = danmakuRef.current
           core.speed = danmakuPixelSpeed(w, dm.speed || 1)
-          core.resize()
+          core.resize(w)
         }
       } catch {
         /* ignore */

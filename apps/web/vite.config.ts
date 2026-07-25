@@ -55,7 +55,6 @@ export default defineConfig(({ mode }) => {
           manualChunks(id) {
             if (!id.includes('node_modules')) return
             if (id.includes('hls.js')) return 'hls'
-            if (id.includes('@ironkinoko/danmaku')) return 'danmaku'
             if (id.includes('anime4k-webgpu')) return 'anime4k'
             if (
               id.includes('/react/') ||

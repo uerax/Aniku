@@ -1,5 +1,22 @@
 # Aniku 项目状态
 
+## [2026-07-26] P0 完整弹幕：Canvas + 媒体时间 + 恒速
+
+- 状态：已完成
+- 优先级：P0
+- 描述：替换 @ironkinoko/danmaku DOM/CSS transition 为自研 Canvas 引擎
+  - 每帧 x = f(video.currentTime)，卡顿与画面同相
+  - duration = (stageW + textW) / speed，长短句视觉匀速
+  - strokeText 轻描边；同屏上限 80；暂停停 rAF
+  - 移除 ironkinoko 依赖
+- 涉及文件：
+  - apps/web/src/player/media/canvas-danmaku.ts（新）
+  - apps/web/src/player/media/danmaku-utils.ts
+  - apps/web/src/player/VideoPlayer.tsx
+  - apps/web/src/player/plyr-overrides.css
+  - apps/web/package.json / vite.config.ts
+- 备注：typecheck 通过
+
 ## [2026-07-26] 选集面板视觉 + 选源后聚焦 UX
 
 - 状态：已完成
