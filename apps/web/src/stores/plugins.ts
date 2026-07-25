@@ -258,15 +258,20 @@ export const usePluginStore = create<PluginState>()(
           _seeded?: boolean
         }
         let plugins = normalizePlugins(p.plugins)
-        // v0 / legacy empty list / missing defaults → seed
-        if (plugins.length === 0 || fromVersion < 1) {
-          if (plugins.length === 0) {
-            plugins = seedFromDefaults()
-          }
+        const wasEmpty = plugins.length === 0
+        // v0 / legacy empty list → seed
+        if (wasEmpty || fromVersion < 1) {
+          if (wasEmpty) plugins = seedFromDefaults()
         }
+        const persistedVer =
+          typeof p.defaultsVersion === 'number' && Number.isFinite(p.defaultsVersion)
+            ? p.defaultsVersion
+            : 0
+        // Preserve version so ensureDefaults can migrate builtins; only stamp
+        // current when we just seeded an empty store.
         return {
           plugins,
-          defaultsVersion: PLUGIN_DEFAULTS_VERSION,
+          defaultsVersion: wasEmpty ? PLUGIN_DEFAULTS_VERSION : persistedVer,
         }
       },
       merge: (persisted, current) => {
@@ -280,13 +285,20 @@ export const usePluginStore = create<PluginState>()(
         const p = persisted as Partial<PluginState> & { _seeded?: boolean }
         let plugins = normalizePlugins(p.plugins)
         // Empty after rehydrate (old empty localStorage) → seed
-        if (plugins.length === 0) {
+        const wasEmpty = plugins.length === 0
+        if (wasEmpty) {
           plugins = seedFromDefaults()
         }
+        // Keep stored version so ensureDefaults() can apply versioned migrations.
+        // Only stamp current version when we just seeded an empty store.
+        const persistedVer =
+          typeof p.defaultsVersion === 'number' && Number.isFinite(p.defaultsVersion)
+            ? p.defaultsVersion
+            : 0
         return {
           ...current,
           plugins,
-          defaultsVersion: PLUGIN_DEFAULTS_VERSION,
+          defaultsVersion: wasEmpty ? PLUGIN_DEFAULTS_VERSION : persistedVer,
         }
       },
       onRehydrateStorage: () => (state, error) => {

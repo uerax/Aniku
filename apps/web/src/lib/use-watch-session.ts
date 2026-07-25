@@ -57,6 +57,53 @@ export type EpisodePlay = {
 /** Preferred first-touch source so new users aren't staring at an empty rail. */
 export const DEFAULT_SOURCE_PLUGIN = 'MXdm'
 
+/**
+ * Min title similarity before auto-picking the first ranked search hit.
+ * Below this, show the list and let the user choose (avoids MacCMS wrong-show).
+ */
+export const AUTO_PICK_MIN_SIMILARITY = 0.55
+
+/** Seconds of history progress required before continue-play seeks. */
+const RESUME_MIN_POSITION = 15
+
+function lookupResumePosition(
+  bangumiId: number,
+  pluginName: string,
+  episode: number,
+  road: number,
+): number {
+  const items = useHistoryStore.getState().items
+  const list = Array.isArray(items) ? items : []
+  const h = list.find(
+    (i) =>
+      i.bangumiId === bangumiId &&
+      i.pluginName === pluginName &&
+      i.episode === episode &&
+      i.road === road,
+  )
+  return h?.position || 0
+}
+
+/** Prefer history sourceUrl; fall back to query `source` when present. */
+function lookupHistorySourceUrl(
+  bangumiId: number,
+  pluginName: string,
+  pageUrl: string,
+): string {
+  const items = useHistoryStore.getState().items
+  const list = Array.isArray(items) ? items : []
+  const norm = (u: string) => u.replace(/\/+$/, '')
+  const target = norm(pageUrl)
+  const hit = list.find(
+    (i) =>
+      i.bangumiId === bangumiId &&
+      i.pluginName === pluginName &&
+      (norm(i.pageUrl) === target ||
+        (i.sourceUrl && norm(i.sourceUrl) === target)),
+  )
+  return (hit?.sourceUrl || '').trim()
+}
+
 function findDefaultSourcePlugin(list: PluginMeta[]): PluginMeta | undefined {
   const want = DEFAULT_SOURCE_PLUGIN.toLowerCase()
   return (
@@ -175,7 +222,7 @@ export function useWatchSession(bangumiId: number): WatchSession {
 
   const subject = useQuery({
     queryKey: ['subject', bangumiId],
-    queryFn: () => bangumiApi.subject(bangumiId),
+    queryFn: ({ signal }) => bangumiApi.subject(bangumiId, { signal }),
     enabled: Number.isFinite(bangumiId) && bangumiId > 0,
   })
   const item = subject.data?.data
@@ -200,16 +247,24 @@ export function useWatchSession(bangumiId: number): WatchSession {
   >({})
   const [playerRemount, setPlayerRemount] = useState(0)
   const [forceProxy, setForceProxy] = useState(false)
+  /** Continue-play seek target — state (not ref) so first media mount sees it. */
+  const [resumePosition, setResumePosition] = useState(0)
 
   const resumeDoneFor = useRef<string | null>(null)
-  const resumeRef = useRef(0)
+  /** Live override after auth/proxy remount (position mid-play). */
+  const resumeOverrideRef = useRef<number | null>(null)
   const pluginSearchGen = useRef<Record<string, number>>({})
+  /** Abort in-flight search fetch when gen bumps / unmount */
+  const pluginSearchAbort = useRef<Record<string, AbortController>>({})
   const chaptersGen = useRef(0)
+  const chaptersAbort = useRef<AbortController | null>(null)
   /** Auto-start default source once per subject (skip resume deep-links). */
   const defaultSearchDoneFor = useRef<number | null>(null)
   /** Avoid auto-picking first hit when user already has a selection / resume. */
   const selectionRef = useRef<SourceSelection | null>(null)
   selectionRef.current = selection
+  const paramsRef = useRef(params)
+  paramsRef.current = params
 
   const titleRefs = useMemo(() => {
     if (!item) return [qTitle].filter(Boolean) as string[]
@@ -259,6 +314,7 @@ export function useWatchSession(bangumiId: number): WatchSession {
       (selection || qPlugin) && (episode || qPageUrl) && bangumiId && title,
     ),
   })
+  const dmResetPools = dm.resetPools
 
   useEffect(() => {
     ensureDefaults()
@@ -270,6 +326,8 @@ export function useWatchSession(bangumiId: number): WatchSession {
     defaultSearchDoneFor.current = null
     setSelection(null)
     setEpisode(null)
+    setResumePosition(0)
+    resumeOverrideRef.current = null
     setVisibleRoad(0)
     setRoadError('')
     setPendingSource(null)
@@ -277,7 +335,7 @@ export function useWatchSession(bangumiId: number): WatchSession {
     setKeywordTargetPlugin(null)
     setSessionKeywords({})
     chaptersGen.current += 1
-    dm.resetPools()
+    dmResetPools()
     pluginSearchGen.current = {}
     setSearchKeyword('')
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only on subject id
@@ -345,16 +403,27 @@ export function useWatchSession(bangumiId: number): WatchSession {
       }
 
       const gen = ++chaptersGen.current
+      try {
+        chaptersAbort.current?.abort()
+      } catch {
+        /* ignore */
+      }
+      const chaptersAc = new AbortController()
+      chaptersAbort.current = chaptersAc
       setRoadLoading(true)
       setRoadError('')
       setEpisode(null)
+      setResumePosition(0)
+      resumeOverrideRef.current = null
       setVisibleRoad(0)
       setSelection(null)
       setPendingSource({ pluginName: plugin.name, src: searchItem.src })
       setKeywordTargetPlugin(plugin)
-      dm.resetPools()
+      dmResetPools()
       try {
-        const res = await pluginApi.chapters(plugin, searchItem.src)
+        const res = await pluginApi.chapters(plugin, searchItem.src, {
+          signal: chaptersAc.signal,
+        })
         if (chaptersGen.current !== gen) return
         const roads = res.data.roads
         writeRoadsForSource(bangumiId, plugin.name, searchItem.src, roads)
@@ -370,24 +439,29 @@ export function useWatchSession(bangumiId: number): WatchSession {
         setVisibleRoad(0)
         setPendingSource(null)
 
-        const q = new URLSearchParams(params)
+        const q = new URLSearchParams(paramsRef.current)
         q.set('plugin', plugin.name)
         q.set('title', title)
         if (cover) q.set('cover', cover)
+        // Keep source detail URL for cold chapters resume
+        q.set('source', searchItem.src)
         q.delete('pageUrl')
         q.delete('ep')
         q.delete('road')
         setParams(q, { replace: true })
       } catch (e) {
         if (chaptersGen.current !== gen) return
-        setRoadError(e instanceof Error ? e.message : '获取分集失败')
+        if (chaptersAc.signal.aborted) return
+        const msg = e instanceof Error ? e.message : '获取分集失败'
+        if (/取消|aborted|AbortError/i.test(msg)) return
+        setRoadError(msg)
         setSelection(null)
         setPendingSource(null)
       } finally {
         if (chaptersGen.current === gen) setRoadLoading(false)
       }
     },
-    [bangumiId, cover, dm, params, roadLoading, setParams, title],
+    [bangumiId, cover, dmResetPools, roadLoading, setParams, title],
   )
 
   const searchOnePlugin = useCallback(
@@ -398,6 +472,13 @@ export function useWatchSession(bangumiId: number): WatchSession {
     ) => {
       const gen = (pluginSearchGen.current[plugin.name] || 0) + 1
       pluginSearchGen.current[plugin.name] = gen
+      try {
+        pluginSearchAbort.current[plugin.name]?.abort()
+      } catch {
+        /* ignore */
+      }
+      const searchAc = new AbortController()
+      pluginSearchAbort.current[plugin.name] = searchAc
       rememberSessionKeyword(plugin.name, keyword)
       setSearchKeyword(keyword)
       setKeywordTargetPlugin(plugin)
@@ -444,7 +525,9 @@ export function useWatchSession(bangumiId: number): WatchSession {
       let items: SearchItem[] = []
       let error: string | undefined
       try {
-        const res = await pluginApi.search(plugin, keyword)
+        const res = await pluginApi.search(plugin, keyword, {
+          signal: searchAc.signal,
+        })
         if (pluginSearchGen.current[plugin.name] !== gen) return
 
         const seen = new Set<string>()
@@ -466,7 +549,9 @@ export function useWatchSession(bangumiId: number): WatchSession {
         }
       } catch (e) {
         if (pluginSearchGen.current[plugin.name] !== gen) return
+        if (searchAc.signal.aborted) return
         const msg = e instanceof Error ? e.message : '搜索失败'
+        if (/取消|aborted|AbortError/i.test(msg)) return
         error = /504|timeout|超时|无法访问/i.test(msg)
           ? '源站超时，请稍后重试'
           : /502|源站返回/i.test(msg)
@@ -490,8 +575,8 @@ export function useWatchSession(bangumiId: number): WatchSession {
         ),
       )
 
-      // Default source: auto-select first ranked hit so the episode panel is ready.
-      // Also honors explicit autoPickFirst (bootstrap / re-search after clear).
+      // Auto-select first ranked hit only when title is close enough.
+      // Prevents MacCMS “first card” wrong-show on weak keyword matches.
       const isDefault =
         plugin.name.toLowerCase() === DEFAULT_SOURCE_PLUGIN.toLowerCase() ||
         plugin.name.toLowerCase().includes(DEFAULT_SOURCE_PLUGIN.toLowerCase())
@@ -501,7 +586,26 @@ export function useWatchSession(bangumiId: number): WatchSession {
           ((isDefault || opts?.clearSelection) &&
             (opts?.clearSelection || !selectionRef.current)))
       if (shouldAutoPick && items[0]) {
-        await pickSource(plugin, items[0])
+        const score = bestTitleSimilarity(items[0].name, [
+          ...titleRefsStable,
+          keyword,
+          ...keywordCandidatesStable,
+        ])
+        if (score >= AUTO_PICK_MIN_SIMILARITY) {
+          await pickSource(plugin, items[0])
+        } else if (!error) {
+          // Keep results visible; surface why we didn't auto-enter episodes
+          setSearchResults((prev) =>
+            prev.map((row) =>
+              row.plugin.name === plugin.name
+                ? {
+                    ...row,
+                    error: '未自动选择（标题不够相近，请点选一条）',
+                  }
+                : row,
+            ),
+          )
+        }
       }
     },
     [
@@ -569,30 +673,53 @@ export function useWatchSession(bangumiId: number): WatchSession {
     const key = `${bangumiId}|${qPlugin}|${qPageUrl}|${qEp}|${qRoad}`
     if (resumeDoneFor.current === key) return
 
-    const plugin = plugins.find((p) => p.name === qPlugin)
-    if (!plugin) return
+    // Resolve plugin from store so array identity churn doesn't cancel mid-flight
+    const plugin =
+      usePluginStore.getState().getByName(qPlugin) ||
+      plugins.find((p) => p.name === qPlugin)
+    if (!plugin || plugin.enabled === false) return
 
     let cancelled = false
-    resumeDoneFor.current = key
+    // Do NOT mark done until success — cancel/plugins churn must retry
 
     ;(async () => {
       setKeywordTargetPlugin(plugin)
       setRoadLoading(true)
       setRoadError('')
       try {
+        const sourceUrl =
+          paramsRef.current.get('source') ||
+          lookupHistorySourceUrl(bangumiId, qPlugin, qPageUrl) ||
+          ''
+
         let roads =
           findRoadsForPlay({
             bangumiId,
             pluginName: qPlugin,
             pageUrl: qPageUrl,
+            sourceUrl: sourceUrl || undefined,
           }) || []
 
         if (!roads.length) {
-          const res = await pluginApi.chapters(plugin, qPageUrl)
+          // Chapters need the detail/source URL, not the episode play page.
+          // Try sourceUrl first; only fall back to pageUrl for legacy rows.
+          const chapterSrc = sourceUrl || qPageUrl
+          const res = await pluginApi.chapters(plugin, chapterSrc)
           if (cancelled) return
           roads = res.data.roads || []
           if (roads.length) {
-            writeRoadsForSource(bangumiId, qPlugin, qPageUrl, roads)
+            writeRoadsForSource(
+              bangumiId,
+              qPlugin,
+              sourceUrl || chapterSrc,
+              roads,
+            )
+          }
+          // If episode URL was wrongly used and failed, surface clearer error
+          if (!roads.length && sourceUrl && sourceUrl !== qPageUrl) {
+            // already failed with source — no second guess
+          } else if (!roads.length && !sourceUrl) {
+            // Legacy: episode URL often isn't a chapters source
           }
         }
         if (cancelled) return
@@ -600,12 +727,13 @@ export function useWatchSession(bangumiId: number): WatchSession {
         if (!roads.length) {
           setRoadError('续播：未解析到分集，请点击视频源重新选')
           setRoadLoading(false)
+          // Allow retry (e.g. after user re-searches) by not locking the key forever
           return
         }
 
         const source: SearchItem = {
           name: qTitle || title || qPlugin,
-          src: qPageUrl,
+          src: sourceUrl || qPageUrl,
         }
         let roadIdx = Math.max(0, qRoad)
         let epIdx = Math.max(0, (qEp || 1) - 1)
@@ -623,21 +751,30 @@ export function useWatchSession(bangumiId: number): WatchSession {
           }
         }
 
+        const epNum = epIdx + 1
+        // Sync resume before episode/selection commit so first player mount seeks
+        const pos = lookupResumePosition(bangumiId, qPlugin, epNum, roadIdx)
+        resumeOverrideRef.current = null
+        setResumePosition(pos)
+
         setSelection({ plugin, source, roads })
         setVisibleRoad(roadIdx)
         setEpisode({
           pageUrl: roads[roadIdx]?.data[epIdx] || qPageUrl,
-          episode: epIdx + 1,
+          episode: epNum,
           road: roadIdx,
         })
-        const q = new URLSearchParams(params)
+        const q = new URLSearchParams(paramsRef.current)
         q.set('plugin', qPlugin)
         q.set('pageUrl', roads[roadIdx]?.data[epIdx] || qPageUrl)
-        q.set('ep', String(epIdx + 1))
+        q.set('ep', String(epNum))
         q.set('road', String(roadIdx))
+        if (source.src) q.set('source', source.src)
         if (title) q.set('title', title)
         if (cover) q.set('cover', cover)
         setParams(q, { replace: true })
+        // Only lock after a successful attach
+        if (!cancelled) resumeDoneFor.current = key
       } catch (e) {
         if (!cancelled) {
           setRoadError(e instanceof Error ? e.message : '续播加载失败')
@@ -650,34 +787,43 @@ export function useWatchSession(bangumiId: number): WatchSession {
     return () => {
       cancelled = true
     }
+    // plugins length/names only — avoid identity thrash from ensureDefaults
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bangumiId, qPlugin, qPageUrl, plugins])
+  }, [bangumiId, qPlugin, qPageUrl, qEp, qRoad, plugins.length])
 
   const resolve = useQuery({
-    queryKey: ['resolve', selection?.plugin.name, episode?.pageUrl],
-    queryFn: () => {
+    queryKey: [
+      'resolve',
+      bangumiId,
+      selection?.plugin.name,
+      episode?.pageUrl,
+    ],
+    queryFn: ({ signal }) => {
       if (!selection || !episode) throw new Error('未选择分集')
-      return pluginApi.resolve(selection.plugin, episode.pageUrl)
+      return pluginApi.resolve(selection.plugin, episode.pageUrl, { signal })
     },
     enabled: Boolean(selection?.plugin && episode?.pageUrl),
     retry: 1,
+    // Signed CDN URLs go stale quickly — don't treat 60s cache as fresh
+    staleTime: 15_000,
   })
 
+  // Keep resumePosition in sync when selection/episode changes without pickEpisode
+  // (e.g. auto-pick → user later picks ep). pickEpisode also sets this synchronously.
   useEffect(() => {
     if (!selection || !episode) {
-      resumeRef.current = 0
+      setResumePosition(0)
+      resumeOverrideRef.current = null
       return
     }
-    const items = useHistoryStore.getState().items
-    const list = Array.isArray(items) ? items : []
-    const h = list.find(
-      (i) =>
-        i.bangumiId === bangumiId &&
-        i.pluginName === selection.plugin.name &&
-        i.episode === episode.episode &&
-        i.road === episode.road,
+    if (resumeOverrideRef.current != null) return
+    const pos = lookupResumePosition(
+      bangumiId,
+      selection.plugin.name,
+      episode.episode,
+      episode.road,
     )
-    resumeRef.current = h?.position || 0
+    setResumePosition(pos)
   }, [selection, episode, bangumiId])
 
   useEffect(() => {
@@ -690,16 +836,27 @@ export function useWatchSession(bangumiId: number): WatchSession {
     const pageUrl = road?.data[epIndex]
     if (!pageUrl) return
     if (roadIndex !== visibleRoad) setVisibleRoad(roadIndex)
+    const epNum = epIndex + 1
+    // Synchronous history read so VideoPlayer first mount gets correct initialTime
+    const pos = lookupResumePosition(
+      bangumiId,
+      selection.plugin.name,
+      epNum,
+      roadIndex,
+    )
+    resumeOverrideRef.current = null
+    setResumePosition(pos)
     setEpisode({
       pageUrl,
       road: roadIndex,
-      episode: epIndex + 1,
+      episode: epNum,
     })
-    const q = new URLSearchParams(params)
+    const q = new URLSearchParams(paramsRef.current)
     q.set('plugin', selection.plugin.name)
     q.set('pageUrl', pageUrl)
-    q.set('ep', String(epIndex + 1))
+    q.set('ep', String(epNum))
     q.set('road', String(roadIndex))
+    if (selection.source.src) q.set('source', selection.source.src)
     q.set('title', title)
     if (cover) q.set('cover', cover)
     setParams(q, { replace: true })
@@ -725,6 +882,7 @@ export function useWatchSession(bangumiId: number): WatchSession {
       road: episode.road,
       pluginName: selection.plugin.name,
       pageUrl: episode.pageUrl,
+      sourceUrl: selection.source.src || undefined,
       playUrl: resolve.data?.data.playUrl,
       position,
       duration,
@@ -732,7 +890,10 @@ export function useWatchSession(bangumiId: number): WatchSession {
   }
 
   async function onMediaAuthExpired(position: number) {
-    if (position > 5) resumeRef.current = position
+    if (position > 5) {
+      resumeOverrideRef.current = position
+      setResumePosition(position)
+    }
     await resolve.refetch()
     setPlayerRemount((n) => n + 1)
   }
@@ -752,13 +913,20 @@ export function useWatchSession(bangumiId: number): WatchSession {
     [playUrl, proxyUrl, preferMediaProxy, forceProxy, forceAdFilter],
   )
   const mediaSrc = episode ? playback.src : ''
+  const effectiveResume =
+    resumeOverrideRef.current != null
+      ? resumeOverrideRef.current
+      : resumePosition
   const resumeTime =
-    playerSettings.continuePlay && resumeRef.current > 15
-      ? resumeRef.current
+    playerSettings.continuePlay && effectiveResume > RESUME_MIN_POSITION
+      ? effectiveResume
       : 0
 
   function onMediaLoadFailed({ position }: { position: number }) {
-    if (position > 5) resumeRef.current = position
+    if (position > 5) {
+      resumeOverrideRef.current = position
+      setResumePosition(position)
+    }
     if (playback.mode === 'direct' && proxyUrl) {
       setForceProxy(true)
       setPlayerRemount((n) => n + 1)
@@ -806,7 +974,8 @@ export function useWatchSession(bangumiId: number): WatchSession {
     setKeywordTargetPlugin,
     mediaSrc,
     playbackMode: playback.mode,
-    playerKey: `${mediaSrc}#${playerRemount}#${playback.mode}`,
+    // Include resume bucket so late history hydrate / auth remount re-seeks
+    playerKey: `${mediaSrc}#${playerRemount}#${playback.mode}#r${Math.floor(resumeTime)}`,
     resumeTime,
     resolveLoading: Boolean(selection && episode && resolve.isLoading),
     resolveError: resolve.error,

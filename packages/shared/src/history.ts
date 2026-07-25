@@ -6,7 +6,13 @@ export interface WatchHistoryEntry {
   episode: number
   road: number
   pluginName: string
+  /** Episode play-page URL (used for resolve + deep-link resume). */
   pageUrl: string
+  /**
+   * Source/detail URL used for chapters fetch (search hit `src`).
+   * Optional for legacy rows; cold resume should prefer this over pageUrl.
+   */
+  sourceUrl?: string
   playUrl?: string
   position: number
   duration: number

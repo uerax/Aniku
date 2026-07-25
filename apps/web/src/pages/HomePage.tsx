@@ -9,7 +9,7 @@ import { EMPTY_ARRAY } from '../lib/stable'
 export function HomePage() {
   const trending = useQuery({
     queryKey: ['trending'],
-    queryFn: () => bangumiApi.trending(28, 0),
+    queryFn: ({ signal }) => bangumiApi.trending(28, 0, { signal }),
     staleTime: 5 * 60_000,
   })
   const items = useHistoryStore((s) =>
@@ -41,7 +41,7 @@ export function HomePage() {
             {recent.map((h) => (
               <Link
                 key={h.id}
-                to={`/play/${h.bangumiId}?plugin=${encodeURIComponent(h.pluginName)}&pageUrl=${encodeURIComponent(h.pageUrl)}&ep=${h.episode}&road=${h.road}&title=${encodeURIComponent(h.title)}${h.cover ? `&cover=${encodeURIComponent(h.cover)}` : ''}`}
+                to={`/play/${h.bangumiId}?plugin=${encodeURIComponent(h.pluginName)}&pageUrl=${encodeURIComponent(h.pageUrl)}&ep=${h.episode}&road=${h.road}&title=${encodeURIComponent(h.title)}${h.cover ? `&cover=${encodeURIComponent(h.cover)}` : ''}${h.sourceUrl ? `&source=${encodeURIComponent(h.sourceUrl)}` : ''}`}
                 className="flex items-center gap-3 rounded-2xl border border-[var(--kz-border)] bg-[var(--kz-bg-elevated)] p-3 transition hover:bg-[var(--kz-bg-hover)]"
               >
                 {h.cover ? (

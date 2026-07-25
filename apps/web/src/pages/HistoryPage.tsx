@@ -51,6 +51,7 @@ export function HistoryPage() {
             title: h.title,
             cover: h.cover || '',
           })
+          if (h.sourceUrl) resumeQ.set('source', h.sourceUrl)
           return (
             <div
               key={h.id}
