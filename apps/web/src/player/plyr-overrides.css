@@ -25,17 +25,16 @@
 /*
  * Watch page (Bilibili-style):
  * - Player max height: 100dvh - 11rem (header + page chrome)
- * - Right rail sources column aligns to the same max height
- * - Episode grid uses a shorter cap under the sources panel
+ * - Right rail: 视频源 / 选集 are independent panels (no shared outer scroll)
+ * - Each panel caps its own body so they don't fuse into one scrollbar
  */
 .kz-watch {
   --kz-player-max-h: calc(100dvh - 11rem);
   --kz-player-max-w: min(100%, calc(var(--kz-player-max-h) * 16 / 9));
   --kz-watch-rail-w: 320px;
   --kz-watch-cinema-gap: 0.75rem; /* ~12px — player ↔ rail */
-  /* Desktop only: sources panel ≤ player height */
-  --kz-watch-sources-max-h: var(--kz-player-max-h);
-  /* Desktop only: episode grid cap */
+  /* Desktop: each panel body scrolls on its own (not the whole rail) */
+  --kz-watch-sources-max-h: min(48dvh, 22rem);
   --kz-watch-eps-max-h: min(42dvh, 20rem);
 }
 
@@ -70,18 +69,29 @@
 /*
  * Height caps only on desktop — mobile has no nested max-height so the
  * page scrolls as one surface (avoids touch scroll fighting inner panels).
+ *
+ * 视频源 / 选集 must stay independent sections: each body scrolls alone.
+ * Do NOT put overflow-y on the rail wrapper — that fused both panels into
+ * one mysterious scrollbar when combined height exceeded the viewport.
  */
 .kz-watch-cinema--desktop .kz-watch-sources {
   display: flex;
   flex-direction: column;
-  max-height: var(--kz-watch-sources-max-h);
+  /* section itself is not height-capped; only the body scrolls */
+  min-height: 0;
 }
 
 .kz-watch-cinema--desktop .kz-watch-sources-body {
   min-height: 0;
-  flex: 1 1 auto;
+  max-height: var(--kz-watch-sources-max-h);
   overflow-y: auto;
   overscroll-behavior: contain;
+}
+
+.kz-watch-cinema--desktop .kz-watch-eps {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .kz-watch-cinema--desktop .kz-watch-eps-body {
@@ -92,6 +102,7 @@
 
 .kz-watch-cinema--mobile .kz-watch-sources,
 .kz-watch-cinema--mobile .kz-watch-sources-body,
+.kz-watch-cinema--mobile .kz-watch-eps,
 .kz-watch-cinema--mobile .kz-watch-eps-body {
   max-height: none;
   overflow: visible;
@@ -101,9 +112,9 @@
   width: var(--kz-watch-rail-w);
   position: sticky;
   top: 4.5rem;
-  max-height: calc(100dvh - 5.5rem);
-  overflow-y: auto;
-  overscroll-behavior: contain;
+  /* Rail is a layout column only — no outer scroll; panels own their overflow */
+  max-height: none;
+  overflow: visible;
 }
 
 /*

@@ -517,7 +517,12 @@ export function WatchPage() {
   )
 
   const epsPanel = (
-    <section className="shrink-0 overflow-hidden rounded-2xl border border-[var(--kz-border)] bg-[var(--kz-bg-elevated)]">
+    <section
+      className={clsx(
+        'shrink-0 overflow-hidden rounded-2xl border border-[var(--kz-border)] bg-[var(--kz-bg-elevated)]',
+        epsOpen && 'kz-watch-eps',
+      )}
+    >
       <button
         type="button"
         onClick={() => setEpsOpen((v) => !v)}

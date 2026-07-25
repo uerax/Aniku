@@ -85,6 +85,35 @@ function extractCatId(html: string): string {
   return ''
 }
 
+/**
+ * Site nav / list pages that pollute search results:
+ * - 動畫列表 (homepage catalogue)
+ * - 20xx年x季新番 / 当前季度新番 seasonal roundups
+ * - 留言板 / 關於 / notify
+ */
+function isAnime1NoiseTitle(title: string): boolean {
+  const t = title.replace(/\s+/g, ' ').trim()
+  if (!t) return true
+  if (/^(動畫|动画)?列表$/.test(t)) return true
+  if (/列表$/.test(t) && t.length <= 8) return true
+  // 2026年夏季新番 / 當前季度新番 / 当前季度新番
+  if (/新番\s*$/.test(t)) return true
+  if (/(當前|当前).{0,6}(季度|季節|季节)/.test(t)) return true
+  if (/^(留言板|關於|关于|訂閱|订阅)/.test(t)) return true
+  return false
+}
+
+/** Episode posts are numeric: https://anime1.me/28433 — not slugs/home/pages. */
+function isAnime1EpisodePostUrl(url: string): boolean {
+  try {
+    const u = new URL(url, SITE)
+    if (!/anime1\.me$/i.test(u.hostname.replace(/^www\./, ''))) return false
+    return /^\/\d+\/?$/.test(u.pathname)
+  } catch {
+    return false
+  }
+}
+
 function extractSearchHits(html: string): {
   title: string
   url: string
@@ -96,16 +125,19 @@ function extractSearchHits(html: string): {
     /<h2[^>]*class="[^"]*entry-title[^"]*"[^>]*>\s*<a[^>]+href=["']([^"']+)["'][^>]*>([^<]+)<\/a>/gi
   let m: RegExpExecArray | null
   while ((m = re.exec(html))) {
-    hits.push({
-      url: absUrl(m[1]),
-      title: decodeHtml(m[2]),
-    })
+    const url = absUrl(m[1])
+    const title = decodeHtml(m[2])
+    if (isAnime1NoiseTitle(title) || !isAnime1EpisodePostUrl(url)) continue
+    hits.push({ url, title })
   }
   if (!hits.length) {
     const re2 =
       /<h2[^>]*>\s*<a[^>]+href=["'](https?:\/\/anime1\.me\/\d+[^"']*)["'][^>]*>([^<]+)<\/a>/gi
     while ((m = re2.exec(html))) {
-      hits.push({ url: absUrl(m[1]), title: decodeHtml(m[2]) })
+      const url = absUrl(m[1])
+      const title = decodeHtml(m[2])
+      if (isAnime1NoiseTitle(title) || !isAnime1EpisodePostUrl(url)) continue
+      hits.push({ url, title })
     }
   }
   return hits
@@ -160,14 +192,16 @@ export async function searchAnime1(
               )
               if (catHref) {
                 // use category URL as src
-                const seriesTitle =
+                const seriesTitle = decodeHtml(
                   page.match(
                     /rel=["']category tag["'][^>]*>([^<]+)</i,
-                  )?.[1] || hit.title.replace(/\s*\[\d+\]\s*$/, '')
+                  )?.[1] || hit.title.replace(/\s*\[\d+\]\s*$/, ''),
+                )
+                if (isAnime1NoiseTitle(seriesTitle)) return
                 const key = catHref[1]
                 if (!seriesMap.has(key)) {
                   seriesMap.set(key, {
-                    title: decodeHtml(seriesTitle),
+                    title: seriesTitle,
                     src: catHref[1],
                     sample: hit.url,
                   })
@@ -177,13 +211,16 @@ export async function searchAnime1(
             }
             if (catId) {
               const src = `${SITE}/?cat=${catId}`
-              const seriesTitle =
+              const seriesTitle = decodeHtml(
                 page.match(
                   /rel=["']category tag["'][^>]*>([^<]+)</i,
-                )?.[1] || hit.title.replace(/\s*\[\d+\]\s*$/, '')
+                )?.[1] || hit.title.replace(/\s*\[\d+\]\s*$/, ''),
+              )
+              // Drop catalogue / seasonal roundup pages mis-resolved as series
+              if (isAnime1NoiseTitle(seriesTitle)) return
               if (!seriesMap.has(src)) {
                 seriesMap.set(src, {
-                  title: decodeHtml(seriesTitle),
+                  title: seriesTitle,
                   src,
                   sample: hit.url,
                 })
@@ -202,10 +239,17 @@ export async function searchAnime1(
     }
   }
 
-  const items: SearchItem[] = [...seriesMap.values()].map((s) => ({
-    name: s.title,
-    src: s.src,
-  }))
+  const items: SearchItem[] = [...seriesMap.values()]
+    .filter((s) => !isAnime1NoiseTitle(s.title))
+    .map((s) => ({
+      name: s.title,
+      src: s.src,
+    }))
+
+  const dropped = seriesMap.size - items.length
+  if (dropped > 0) {
+    diagnostics.push(`已过滤导航/列表页 ${dropped} 条`)
+  }
 
   if (!items.length) {
     diagnostics.push('未找到系列；可尝试繁体关键词或别名')

@@ -3,7 +3,8 @@ import type { ReactNode } from 'react'
 /**
  * Desktop cinema: player | rail
  *                 meta   | (rail continues)
- * Sources/eps max-height capped to avoid nested page scroll fights.
+ * Rail hosts independent 视频源 / 选集 panels — each caps its own body;
+ * the rail itself must not become a shared scroll container.
  */
 export function DesktopWatchLayout({
   player,

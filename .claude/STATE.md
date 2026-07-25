@@ -1,5 +1,19 @@
 # Aniku 项目状态
 
+## [2026-07-26] 桌面 rail 分板 + Anime1 搜索过滤
+
+- 状态：已完成
+- 优先级：P1–P2
+- 描述：
+  1. 桌面观看页右侧「视频源 / 选集」不再共用外层滚动，各自独立限高
+  2. Anime1 搜索过滤「動畫列表 / 季度新番」等导航页
+- 涉及文件：
+  - apps/web/src/player/plyr-overrides.css
+  - apps/web/src/pages/WatchPage.tsx
+  - apps/web/src/pages/watch/DesktopWatchLayout.tsx
+  - apps/server/src/lib/anime1.ts
+- 备注：见 `.claude/BUGS.md`
+
 ## [2026-07-26] 性能审计 P0/P1 落地
 
 - 状态：已完成（待 push）
