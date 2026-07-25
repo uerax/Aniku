@@ -1601,8 +1601,9 @@ export function VideoPlayer({
             }
             sources={danmakuPanel.sources}
             onToggleSource={danmakuPanel.onToggleSource}
-            /* Desktop: clear the control bar. Mobile CSS pins panel as a sheet. */
+            /* Desktop: clear the control bar. Mobile uses bottom-sheet layout. */
             bottomOffset={56}
+            layout={pointerMode}
           />
         </div>
       )}

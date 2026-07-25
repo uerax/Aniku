@@ -941,55 +941,6 @@
   }
 
   /* Keep super-res on phone bar — space is available in single-row layout */
-
-  /*
-   * Danmaku panel on short / phone players.
-   * Do NOT set height:auto — it cancels top+bottom stretch and the settings
-   * scroll body collapses to ~0 (settings tab looks "broken").
-   * Use explicit height from the player shell so flex children can scroll.
-   */
-  .kz-danmaku-panel-root {
-    z-index: 40;
-  }
-
-  .kz-danmaku-panel {
-    left: 0.3rem !important;
-    right: 0.3rem !important;
-    width: auto !important;
-    max-width: none !important;
-    top: 0.3rem !important;
-    bottom: auto !important;
-    /* Leave room for single-row control bar (~3rem) + small gap */
-    height: calc(100% - 3.4rem) !important;
-    max-height: none !important;
-    min-height: 0 !important;
-  }
-
-  .kz-danmaku-panel-body {
-    flex: 1 1 0 !important;
-    min-height: 0 !important;
-    overflow: hidden !important;
-  }
-
-  .kz-danmaku-panel-scroll {
-    flex: 1 1 0 !important;
-    min-height: 8rem !important;
-    overflow-y: auto !important;
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior: contain;
-    /* Slightly denser settings on phone only */
-    padding: 0.55rem 0.7rem !important;
-    font-size: 13px;
-  }
-
-  /* Compact settings rows without changing desktop markup */
-  .kz-danmaku-panel-scroll > .space-y-3 > * + * {
-    margin-top: 0.55rem !important;
-  }
-
-  .kz-danmaku-panel-sources {
-    flex-shrink: 0;
-  }
 }
 
 /* Extra-tight phones */
@@ -1017,16 +968,496 @@
   .kz-ctrl-web-fs {
     display: none;
   }
+}
 
-  .kz-danmaku-panel {
-    /* Slightly more height when bar is shorter */
-    height: calc(100% - 3.05rem) !important;
-    top: 0.25rem !important;
-  }
+/*
+ * Mobile danmaku bottom sheet — driven by .kz-danmaku-panel--mobile
+ * (pointerMode mobile), not by viewport alone, so desktop layout is untouched.
+ */
+.kz-danmaku-panel-root:has(.kz-danmaku-panel--mobile) {
+  z-index: 50;
+  pointer-events: none;
+}
 
-  .kz-danmaku-panel-scroll {
-    min-height: 7rem !important;
-    font-size: 12px;
-    padding: 0.45rem 0.55rem !important;
+.kz-danmaku-sheet-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: rgba(0, 0, 0, 0.42);
+  pointer-events: auto;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.kz-danmaku-panel--mobile {
+  position: absolute;
+  left: 0.4rem;
+  right: 0.4rem;
+  bottom: 0.4rem;
+  top: auto;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  /* Content-sized — no fixed tall box that leaves blank middle */
+  width: auto;
+  max-width: none;
+  height: auto;
+  min-height: 0;
+  max-height: min(72%, calc(100% - 0.8rem));
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--kz-border);
+  border-radius: 0.9rem;
+  background: color-mix(in srgb, var(--kz-bg-elevated) 96%, #000 4%);
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.42);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  overflow: hidden;
+  pointer-events: auto;
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+.kz-danmaku-sheet-handle {
+  flex: 0 0 auto;
+  width: 2rem;
+  height: 0.22rem;
+  margin: 0.35rem auto 0.05rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--kz-fg-muted) 50%, transparent);
+}
+
+.kz-danmaku-sheet-head {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex: 0 0 auto;
+  padding: 0.1rem 0.4rem 0.35rem 0.5rem;
+}
+
+.kz-danmaku-sheet-tabs {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  gap: 0.15rem;
+  padding: 0.12rem;
+  border-radius: 0.55rem;
+  background: var(--kz-bg-soft);
+}
+
+.kz-danmaku-sheet-tab {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 1.75rem;
+  border: 0;
+  border-radius: 0.4rem;
+  padding: 0 0.3rem;
+  background: transparent;
+  color: var(--kz-fg-muted);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.kz-danmaku-sheet-tab[data-active='true'] {
+  background: var(--kz-bg-elevated);
+  color: var(--kz-fg);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.16);
+}
+
+.kz-danmaku-sheet-close {
+  flex: 0 0 auto;
+  width: 1.75rem;
+  height: 1.75rem;
+  border: 0;
+  border-radius: 0.4rem;
+  background: transparent;
+  color: var(--kz-fg-muted);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.kz-danmaku-sheet-close:active {
+  background: var(--kz-bg-soft);
+  color: var(--kz-fg);
+}
+
+/*
+ * Scroll only when content exceeds max-height.
+ * flex: 0 1 auto keeps short tabs (search) snug — no empty flex grow.
+ */
+.kz-danmaku-sheet-scroll {
+  flex: 0 1 auto;
+  min-height: 0;
+  max-height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding: 0.15rem 0.65rem 0.7rem;
+  font-size: 13px;
+}
+
+/* Dense form controls — mobile sheet only */
+.kz-dm-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.kz-dm-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.kz-dm-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.kz-dm-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.kz-dm-section--border {
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--kz-border);
+}
+
+.kz-dm-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--kz-fg-muted);
+}
+
+.kz-dm-input,
+.kz-dm-select {
+  width: 100%;
+  min-width: 0;
+  height: 2.15rem;
+  padding: 0 0.65rem;
+  border: 1px solid var(--kz-border);
+  border-radius: 0.55rem;
+  background: var(--kz-bg);
+  color: var(--kz-fg);
+  font-size: 13px;
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.kz-dm-select {
+  padding-right: 1.5rem;
+  background-image: linear-gradient(45deg, transparent 50%, var(--kz-fg-muted) 50%),
+    linear-gradient(135deg, var(--kz-fg-muted) 50%, transparent 50%);
+  background-position:
+    calc(100% - 12px) 55%,
+    calc(100% - 8px) 55%;
+  background-size: 4px 4px, 4px 4px;
+  background-repeat: no-repeat;
+}
+
+.kz-dm-input:focus,
+.kz-dm-select:focus,
+.kz-dm-num:focus {
+  border-color: var(--kz-accent);
+}
+
+.kz-dm-btn-primary {
+  flex: 0 0 auto;
+  height: 2.15rem;
+  padding: 0 0.75rem;
+  border: 0;
+  border-radius: 0.55rem;
+  background: var(--kz-accent);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.kz-dm-btn-primary:disabled {
+  opacity: 0.5;
+}
+
+.kz-dm-btn-ghost {
+  flex: 0 0 auto;
+  height: 2.15rem;
+  padding: 0 0.7rem;
+  border: 0;
+  border-radius: 0.55rem;
+  background: var(--kz-bg-soft);
+  color: var(--kz-fg);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.kz-dm-hint {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--kz-fg-muted);
+}
+
+.kz-dm-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
+  min-height: 2.15rem;
+  padding: 0.15rem 0;
+  border: 0;
+  background: transparent;
+  color: var(--kz-fg);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.kz-dm-switch {
+  position: relative;
+  flex: 0 0 auto;
+  width: 2.4rem;
+  height: 1.35rem;
+  border-radius: 999px;
+  background: var(--kz-bg-soft);
+  box-shadow: inset 0 0 0 1px var(--kz-border);
+  transition: background 0.15s ease;
+}
+
+.kz-dm-switch::after {
+  content: '';
+  position: absolute;
+  top: 0.15rem;
+  left: 0.15rem;
+  width: 1.05rem;
+  height: 1.05rem;
+  border-radius: 50%;
+  background: #fafafa;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  transition: transform 0.15s ease;
+}
+
+.kz-dm-switch--on {
+  background: var(--kz-accent);
+  box-shadow: none;
+}
+
+.kz-dm-switch--on::after {
+  transform: translateX(1.05rem);
+}
+
+.kz-dm-range {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.kz-dm-range-meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--kz-fg-muted);
+}
+
+.kz-dm-range-val {
+  font-variant-numeric: tabular-nums;
+  color: var(--kz-fg);
+  font-weight: 600;
+}
+
+.kz-dm-range-input {
+  width: 100%;
+  height: 1.5rem;
+  margin: 0;
+  padding: 0;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  accent-color: var(--kz-accent);
+}
+
+.kz-dm-range-input::-webkit-slider-runnable-track {
+  height: 0.3rem;
+  border-radius: 999px;
+  background: var(--kz-bg-soft);
+}
+
+.kz-dm-range-input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 1rem;
+  height: 1rem;
+  margin-top: calc((0.3rem - 1rem) / 2);
+  border: 0;
+  border-radius: 50%;
+  background: var(--kz-accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--kz-bg-elevated) 80%, transparent);
+}
+
+.kz-dm-range-input::-moz-range-track {
+  height: 0.3rem;
+  border: 0;
+  border-radius: 999px;
+  background: var(--kz-bg-soft);
+}
+
+.kz-dm-range-input::-moz-range-thumb {
+  width: 1rem;
+  height: 1rem;
+  border: 0;
+  border-radius: 50%;
+  background: var(--kz-accent);
+}
+
+.kz-dm-inline-num {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-height: 2.15rem;
+  font-size: 13px;
+  color: var(--kz-fg);
+}
+
+.kz-dm-inline-num--grow {
+  flex: 1 1 auto;
+  min-width: 0;
+  justify-content: flex-start;
+}
+
+.kz-dm-num {
+  width: 4.25rem;
+  height: 2.15rem;
+  padding: 0 0.45rem;
+  border: 1px solid var(--kz-border);
+  border-radius: 0.55rem;
+  background: var(--kz-bg);
+  color: var(--kz-fg);
+  font-size: 13px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  outline: none;
+}
+
+.kz-dm-chip-toggles {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.35rem;
+}
+
+.kz-dm-type-chip {
+  height: 1.85rem;
+  border: 0;
+  border-radius: 0.45rem;
+  background: var(--kz-bg-soft);
+  color: var(--kz-fg-muted);
+  box-shadow: inset 0 0 0 1px var(--kz-border);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.kz-dm-type-chip[data-on='true'] {
+  background: color-mix(in srgb, var(--kz-accent) 22%, var(--kz-bg-soft));
+  color: var(--kz-fg);
+  box-shadow: inset 0 0 0 1px var(--kz-accent);
+}
+
+.kz-dm-file-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  width: 100%;
+  min-height: 2.6rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px dashed var(--kz-border);
+  border-radius: 0.55rem;
+  background: var(--kz-bg);
+  color: var(--kz-fg);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.kz-dm-file-btn:active {
+  border-color: var(--kz-accent);
+  color: var(--kz-accent);
+}
+
+.kz-dm-filter-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  max-height: 6.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.kz-dm-filter-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 1.7rem;
+  padding: 0.2rem 0.45rem;
+  border-radius: 0.4rem;
+  background: var(--kz-bg);
+}
+
+.kz-dm-filter-rule {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px;
+  color: var(--kz-fg);
+}
+
+.kz-dm-filter-del {
+  flex: 0 0 auto;
+  border: 0;
+  background: transparent;
+  color: #f87171;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* Short players: still content-sized, slightly higher cap */
+@media (max-height: 420px) {
+  .kz-danmaku-panel--mobile {
+    max-height: min(85%, calc(100% - 0.5rem));
+    left: 0.25rem;
+    right: 0.25rem;
+    bottom: 0.25rem;
   }
 }
