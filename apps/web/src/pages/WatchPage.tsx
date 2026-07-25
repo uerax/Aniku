@@ -616,9 +616,19 @@ export function WatchPage() {
                   )}
                   {!w.selection && !w.roadLoading && (
                     <p className="py-6 text-center text-[13px] leading-relaxed text-[var(--kz-fg-muted)]">
-                      先在上方搜索规则源，
-                      <br />
-                      再点搜索结果加载分集
+                      {layoutMode === 'mobile' ? (
+                        <>
+                          先在播放器下方的视频源中搜索，
+                          <br />
+                          再点搜索结果加载分集
+                        </>
+                      ) : (
+                        <>
+                          先在上方搜索规则源，
+                          <br />
+                          再点搜索结果加载分集
+                        </>
+                      )}
                     </p>
                   )}
                   {w.selection && !w.roadLoading && activeRoad && (
@@ -659,28 +669,10 @@ export function WatchPage() {
                 </div>
               </div>
             )}
-
-            <div className="flex gap-2 border-t border-[var(--kz-border)] px-3 py-2.5">
-        <button
-          type="button"
-          onClick={() => w.goAdjacentEpisode(-1)}
-          disabled={!w.episode}
-          className="flex-1 rounded-xl border border-[var(--kz-border)] bg-transparent py-2 text-[13px] font-medium text-[var(--kz-fg)] hover:bg-[var(--kz-bg-hover)] disabled:opacity-40"
-        >
-          上一集
-        </button>
-        <button
-          type="button"
-          onClick={() => w.goAdjacentEpisode(1)}
-          disabled={!w.episode}
-          className="flex-1 rounded-xl border border-[var(--kz-border)] bg-transparent py-2 text-[13px] font-medium text-[var(--kz-fg)] hover:bg-[var(--kz-bg-hover)] disabled:opacity-40"
-        >
-          下一集
-        </button>
-      </div>
     </section>
   )
 
+  /* Desktop rail: sources then episodes (right column). */
   const rail = (
     <>
       {sourcesPanel}
@@ -697,10 +689,12 @@ export function WatchPage() {
           rail={rail}
         />
       ) : (
+        /* Mobile: 选集 above player so ep switch is one scroll away from top */
         <MobileWatchLayout
           meta={metaBlock}
+          episodes={epsPanel}
           player={playerBlock}
-          rail={rail}
+          sources={sourcesPanel}
         />
       )}
     </div>

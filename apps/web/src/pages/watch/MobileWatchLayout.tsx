@@ -3,23 +3,30 @@ import type { ReactNode } from 'react'
 /**
  * Mobile watch stack (top → bottom):
  * 1. cover + intro
- * 2. player
- * 3. 视频源 / 选集 (no max-height — page scroll only, no nested scroll fights)
+ * 2. 选集 (above player — quicker ep switch without scrolling past video)
+ * 3. player + danmaku status
+ * 4. 视频源
+ *
+ * No nested max-height — page scroll only.
  */
 export function MobileWatchLayout({
   meta,
+  episodes,
   player,
-  rail,
+  sources,
 }: {
   meta: ReactNode
+  /** Episode picker — rendered above the player on mobile only */
+  episodes: ReactNode
   player: ReactNode
-  rail: ReactNode
+  sources: ReactNode
 }) {
   return (
     <div className="kz-watch-cinema kz-watch-cinema--mobile space-y-3 px-4">
       {meta}
+      <div className="min-w-0">{episodes}</div>
       <div className="kz-player-stack min-w-0 space-y-2">{player}</div>
-      <div className="flex flex-col gap-3">{rail}</div>
+      <div className="min-w-0">{sources}</div>
     </div>
   )
 }
