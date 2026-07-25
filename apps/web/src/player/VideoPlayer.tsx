@@ -20,6 +20,7 @@ import { DanmakuPanel, type DanmakuPanelTab } from './DanmakuPanel'
 import {
   hasWebGPU,
   startAnime4K,
+  SR_MAX_DIMENSION,
   SUPER_RESOLUTION_LABELS,
   supportsAnime4K,
   type Anime4KStop,
@@ -91,9 +92,17 @@ export function VideoPlayer({
   const anime4kStopRef = useRef<Anime4KStop | null>(null)
   const genRef = useRef(0)
   const lastSaveRef = useRef(0)
+  /** Throttle React progress UI updates (timeupdate is ~4–15Hz). */
+  const lastUiProgressRef = useRef(0)
+  /** Last t for OP/ED boundary crossing (works at high playbackRate). */
+  const lastSkipTRef = useRef(0)
+  /** Fingerprint of last full danmaku reload (comments + content settings). */
+  const danmakuContentKeyRef = useRef('')
   const skipBusyRef = useRef(false)
   const isSeekingRef = useRef(false)
   const resumedRef = useRef(false)
+  /** Suppress volumechange → settings during softPlay mute dance. */
+  const ignoreVolumePersistRef = useRef(false)
   /** User intentionally paused — do not auto-resume after rebuffer. */
   const userPausedRef = useRef(false)
   /** We paused because buffer emptied (weak net); resume when ahead is enough. */
@@ -187,7 +196,12 @@ export function VideoPlayer({
     onMediaLoadFailedRef.current?.({ position: pos, reason })
   }
 
-  function applyDanmaku() {
+  /**
+   * Apply danmaku settings / comments.
+   * Visual-only (opacity/speed/area/enabled) updates core props without reload.
+   * Content changes (comments, filters, modes, offset, fontSize) full reload.
+   */
+  function applyDanmaku(forceReload = false) {
     const video = videoRef.current
     const layer = layerRef.current
     if (!video || !layer) return
@@ -198,11 +212,34 @@ export function VideoPlayer({
       layer.clientWidth ||
       video.clientWidth ||
       0
-    const iron = toIronComments(commentsRef.current, dm, w)
     const pixelSpeed = danmakuPixelSpeed(w, dm.speed || 1)
     lastDanmakuWidthRef.current = w
+
+    // Content-affecting fingerprint — visual-only keys omitted
+    const contentKey = [
+      commentsRef.current.length,
+      // cheap identity: first/last time + text len sum proxy
+      commentsRef.current[0]?.time ?? 0,
+      commentsRef.current[commentsRef.current.length - 1]?.time ?? 0,
+      dm.timeOffset ?? 0,
+      dm.fontSize ?? 1,
+      dm.showScroll ? 1 : 0,
+      dm.showTop ? 1 : 0,
+      dm.showBottom ? 1 : 0,
+      dm.showColor ? 1 : 0,
+      (dm.filters || []).join('\0'),
+      // width bucket for font scale
+      Math.round(danmakuFontScale(w) * 50),
+    ].join('|')
+
     try {
+      const needReload =
+        forceReload ||
+        !danmakuCoreRef.current ||
+        contentKey !== danmakuContentKeyRef.current
+
       if (!danmakuCoreRef.current) {
+        const iron = toIronComments(commentsRef.current, dm, w)
         danmakuCoreRef.current = new Danmaku({
           container: layer,
           media: video,
@@ -213,9 +250,18 @@ export function VideoPlayer({
           opacity: dm.opacity ?? 0.85,
           speed: pixelSpeed,
         })
-      } else {
+        danmakuContentKeyRef.current = contentKey
+      } else if (needReload) {
+        const iron = toIronComments(commentsRef.current, dm, w)
         const core = danmakuCoreRef.current
         core.reload(iron)
+        core.opacity = dm.opacity ?? 0.85
+        core.speed = pixelSpeed
+        core.scrollAreaPercent = Math.min(1, Math.max(0.15, dm.area || 0.5))
+        danmakuContentKeyRef.current = contentKey
+      } else {
+        // Visual-only: no filter/map/sort/reload
+        const core = danmakuCoreRef.current
         core.opacity = dm.opacity ?? 0.85
         core.speed = pixelSpeed
         core.scrollAreaPercent = Math.min(1, Math.max(0.15, dm.area || 0.5))
@@ -274,6 +320,10 @@ export function VideoPlayer({
     loadFailedOnceRef.current = false
     userPausedRef.current = false
     bufferGatePausedRef.current = false
+    ignoreVolumePersistRef.current = false
+    lastUiProgressRef.current = 0
+    lastSkipTRef.current = 0
+    danmakuContentKeyRef.current = ''
     setMediaError('')
     setLoading(true)
     setSeekingUi(false)
@@ -347,8 +397,9 @@ export function VideoPlayer({
         cleanupWaiters()
         // Read volume/speed from live ref — user may have changed them while loading
         const live = playerRef.current
-        const vol = live.volume ?? 0.7
         video.playbackRate = live.speed || 1
+        // Mute dance for autoplay policy — don't persist transient mute/volume
+        ignoreVolumePersistRef.current = true
         video.muted = true
         video
           .play()
@@ -358,6 +409,7 @@ export function VideoPlayer({
             // Re-read after await: volume may change during muted autoplay
             video.volume = playerRef.current.volume ?? 0.7
             video.playbackRate = playerRef.current.speed || 1
+            ignoreVolumePersistRef.current = false
             setPaused(false)
             setLoading(false)
             setBufferingUi(false)
@@ -366,6 +418,7 @@ export function VideoPlayer({
             if (!alive()) return
             video.muted = false
             video.volume = playerRef.current.volume ?? 0.7
+            ignoreVolumePersistRef.current = false
             setPaused(true)
             setLoading(false)
             setBufferingUi(false)
@@ -616,14 +669,24 @@ export function VideoPlayer({
       attachProgressive()
     }
 
+    let lastUiFloor = -1
     const onTime = () => {
       const d = video.duration
       const t = video.currentTime
-      setCurrent(t)
-      if (Number.isFinite(d) && d > 0) setDuration(d)
-
-      if (!Number.isFinite(d) || d <= 0) return
       const now = Date.now()
+      const floor = Math.floor(t)
+      // UI progress: ~4Hz, always commit on whole-second change (scrubber label)
+      if (now - lastUiProgressRef.current >= 250 || floor !== lastUiFloor) {
+        lastUiProgressRef.current = now
+        lastUiFloor = floor
+        setCurrent(t)
+        if (Number.isFinite(d) && d > 0) setDuration(d)
+      }
+
+      if (!Number.isFinite(d) || d <= 0) {
+        lastSkipTRef.current = t
+        return
+      }
       // Progress → history; store also debounces localStorage (~12s)
       if (now - lastSaveRef.current >= 10_000) {
         lastSaveRef.current = now
@@ -631,12 +694,16 @@ export function VideoPlayer({
       }
 
       const p = playerRef.current
+      const prevT = lastSkipTRef.current
+      lastSkipTRef.current = t
       if (isSeekingRef.current || skipBusyRef.current || t >= d - 3) return
       const safeMax = d - 0.1
+      // Boundary cross (prev < mark <= t) — reliable at 2× where 0.4s windows miss
+      const crossed = (mark: number) => prevT < mark && t >= mark
       if (p.skipOp.enabled && p.skipOp.duration > 0) {
         const start = p.skipOp.start || 0
         const diff = Math.abs(p.skipOp.duration)
-        if (t >= start && t < start + 0.4) {
+        if (crossed(start)) {
           skipBusyRef.current = true
           video.currentTime = Math.min(start + diff, safeMax)
           setTimeout(() => {
@@ -647,14 +714,15 @@ export function VideoPlayer({
         const start = p.skipEd.start || 0
         const diff = Math.abs(p.skipEd.duration)
         if (start <= 0) {
-          if (t >= d - diff && t < d - diff + 0.4) {
+          const mark = d - diff
+          if (crossed(mark)) {
             skipBusyRef.current = true
             video.currentTime = Math.min(d, safeMax)
             setTimeout(() => {
               skipBusyRef.current = false
             }, 1500)
           }
-        } else if (t >= start && t < start + 0.4) {
+        } else if (crossed(start)) {
           skipBusyRef.current = true
           video.currentTime = Math.min(start + diff, safeMax)
           setTimeout(() => {
@@ -690,9 +758,14 @@ export function VideoPlayer({
       if (playerRef.current.autoNext && onNextRef.current) onNextRef.current()
       else onEndedRef.current?.()
     }
-    const onVol = () => onPlayerChangeRef.current?.({ volume: video.volume })
-    const onRate = () =>
+    const onVol = () => {
+      if (ignoreVolumePersistRef.current) return
+      onPlayerChangeRef.current?.({ volume: video.volume })
+    }
+    const onRate = () => {
+      if (ignoreVolumePersistRef.current) return
       onPlayerChangeRef.current?.({ speed: video.playbackRate })
+    }
     const onSeeking = () => {
       isSeekingRef.current = true
       setSeekingUi(true)
@@ -1090,15 +1163,18 @@ export function VideoPlayer({
         }
         anime4kStopRef.current = null
 
+        const srMode = mode === 'quality' ? 'quality' : 'efficiency'
         flashSrHint(
-          mode === 'quality' ? '超分：质量档启动中…' : '超分：效率档启动中…',
+          srMode === 'quality' ? '超分：质量档启动中…' : '超分：效率档启动中…',
           2000,
         )
 
         stop = await startAnime4K({
           video,
           canvas,
-          mode: mode === 'quality' ? 'quality' : 'efficiency',
+          mode: srMode,
+          // 2× path needs headroom above 1920 or 1080p sources look unchanged
+          maxDimension: SR_MAX_DIMENSION[srMode],
           layoutEl: shellRef.current,
         })
         if (cancelled) {
@@ -1107,10 +1183,15 @@ export function VideoPlayer({
         }
         anime4kStopRef.current = stop
         setSrActive(true)
+        const nw = video.videoWidth || 0
+        const nh = video.videoHeight || 0
         flashSrHint(
-          mode === 'quality' ? '超分已开启（质量）' : '超分已开启（效率）',
-          2200,
+          srMode === 'quality'
+            ? `超分已开启（质量 · ${nw}p→2×）`
+            : `超分已开启（效率 · ${nw}p→2×）`,
+          2800,
         )
+        void nh
       } catch (e) {
         console.warn('[player] Anime4K failed', e)
         if (!cancelled) {
@@ -1142,7 +1223,8 @@ export function VideoPlayer({
       setSrActive(false)
     }
     // Do not depend on playerFs/webFs — fullscreen must not tear down WebGPU
-    // (black frame while pipeline rebuilds). Layout uses ResizeObserver inside startAnime4K.
+    // (black frame while pipeline rebuilds). startAnime4K owns ResizeObserver to
+    // retarget canvas buffer size without rebuilding the CNN pipelines.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- webGpuOk set inside after probe
   }, [src, player.superResolution])
 

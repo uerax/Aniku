@@ -22,10 +22,36 @@ const DANMAKU_REF_WIDTH = 720
 const DANMAKU_MIN_SCALE = 0.48 // ~12px @ default multiplier
 const DANMAKU_MAX_SCALE = 1.1
 
+type CompiledFilter =
+  | { kind: 're'; re: RegExp }
+  | { kind: 'sub'; text: string }
+
+/** Compile keyword filters once per settings change (not per comment). */
+function compileFilters(filters: string[] | undefined): CompiledFilter[] {
+  const out: CompiledFilter[] = []
+  if (!filters?.length) return out
+  for (const rule of filters) {
+    if (!rule) continue
+    if (rule.startsWith('/') && rule.lastIndexOf('/') > 0) {
+      try {
+        const body = rule.slice(1, rule.lastIndexOf('/'))
+        const flags = rule.slice(rule.lastIndexOf('/') + 1)
+        out.push({ kind: 're', re: new RegExp(body, flags) })
+      } catch {
+        /* ignore bad regex */
+      }
+    } else {
+      out.push({ kind: 'sub', text: rule })
+    }
+  }
+  return out
+}
+
 export function filterComments(
   comments: DanmakuComment[],
   settings: DanmakuSettings,
 ): DanmakuComment[] {
+  const compiled = compileFilters(settings.filters)
   return comments.filter((c) => {
     if (!settings.showScroll && c.mode === 'rtl') return false
     if (!settings.showTop && c.mode === 'top') return false
@@ -37,17 +63,10 @@ export function filterComments(
     ) {
       return false
     }
-    for (const rule of settings.filters) {
-      if (!rule) continue
-      if (rule.startsWith('/') && rule.lastIndexOf('/') > 0) {
-        try {
-          const body = rule.slice(1, rule.lastIndexOf('/'))
-          const flags = rule.slice(rule.lastIndexOf('/') + 1)
-          if (new RegExp(body, flags).test(c.text)) return false
-        } catch {
-          /* ignore */
-        }
-      } else if (c.text.includes(rule)) {
+    for (const f of compiled) {
+      if (f.kind === 're') {
+        if (f.re.test(c.text)) return false
+      } else if (c.text.includes(f.text)) {
         return false
       }
     }

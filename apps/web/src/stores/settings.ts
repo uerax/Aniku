@@ -7,7 +7,11 @@ import {
   type DanmakuSettings,
   type PlayerSettings,
 } from '@aniku/shared'
+import { createDebouncedStorage } from '../lib/debounced-storage'
 import { migrateLocalStorageKey } from '../lib/storage'
+
+/** Debounce settings disk writes (volume scrub / slider spam). */
+const SETTINGS_PERSIST_DEBOUNCE_MS = 800
 
 migrateLocalStorageKey('aniku-settings', ['kazumi-web-settings'])
 
@@ -106,7 +110,9 @@ export const useSettingsStore = create<SettingsState>()(
     }),
     {
       name: 'aniku-settings',
-      storage: createJSONStorage(() => localStorage),
+      storage: createJSONStorage(() =>
+        createDebouncedStorage(SETTINGS_PERSIST_DEBOUNCE_MS),
+      ),
       partialize: (s) => ({
         bangumiToken: s.bangumiToken,
         theme: s.theme,
