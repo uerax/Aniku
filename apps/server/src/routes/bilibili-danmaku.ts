@@ -11,6 +11,10 @@ export const bilibiliDanmakuRoutes = new Hono()
 
 const UA = config.defaultUserAgent
 
+const BILI_TIMEOUT_MS = 15_000
+/** Hard cap on danmaku XML/gzip body (≈ raw bytes before gunzip). */
+const MAX_DANMAKU_BYTES = 4_000_000
+
 async function bilibiliFetch(url: string): Promise<Response> {
   return fetch(url, {
     headers: {
@@ -19,7 +23,55 @@ async function bilibiliFetch(url: string): Promise<Response> {
       Referer: 'https://www.bilibili.com/',
       Origin: 'https://www.bilibili.com',
     },
+    signal:
+      typeof AbortSignal !== 'undefined' && 'timeout' in AbortSignal
+        ? AbortSignal.timeout(BILI_TIMEOUT_MS)
+        : undefined,
   })
+}
+
+async function readArrayBufferLimited(
+  res: Response,
+  maxBytes: number,
+): Promise<ArrayBuffer> {
+  const cl = res.headers.get('content-length')
+  if (cl) {
+    const n = Number(cl)
+    if (Number.isFinite(n) && n > maxBytes) {
+      try {
+        await res.body?.cancel()
+      } catch {
+        /* ignore */
+      }
+      throw new Error(`弹幕响应过大 (${n} > ${maxBytes} bytes)`)
+    }
+  }
+  if (!res.body) return res.arrayBuffer()
+  const reader = res.body.getReader()
+  const chunks: Uint8Array[] = []
+  let total = 0
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    if (!value?.byteLength) continue
+    total += value.byteLength
+    if (total > maxBytes) {
+      try {
+        await reader.cancel()
+      } catch {
+        /* ignore */
+      }
+      throw new Error(`弹幕响应过大 (>${maxBytes} bytes)`)
+    }
+    chunks.push(value)
+  }
+  const merged = new Uint8Array(total)
+  let offset = 0
+  for (const c of chunks) {
+    merged.set(c, offset)
+    offset += c.byteLength
+  }
+  return merged.buffer
 }
 
 bilibiliDanmakuRoutes.get('/bilibili', async (c) => {
@@ -88,7 +140,7 @@ bilibiliDanmakuRoutes.get('/bilibili', async (c) => {
           lastErr = `${u} → ${res.status}`
           continue
         }
-        const buf = Buffer.from(await res.arrayBuffer())
+        const buf = Buffer.from(await readArrayBufferLimited(res, MAX_DANMAKU_BYTES))
         // gzip magic
         if (buf.length >= 2 && buf[0] === 0x1f && buf[1] === 0x8b) {
           xml = gunzipSync(buf).toString('utf8')

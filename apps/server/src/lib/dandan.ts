@@ -89,7 +89,13 @@ export async function dandanGet(
     headers['X-AppSecret'] = appSecret
   }
 
-  const res = await fetch(url, { headers })
+  const res = await fetch(url, {
+    headers,
+    signal:
+      typeof AbortSignal !== 'undefined' && 'timeout' in AbortSignal
+        ? AbortSignal.timeout(15_000)
+        : undefined,
+  })
   if (!res.ok) {
     const text = await res.text()
     throw new Error(`弹弹 API ${res.status}: ${text.slice(0, 200)}`)

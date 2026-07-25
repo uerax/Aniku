@@ -47,6 +47,58 @@ function connectTimeoutSignal(ms: number): {
   }
 }
 
+/** Drop unused upstream body so sockets can reuse (error / retry paths). */
+function cancelBody(res: Response | null | undefined) {
+  try {
+    void res?.body?.cancel()
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Cap playlist text so a malicious "m3u8" cannot blow heap. */
+const MAX_M3U8_BYTES = 1_500_000
+
+async function readTextLimited(
+  res: Response,
+  maxBytes: number,
+): Promise<string> {
+  const cl = res.headers.get('content-length')
+  if (cl) {
+    const n = Number(cl)
+    if (Number.isFinite(n) && n > maxBytes) {
+      cancelBody(res)
+      throw new Error(`播放列表过大 (${n} > ${maxBytes} bytes)`)
+    }
+  }
+  if (!res.body) return res.text()
+  const reader = res.body.getReader()
+  const chunks: Uint8Array[] = []
+  let total = 0
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    if (!value?.byteLength) continue
+    total += value.byteLength
+    if (total > maxBytes) {
+      try {
+        await reader.cancel()
+      } catch {
+        /* ignore */
+      }
+      throw new Error(`播放列表过大 (>${maxBytes} bytes)`)
+    }
+    chunks.push(value)
+  }
+  const merged = new Uint8Array(total)
+  let offset = 0
+  for (const c of chunks) {
+    merged.set(c, offset)
+    offset += c.byteLength
+  }
+  return new TextDecoder('utf-8', { fatal: false }).decode(merged)
+}
+
 function rewriteM3u8Uri(
   u: string,
   base: URL,
@@ -163,6 +215,7 @@ mediaRoutes.get('/proxy', async (c) => {
   if (!upstream.ok && upstream.status !== 206) {
     // Cookie / auth expired (anime1 and similar)
     if (cookie && (upstream.status === 403 || upstream.status === 401)) {
+      cancelBody(upstream)
       return c.json(
         {
           error: 'auth_expired',
@@ -174,6 +227,8 @@ mediaRoutes.get('/proxy', async (c) => {
     }
     // Retry once with a looser referer (some CDNs only care about site origin)
     if (origin && (upstream.status === 403 || upstream.status === 401)) {
+      const failedStatus = upstream.status
+      cancelBody(upstream)
       const retryConnect = connectTimeoutSignal(20_000)
       try {
         const retry = await fetchPublic(target.toString(), {
@@ -188,6 +243,7 @@ mediaRoutes.get('/proxy', async (c) => {
         if (retry.ok || retry.status === 206) {
           upstream = retry
         } else {
+          cancelBody(retry)
           return c.json(
             {
               error: 'upstream',
@@ -209,13 +265,14 @@ mediaRoutes.get('/proxy', async (c) => {
         return c.json(
           {
             error: 'upstream',
-            message: `媒体源 ${upstream.status}`,
+            message: `媒体源 ${failedStatus}`,
             hint: '播放地址可能已过期，请重新选集',
           },
           502,
         )
       }
     } else {
+      cancelBody(upstream)
       return c.json(
         {
           error: 'upstream',
@@ -237,7 +294,21 @@ mediaRoutes.get('/proxy', async (c) => {
     target.pathname.endsWith('.m3u8')
 
   if (isM3u8) {
-    let text = await upstream.text()
+    let text: string
+    try {
+      text = await readTextLimited(upstream, MAX_M3U8_BYTES)
+    } catch (e) {
+      cancelBody(upstream)
+      const msg = e instanceof Error ? e.message : String(e)
+      return c.json(
+        {
+          error: 'upstream',
+          message: msg,
+          hint: '播放列表异常，请重新选集或换线路',
+        },
+        502,
+      )
+    }
     const base = target
     if (adFilter) {
       try {

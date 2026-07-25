@@ -912,6 +912,11 @@ export async function searchWithRule(
   for (let i = 0; i < candidates.length; i++) {
     const kw = candidates[i]
     const queryUrl = rule.searchURL.replace('@keyword', encodeURIComponent(kw))
+    // First keyword: allow one retry + full timeout. Later variants: no retry,
+    // shorter timeout — worst-case 4×12s×2 was hanging the subject UI.
+    const isFirst = i === 0
+    const timeoutMs = isFirst ? 12_000 : 8_000
+    const retries = isFirst ? 1 : 0
     let html: string
     try {
       if (rule.usePost) {
@@ -922,14 +927,14 @@ export async function searchWithRule(
           method: 'POST',
           body,
           referer: rule.baseURL,
-          timeoutMs: 12_000,
-          retries: 1,
+          timeoutMs,
+          retries,
         })
       } else {
         html = await fetchHtml(queryUrl, rule, {
           referer: rule.baseURL,
-          timeoutMs: 12_000,
-          retries: 1,
+          timeoutMs,
+          retries,
         })
       }
     } catch (e) {
