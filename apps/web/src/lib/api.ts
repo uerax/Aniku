@@ -20,8 +20,18 @@ export async function api<T>(
     headers.set('Authorization', `Bearer ${init.token}`)
   }
   const { token: _t, ...rest } = init
+  // `signal` from React Query / caller is preserved via rest — abort on navigate.
   const res = await fetch(path, { ...rest, headers })
-  const text = await res.text()
+  // If aborted mid-body, text() throws — surface as ApiError-friendly abort
+  let text: string
+  try {
+    text = await res.text()
+  } catch (e) {
+    if (rest.signal?.aborted) {
+      throw new ApiError(0, '请求已取消')
+    }
+    throw e
+  }
   let data: unknown = null
   try {
     data = text ? JSON.parse(text) : null

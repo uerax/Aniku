@@ -197,7 +197,7 @@ export function AnimePage() {
       sort,
       page,
     ],
-    queryFn: () => bangumiApi.search('', searchOpts),
+    queryFn: ({ signal }) => bangumiApi.search('', { ...searchOpts, signal }),
     staleTime: 3 * 60_000,
     placeholderData: (prev) => prev,
   })

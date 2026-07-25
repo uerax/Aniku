@@ -43,7 +43,7 @@ export function WatchPage() {
 
   const collection = useQuery({
     queryKey: ['collection', bangumiId, token],
-    queryFn: () => bangumiApi.getCollection(bangumiId),
+    queryFn: ({ signal }) => bangumiApi.getCollection(bangumiId, { signal }),
     enabled: Number.isFinite(bangumiId) && Boolean(token),
   })
   const setCollect = useMutation({

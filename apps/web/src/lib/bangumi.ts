@@ -12,12 +12,17 @@ function token() {
   return useSettingsStore.getState().bangumiToken || null
 }
 
+type SignalOpt = { signal?: AbortSignal }
+
 export const bangumiApi = {
-  calendar: () =>
-    api<{ data: BangumiItem[][] }>('/api/bangumi/calendar'),
-  trending: (limit = 24, offset = 0) =>
+  calendar: (opts?: SignalOpt) =>
+    api<{ data: BangumiItem[][] }>('/api/bangumi/calendar', {
+      signal: opts?.signal,
+    }),
+  trending: (limit = 24, offset = 0, opts?: SignalOpt) =>
     api<{ data: BangumiItem[] }>(
       `/api/bangumi/trending?limit=${limit}&offset=${offset}`,
+      { signal: opts?.signal },
     ),
   search: (
     keyword: string,
@@ -29,6 +34,7 @@ export const bangumiApi = {
       tags?: string[]
       year?: number | null
       airDate?: string[]
+      signal?: AbortSignal
     },
   ) =>
     api<{ data: BangumiItem[]; total?: number; limit?: number; offset?: number }>(
@@ -44,35 +50,50 @@ export const bangumiApi = {
           year: opts?.year ?? undefined,
           airDate: opts?.airDate,
         }),
+        signal: opts?.signal,
       },
     ),
-  subject: (id: number | string) =>
-    api<{ data: BangumiItem }>(`/api/bangumi/subjects/${id}`),
-  episodes: (id: number | string) =>
-    api<{ data: BangumiEpisode[] }>(`/api/bangumi/subjects/${id}/episodes`),
-  me: () => api<{ data: BangumiUser }>('/api/bangumi/me', { token: token() }),
-  collections: (opts?: { limit?: number; offset?: number; type?: number }) => {
+  subject: (id: number | string, opts?: SignalOpt) =>
+    api<{ data: BangumiItem }>(`/api/bangumi/subjects/${id}`, {
+      signal: opts?.signal,
+    }),
+  episodes: (id: number | string, opts?: SignalOpt) =>
+    api<{ data: BangumiEpisode[] }>(`/api/bangumi/subjects/${id}/episodes`, {
+      signal: opts?.signal,
+    }),
+  me: (opts?: SignalOpt) =>
+    api<{ data: BangumiUser }>('/api/bangumi/me', {
+      token: token(),
+      signal: opts?.signal,
+    }),
+  collections: (opts?: {
+    limit?: number
+    offset?: number
+    type?: number
+    signal?: AbortSignal
+  }) => {
     const q = new URLSearchParams()
     if (opts?.limit) q.set('limit', String(opts.limit))
     if (opts?.offset) q.set('offset', String(opts.offset))
     if (opts?.type) q.set('type', String(opts.type))
     return api<{ data: BangumiCollectionEntry[]; total?: number }>(
       `/api/bangumi/collections?${q}`,
-      { token: token() },
+      { token: token(), signal: opts?.signal },
     )
   },
-  getCollection: (subjectId: number | string) =>
+  getCollection: (subjectId: number | string, opts?: SignalOpt) =>
     api<{ data: BangumiCollectionEntry | null }>(
       `/api/bangumi/collections/${subjectId}`,
-      { token: token() },
+      { token: token(), signal: opts?.signal },
     ),
-  setCollection: (subjectId: number | string, type: CollectType) =>
+  setCollection: (subjectId: number | string, type: CollectType, opts?: SignalOpt) =>
     api<{ ok: boolean; type: CollectType }>(
       `/api/bangumi/collections/${subjectId}`,
       {
         method: 'PUT',
         token: token(),
         body: JSON.stringify({ type }),
+        signal: opts?.signal,
       },
     ),
 }

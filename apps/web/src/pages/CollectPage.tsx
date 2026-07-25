@@ -31,7 +31,7 @@ export function CollectPage() {
 
   const me = useQuery({
     queryKey: ['me', token],
-    queryFn: () => bangumiApi.me(),
+    queryFn: ({ signal }) => bangumiApi.me({ signal }),
     enabled: Boolean(token),
   })
 
@@ -41,10 +41,11 @@ export function CollectPage() {
 
   const collections = useQuery({
     queryKey: ['collections', token, bgmType],
-    queryFn: () =>
+    queryFn: ({ signal }) =>
       bangumiApi.collections({
         limit: 50,
         type: bgmType,
+        signal,
       }),
     enabled: Boolean(token),
   })

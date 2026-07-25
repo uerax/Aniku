@@ -99,6 +99,12 @@ export function useDanmakuSession(opts: UseDanmakuSessionOpts): DanmakuSession {
   const [bvPage, setBvPage] = useState(1)
   const [bilibiliBusy, setBilibiliBusy] = useState(false)
   const autoMatchGen = useRef(0)
+  const autoMatchAbort = useRef<AbortController | null>(null)
+  /** Live title/refs for scoring — avoid re-running match when only display title refines */
+  const titleRef = useRef(title)
+  titleRef.current = title
+  const titleRefsRef = useRef(titleRefs)
+  titleRefsRef.current = titleRefs
 
   // Keep keyword in sync when title changes (new subject / deep link)
   useEffect(() => {
@@ -123,31 +129,39 @@ export function useDanmakuSession(opts: UseDanmakuSessionOpts): DanmakuSession {
     setEpisodeId('')
   }, [])
 
-  const loadCommentsByEpisodeId = useCallback(async (epId: number) => {
-    const comments = await danmakuApi.comments(epId)
-    setPools((p) =>
-      writePool(p, 'dandan', comments.data, 'replace', `ep ${epId}`),
-    )
-    setEpisodeId(epId)
-    setStatus(`弹弹 · 已加载 ${comments.count} 条（其它源保留）`)
-    return comments
-  }, [])
-
-  const scoreAnime = useCallback(
-    (animeTitle: string) => {
-      if (titleRefs?.length) {
-        return bestTitleSimilarity(animeTitle, titleRefs)
-      }
-      return titleSimilarity(animeTitle, title)
+  const loadCommentsByEpisodeId = useCallback(
+    async (epId: number, signal?: AbortSignal) => {
+      const comments = await danmakuApi.comments(epId, { signal })
+      setPools((p) =>
+        writePool(p, 'dandan', comments.data, 'replace', `ep ${epId}`),
+      )
+      setEpisodeId(epId)
+      setStatus(`弹弹 · 已加载 ${comments.count} 条（其它源保留）`)
+      return comments
     },
-    [title, titleRefs],
+    [],
   )
 
-  // Auto-match (never blocks video resolve)
+  function scoreAnimeLive(animeTitle: string): number {
+    const refs = titleRefsRef.current
+    if (refs?.length) return bestTitleSimilarity(animeTitle, refs)
+    return titleSimilarity(animeTitle, titleRef.current)
+  }
+
+  // Auto-match (never blocks video resolve).
+  // Deps: bangumiId + episode + matchKey only — title/titleRefs read from refs
+  // so subject rename after load does not re-fan-out dandan traffic.
   useEffect(() => {
     if (!autoMatch || !bangumiId) return
     const gen = ++autoMatchGen.current
-    let cancelled = false
+    try {
+      autoMatchAbort.current?.abort()
+    } catch {
+      /* ignore */
+    }
+    const ac = new AbortController()
+    autoMatchAbort.current = ac
+    const { signal } = ac
 
     async function loadDanmaku() {
       setStatus('匹配弹幕…')
@@ -157,12 +171,13 @@ export function useDanmakuSession(opts: UseDanmakuSessionOpts): DanmakuSession {
       setAnimeId('')
       setEpisodeId('')
       try {
+        const searchTitle = titleRef.current
         const [mappedResult, searchResult] = await Promise.allSettled([
-          danmakuApi.bangumiByBgm(bangumiId),
-          danmakuApi.search(title),
+          danmakuApi.bangumiByBgm(bangumiId, { signal }),
+          danmakuApi.search(searchTitle, { signal }),
         ])
 
-        if (cancelled || gen !== autoMatchGen.current) return
+        if (signal.aborted || gen !== autoMatchGen.current) return
 
         let matchedEpisodeId = 0
         let matchedAnimeId = 0
@@ -189,7 +204,7 @@ export function useDanmakuSession(opts: UseDanmakuSessionOpts): DanmakuSession {
           let bestScore = 0
           for (const a of searchResult.value.data) {
             if (a.animeId >= 100000 || a.animeId < 2) continue
-            const score = scoreAnime(a.animeTitle)
+            const score = scoreAnimeLive(a.animeTitle)
             if (score > bestScore) {
               bestScore = score
               bestId = a.animeId
@@ -197,8 +212,8 @@ export function useDanmakuSession(opts: UseDanmakuSessionOpts): DanmakuSession {
           }
           if (bestId && bestScore >= 0.3) {
             matchedAnimeId = bestId
-            const info = await danmakuApi.bangumi(bestId)
-            if (cancelled || gen !== autoMatchGen.current) return
+            const info = await danmakuApi.bangumi(bestId, { signal })
+            if (signal.aborted || gen !== autoMatchGen.current) return
             setEpisodes(info.data.episodes)
             setAnimeId(bestId)
             const ep =
@@ -212,34 +227,31 @@ export function useDanmakuSession(opts: UseDanmakuSessionOpts): DanmakuSession {
           }
         }
 
-        if (cancelled || gen !== autoMatchGen.current) return
+        if (signal.aborted || gen !== autoMatchGen.current) return
 
         if (!matchedEpisodeId) {
           setStatus('未匹配到弹幕，点「设置」手动搜索或导入')
           return
         }
-        await loadCommentsByEpisodeId(matchedEpisodeId)
-        if (cancelled || gen !== autoMatchGen.current) return
+        await loadCommentsByEpisodeId(matchedEpisodeId, signal)
+        if (signal.aborted || gen !== autoMatchGen.current) return
       } catch (e) {
-        if (!cancelled && gen === autoMatchGen.current) {
-          setStatus(e instanceof Error ? e.message : '弹幕加载失败')
-        }
+        if (signal.aborted || gen !== autoMatchGen.current) return
+        const msg = e instanceof Error ? e.message : '弹幕加载失败'
+        if (/取消|aborted|AbortError/i.test(msg)) return
+        setStatus(msg)
       }
     }
 
     void loadDanmaku()
     return () => {
-      cancelled = true
+      try {
+        ac.abort()
+      } catch {
+        /* ignore */
+      }
     }
-  }, [
-    autoMatch,
-    bangumiId,
-    episode,
-    title,
-    matchKey,
-    scoreAnime,
-    loadCommentsByEpisodeId,
-  ])
+  }, [autoMatch, bangumiId, episode, matchKey, loadCommentsByEpisodeId])
 
   const handleEpisodeChange = useCallback(
     async (epId: number) => {

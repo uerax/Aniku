@@ -18,7 +18,7 @@ export function TimelinePage() {
 
   const q = useQuery({
     queryKey: ['calendar'],
-    queryFn: () => bangumiApi.calendar(),
+    queryFn: ({ signal }) => bangumiApi.calendar({ signal }),
     staleTime: 5 * 60_000,
   })
 

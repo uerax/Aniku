@@ -61,22 +61,22 @@ export function SettingsPage() {
 
   const health = useQuery({
     queryKey: ['health'],
-    queryFn: async () => {
-      const res = await fetch('/api/health')
+    queryFn: async ({ signal }) => {
+      const res = await fetch('/api/health', { signal })
       return res.json() as Promise<{ ok: boolean; danmakuConfigured: boolean }>
     },
   })
 
   const me = useQuery({
     queryKey: ['me-settings', bangumiToken],
-    queryFn: () => bangumiApi.me(),
+    queryFn: ({ signal }) => bangumiApi.me({ signal }),
     enabled: Boolean(bangumiToken),
     retry: false,
   })
 
   const catalog = useQuery({
     queryKey: ['plugin-catalog', useMirror],
-    queryFn: () => pluginApi.catalog(useMirror),
+    queryFn: ({ signal }) => pluginApi.catalog(useMirror, { signal }),
     staleTime: 5 * 60_000,
     retry: 1,
   })

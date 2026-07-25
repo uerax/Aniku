@@ -9,7 +9,7 @@ export function SearchPage() {
 
   const q = useQuery({
     queryKey: ['search', keyword],
-    queryFn: () => bangumiApi.search(keyword),
+    queryFn: ({ signal }) => bangumiApi.search(keyword, { signal }),
     enabled: keyword.length > 0,
   })
 
