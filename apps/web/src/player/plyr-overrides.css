@@ -179,14 +179,20 @@
   /* Above video (same z-index paints later in tree; explicit for safety) */
   z-index: 1;
   pointer-events: none !important;
-  /* Stretch canvas CSS box to shell; buffer aspect set in anime4k.ts */
-  object-fit: fill;
+  /*
+   * contain (not fill): buffer is ~2× native aspect; fill stretches and
+   * makes side-by-side comparison with object-fit:contain video unfair.
+   */
+  object-fit: contain;
+  object-position: center;
   background: transparent;
 }
 
 /* When SR is painting, hide native video picture (audio/seek still on <video>) */
 .kz-player-shell.kz-sr-on .kz-native-video {
-  opacity: 0;
+  /* visibility hides paint; opacity alone can still composite over canvas */
+  opacity: 0 !important;
+  visibility: hidden;
 }
 
 /* Overlay for danmaku only — never opaque, never capture events.

@@ -152,8 +152,25 @@ function resolveAnime4KExports(mod: unknown): A4kNs {
 }
 
 /**
- * Pick GPU buffer size so Anime4K actually upscales.
- * Aim ≥ 2× native (or display CSS size, whichever larger), cap long edge.
+ * Default long-edge caps. Old default 1920 made 1080p → 1080p (CNN x2 never
+ * engaged / ModeA took restore-only) so efficiency/quality/off looked identical.
+ */
+export const SR_MAX_DIMENSION: Record<
+  Exclude<SuperResolutionMode, 'off'>,
+  number
+> = {
+  // 2× 720p–1080p comfortably; lighter than quality
+  efficiency: 2560,
+  // allow full 2× 1080p (3840) and mild 2× 1440p headroom
+  quality: 3840,
+}
+
+/**
+ * Pick GPU canvas + ModeA target so Anime4K **always** runs a real upscale path.
+ *
+ * Critical: target must be ≥ ~1.2× native or ModeA skips upscale and CNNx2
+ * output is immediately bilinear-down to 1× — visually ≈ original.
+ * We lock to 2× native (then cap), and also never go below display CSS×DPR.
  */
 function pickTargetSize(
   native: { width: number; height: number },
@@ -165,19 +182,24 @@ function pickTargetSize(
     typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1,
     2,
   )
-  // Display CSS box in device pixels
   const cssW = Math.max(2, Math.floor(layout.width * dpr))
   const cssH = Math.max(2, Math.floor(layout.height * dpr))
 
-  // Force at least 2× native so CNN x2 path engages (otherwise 1080p→1080p
-  // looks almost identical to original).
-  const scaleWanted = mode === 'quality' ? 2 : 2
-  let w = Math.max(cssW, Math.floor(native.width * scaleWanted))
-  let h = Math.max(cssH, Math.floor(native.height * scaleWanted))
+  // Always 2× native so CNN x2 / ModeA upscale branch engages.
+  // Quality keeps more headroom via higher maxDimension (see SR_MAX_DIMENSION).
+  const scaleWanted = 2
+  let w = Math.floor(native.width * scaleWanted)
+  let h = Math.floor(native.height * scaleWanted)
 
-  // Keep aspect of native video
+  // If the player shell is larger than 2× native (rare), match display so we
+  // don't upscale with CSS alone on top of a small buffer.
+  if (cssW > w || cssH > h) {
+    w = Math.max(w, cssW)
+    h = Math.max(h, cssH)
+  }
+
   const ar = native.width / Math.max(1, native.height)
-  if (w / h > ar) {
+  if (w / Math.max(1, h) > ar) {
     w = Math.max(2, Math.round(h * ar))
   } else {
     h = Math.max(2, Math.round(w / ar))
@@ -190,13 +212,19 @@ function pickTargetSize(
     h = Math.max(2, Math.floor(h * s))
   }
 
-  // ModeA needs target meaningfully larger than native for the upscale branch
-  if (w < native.width * 1.2 && h < native.height * 1.2) {
-    w = Math.min(maxDimension, Math.floor(native.width * 2))
-    h = Math.min(maxDimension, Math.floor(native.height * 2))
-    const ar2 = native.width / Math.max(1, native.height)
-    if (w / h > ar2) w = Math.max(2, Math.round(h * ar2))
-    else h = Math.max(2, Math.round(w / ar2))
+  // Final guard: never ship a ~1× buffer (ModeA would no-op upscale).
+  // If cap crushed us (e.g. tiny maxDimension), still try ≥1.5× native.
+  if (w < native.width * 1.5 && h < native.height * 1.5) {
+    const boost = Math.min(
+      maxDimension / Math.max(native.width, native.height, 1),
+      mode === 'quality' ? 2 : 1.75,
+    )
+    if (boost > 1.2) {
+      w = Math.max(2, Math.floor(native.width * boost))
+      h = Math.max(2, Math.floor(native.height * boost))
+      if (w / h > ar) w = Math.max(2, Math.round(h * ar))
+      else h = Math.max(2, Math.round(w / ar))
+    }
   }
 
   return { width: w, height: h }
@@ -256,7 +284,7 @@ export async function startAnime4K(
   options: Anime4KStartOptions,
 ): Promise<Anime4KStop> {
   const { video, canvas, mode, layoutEl } = options
-  const maxDimension = options.maxDimension ?? 1920
+  const maxDimension = options.maxDimension ?? SR_MAX_DIMENSION[mode]
 
   if (!hasWebGPU()) {
     throw new Error('WebGPU not available')
@@ -267,6 +295,15 @@ export async function startAnime4K(
   const target = pickTargetSize(native, layout, maxDimension, mode)
   canvas.width = target.width
   canvas.height = target.height
+
+  // Distinct visual scale vs original — used in logs / caller hints
+  const scaleX = target.width / Math.max(1, native.width)
+  const scaleY = target.height / Math.max(1, native.height)
+  if (scaleX < 1.25 && scaleY < 1.25) {
+    console.warn(
+      `[anime4k] target ~1× native (${native.width}x${native.height} → ${target.width}x${target.height}); SR will look weak. Raise maxDimension.`,
+    )
+  }
 
   const mod = await import('anime4k-webgpu')
   const a4k = resolveAnime4KExports(mod)
@@ -292,6 +329,8 @@ export async function startAnime4K(
     alphaMode: 'premultiplied',
   })
 
+  // COPY_SRC not required; RENDER_ATTACHMENT needed by some browsers for
+  // copyExternalImageToTexture destination.
   const videoFrameTexture = device.createTexture({
     size: [native.width, native.height, 1],
     format: 'rgba16float',
@@ -303,7 +342,8 @@ export async function startAnime4K(
 
   const pipelines: Pipeline[] = (() => {
     if (mode === 'quality') {
-      // ModeA ≈ Kazumi quality: VL restore + dual upscale + auto-downscale
+      // ModeA: restore (VL) + upscale + auto-downscale to targetDimensions.
+      // target MUST be > native or ModeA degenerates to mild restore.
       const preset = new a4k.ModeA({
         device,
         inputTexture: videoFrameTexture,
@@ -312,7 +352,9 @@ export async function startAnime4K(
       })
       return [preset]
     }
-    // efficiency: Clamp → CNN restore M → x2 M (lighter than ModeA's VL path)
+    // efficiency: lighter CNN stack, still forced through x2 so edges change.
+    // Clamp → CNNM (restore) → CNNx2M (2×). Fullscreen blit samples onto
+    // `target` canvas (≤2×, capped) — supersampled look vs raw <video>.
     const clamp = new a4k.ClampHighlights({
       device,
       inputTexture: videoFrameTexture,
@@ -408,38 +450,61 @@ export async function startAnime4K(
     }
   }
 
+  let copyFailedLogged = false
   const copyFrame = () => {
     // Always try to copy when we have a current frame (including paused)
-    if (video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) return
-    device.queue.copyExternalImageToTexture(
-      { source: video },
-      { texture: videoFrameTexture },
-      [WIDTH, HEIGHT],
-    )
+    if (video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) return false
+    try {
+      device.queue.copyExternalImageToTexture(
+        { source: video },
+        { texture: videoFrameTexture },
+        [WIDTH, HEIGHT],
+      )
+      return true
+    } catch (e) {
+      // Cross-origin video without CORS → SecurityError; SR cannot run.
+      if (!copyFailedLogged) {
+        copyFailedLogged = true
+        console.warn(
+          '[anime4k] copyExternalImageToTexture failed (CORS / not ready?)',
+          e,
+        )
+      }
+      return false
+    }
   }
 
   const frame = () => {
     if (stopped || pausedForHidden) return
     try {
-      copyFrame()
-      const commandEncoder = device.createCommandEncoder()
-      for (const p of pipelines) p.pass(commandEncoder)
-      const passEncoder = commandEncoder.beginRenderPass({
-        colorAttachments: [
-          {
-            view: context.getCurrentTexture().createView(),
-            clearValue: { r: 0, g: 0, b: 0, a: 1 },
-            loadOp: 'clear',
-            storeOp: 'store',
-          },
-        ],
-      })
-      passEncoder.setPipeline(renderPipeline)
-      passEncoder.setBindGroup(0, renderBindGroup)
-      passEncoder.draw(6)
-      passEncoder.end()
-      device.queue.submit([commandEncoder.finish()])
-      frameErrors = 0
+      if (!copyFrame()) {
+        // Don't burn GPU on empty/black frames; retry next tick
+        frameErrors += 1
+        if (frameErrors === 1 || frameErrors % 60 === 0) {
+          console.warn(
+            '[anime4k] skip frame — video copy failed (check CORS on media)',
+          )
+        }
+      } else {
+        const commandEncoder = device.createCommandEncoder()
+        for (const p of pipelines) p.pass(commandEncoder)
+        const passEncoder = commandEncoder.beginRenderPass({
+          colorAttachments: [
+            {
+              view: context.getCurrentTexture().createView(),
+              clearValue: { r: 0, g: 0, b: 0, a: 1 },
+              loadOp: 'clear',
+              storeOp: 'store',
+            },
+          ],
+        })
+        passEncoder.setPipeline(renderPipeline)
+        passEncoder.setBindGroup(0, renderBindGroup)
+        passEncoder.draw(6)
+        passEncoder.end()
+        device.queue.submit([commandEncoder.finish()])
+        frameErrors = 0
+      }
     } catch (e) {
       frameErrors += 1
       if (frameErrors <= 3 || frameErrors % 60 === 0) {
@@ -469,15 +534,67 @@ export async function startAnime4K(
   }
   document.addEventListener('visibilitychange', onVisibility)
 
-  // Prime one frame so first paint is not empty black
+  /**
+   * Retarget canvas buffer on shell resize / fullscreen without rebuilding CNN
+   * pipelines. The fullscreen quad samples the fixed pipeline output into the
+   * new canvas size (bilinear up/down). Prevents black/stretched frames when
+   * `.kz-sr-on` hides the native video and layout changes after start.
+   */
+  let lastLayoutKey = `${target.width}x${target.height}`
+  let resizeTimer: ReturnType<typeof setTimeout> | undefined
+  const applyLayoutSize = () => {
+    if (stopped) return
+    const next = pickTargetSize(
+      native,
+      layoutSize(canvas, layoutEl),
+      maxDimension,
+      mode,
+    )
+    const key = `${next.width}x${next.height}`
+    if (key === lastLayoutKey) return
+    // Ignore tiny jitter (< 32px on either edge)
+    if (
+      Math.abs(next.width - canvas.width) < 32 &&
+      Math.abs(next.height - canvas.height) < 32
+    ) {
+      return
+    }
+    lastLayoutKey = key
+    try {
+      canvas.width = next.width
+      canvas.height = next.height
+      // Reconfigure swapchain for new size (required on some browsers)
+      context.configure({
+        device,
+        format: presentationFormat,
+        alphaMode: 'premultiplied',
+      })
+    } catch (e) {
+      console.warn('[anime4k] resize reconfigure failed', e)
+    }
+  }
+  const onLayoutResize = () => {
+    if (resizeTimer !== undefined) clearTimeout(resizeTimer)
+    resizeTimer = setTimeout(applyLayoutSize, 120)
+  }
+  let ro: ResizeObserver | null = null
   try {
-    copyFrame()
-  } catch (e) {
-    console.warn('[anime4k] initial copy failed (CORS / not ready?)', e)
+    const observeEl = layoutEl ?? canvas.parentElement ?? canvas
+    ro = new ResizeObserver(onLayoutResize)
+    ro.observe(observeEl)
+  } catch {
+    /* ResizeObserver missing — CSS scaling of fixed buffer still applies */
+  }
+  if (typeof window !== 'undefined') {
+    window.addEventListener('resize', onLayoutResize)
+    document.addEventListener('fullscreenchange', onLayoutResize)
   }
 
+  // Prime one frame so first paint is not empty black
+  copyFrame()
+
   console.info(
-    `[anime4k] started mode=${mode} native=${native.width}x${native.height} target=${target.width}x${target.height}`,
+    `[anime4k] started mode=${mode} native=${native.width}x${native.height} → target=${target.width}x${target.height} (~${scaleX.toFixed(2)}×) maxDim=${maxDimension}`,
   )
 
   if (!document.hidden) {
@@ -490,6 +607,17 @@ export async function startAnime4K(
     if (stopped) return
     stopped = true
     document.removeEventListener('visibilitychange', onVisibility)
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('resize', onLayoutResize)
+      document.removeEventListener('fullscreenchange', onLayoutResize)
+    }
+    if (resizeTimer !== undefined) clearTimeout(resizeTimer)
+    try {
+      ro?.disconnect()
+    } catch {
+      /* ignore */
+    }
+    ro = null
     cancelPendingFrame()
     try {
       videoFrameTexture.destroy()
