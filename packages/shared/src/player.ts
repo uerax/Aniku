@@ -52,7 +52,7 @@ export interface PlayerSettings {
   forceMediaProxy: boolean
 }
 
-export const PLAYER_SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2, 2.5, 3, 3.5, 4] as const
+export const PLAYER_SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2] as const
 
 export const SUPER_RESOLUTION_MODES: readonly SuperResolutionMode[] = [
   'off',

@@ -1,5 +1,4 @@
 import {
-  useEffect,
   useLayoutEffect,
   useRef,
   useState,
@@ -22,33 +21,46 @@ import {
   IconWebFsExit,
 } from './icons'
 
-type PopupPos = { left: number; bottom: number }
+type PopupPos = { left: number }
 
-function placeAboveButton(btn: HTMLElement | null): PopupPos | null {
-  if (!btn) return null
+/**
+ * Place popup relative to the control bar (position:absolute on .kz-bar).
+ *
+ * Do NOT use position:fixed inside .kz-bar: the bar uses transform for
+ * show/hide animation, which makes fixed children layout against the bar
+ * (not the viewport) and menus land at the wrong edge.
+ *
+ * Menus are siblings of .kz-bar-row (not inside it) so overflow-x on the
+ * row cannot clip them.
+ */
+function placeInBar(
+  bar: HTMLElement | null,
+  btn: HTMLElement | null,
+): PopupPos | null {
+  if (!bar || !btn) return null
+  const br = bar.getBoundingClientRect()
   const r = btn.getBoundingClientRect()
   return {
-    left: r.left + r.width / 2,
-    // viewport bottom → button top + gap (keeps menu above control)
-    bottom: Math.max(8, window.innerHeight - r.top + 8),
+    left: r.left - br.left + r.width / 2,
   }
 }
 
-function fixedPopupStyle(pos: PopupPos): CSSProperties {
+function barPopupStyle(pos: PopupPos): CSSProperties {
   return {
-    position: 'fixed',
+    position: 'absolute',
     left: pos.left,
-    bottom: pos.bottom,
+    // Sit just above the control row / seek area
+    bottom: '100%',
     top: 'auto',
     right: 'auto',
+    marginBottom: 8,
     transform: 'translateX(-50%)',
   }
 }
 
 /**
  * Mobile / touch control bar.
- * Menus (speed / SR / volume) use position:fixed popups so they are not clipped
- * by .kz-bar-row { overflow-x:auto; overflow-y:hidden } on narrow screens.
+ * Speed / SR / volume menus: absolute above the bar (not fixed-to-viewport).
  */
 export function MobileControls(props: PlayerControlsProps) {
   const {
@@ -99,6 +111,7 @@ export function MobileControls(props: PlayerControlsProps) {
   const vol = player.volume ?? 0.7
   const volPct = Math.round(Math.min(1, Math.max(0, vol)) * 100)
 
+  const barRef = useRef<HTMLDivElement>(null)
   const speedBtnRef = useRef<HTMLButtonElement>(null)
   const srBtnRef = useRef<HTMLButtonElement>(null)
   const volBtnRef = useRef<HTMLButtonElement>(null)
@@ -107,44 +120,26 @@ export function MobileControls(props: PlayerControlsProps) {
   const [srPos, setSrPos] = useState<PopupPos | null>(null)
   const [volPos, setVolPos] = useState<PopupPos | null>(null)
 
-  const reposition = () => {
-    if (speedMenuOpen) setSpeedPos(placeAboveButton(speedBtnRef.current))
-    if (srMenuOpen) setSrPos(placeAboveButton(srBtnRef.current))
-    if (volumeMenuOpen) setVolPos(placeAboveButton(volBtnRef.current))
-  }
-
   useLayoutEffect(() => {
     if (!speedMenuOpen) setSpeedPos(null)
-    else setSpeedPos(placeAboveButton(speedBtnRef.current))
+    else setSpeedPos(placeInBar(barRef.current, speedBtnRef.current))
   }, [speedMenuOpen, showBar, pinBar])
 
   useLayoutEffect(() => {
     if (!srMenuOpen) setSrPos(null)
-    else setSrPos(placeAboveButton(srBtnRef.current))
+    else setSrPos(placeInBar(barRef.current, srBtnRef.current))
   }, [srMenuOpen, showBar, pinBar])
 
   useLayoutEffect(() => {
     if (!volumeMenuOpen) setVolPos(null)
-    else setVolPos(placeAboveButton(volBtnRef.current))
+    else setVolPos(placeInBar(barRef.current, volBtnRef.current))
   }, [volumeMenuOpen, showBar, pinBar])
-
-  useEffect(() => {
-    const anyOpen = speedMenuOpen || srMenuOpen || volumeMenuOpen
-    if (!anyOpen) return
-    const onReposition = () => reposition()
-    window.addEventListener('resize', onReposition)
-    window.addEventListener('scroll', onReposition, true)
-    return () => {
-      window.removeEventListener('resize', onReposition)
-      window.removeEventListener('scroll', onReposition, true)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [speedMenuOpen, srMenuOpen, volumeMenuOpen])
 
   const stop = (e: SyntheticEvent) => e.stopPropagation()
 
   return (
     <div
+      ref={barRef}
       className={`kz-bar ${pinBar ? 'kz-bar--show' : ''}`}
       onMouseDown={stop}
       data-player-chrome
@@ -215,7 +210,6 @@ export function MobileControls(props: PlayerControlsProps) {
             </button>
           )}
 
-          {/* Speed — button stays in bar; menu is fixed portal-like sibling */}
           <div className="kz-speed-wrap">
             <button
               ref={speedBtnRef}
@@ -232,7 +226,6 @@ export function MobileControls(props: PlayerControlsProps) {
             </button>
           </div>
 
-          {/* Super-resolution */}
           <div className="kz-speed-wrap kz-sr-wrap">
             <button
               ref={srBtnRef}
@@ -258,7 +251,6 @@ export function MobileControls(props: PlayerControlsProps) {
             </button>
           </div>
 
-          {/* Volume */}
           <div className="kz-vol-popup-wrap">
             <button
               ref={volBtnRef}
@@ -306,12 +298,12 @@ export function MobileControls(props: PlayerControlsProps) {
         </div>
       </div>
 
-      {/* Fixed menus — outside .kz-bar-row overflow clip */}
+      {/* Absolute menus on .kz-bar — outside .kz-bar-row overflow clip */}
       {speedMenuOpen && speedPos && (
         <div
-          className="kz-speed-menu kz-mobile-fixed-menu"
+          className="kz-speed-menu kz-mobile-bar-menu"
           data-player-chrome
-          style={fixedPopupStyle(speedPos)}
+          style={barPopupStyle(speedPos)}
           onMouseDown={stop}
           onClick={stop}
           onPointerDown={stop}
@@ -331,9 +323,9 @@ export function MobileControls(props: PlayerControlsProps) {
 
       {srMenuOpen && srPos && (
         <div
-          className="kz-speed-menu kz-mobile-fixed-menu"
+          className="kz-speed-menu kz-mobile-bar-menu"
           data-player-chrome
-          style={fixedPopupStyle(srPos)}
+          style={barPopupStyle(srPos)}
           onMouseDown={stop}
           onClick={stop}
           onPointerDown={stop}
@@ -366,9 +358,9 @@ export function MobileControls(props: PlayerControlsProps) {
 
       {volumeMenuOpen && volPos && (
         <div
-          className="kz-vol-popup"
+          className="kz-vol-popup kz-mobile-bar-menu"
           data-player-chrome
-          style={fixedPopupStyle(volPos)}
+          style={barPopupStyle(volPos)}
           onMouseDown={stop}
           onClick={stop}
           onPointerDown={stop}

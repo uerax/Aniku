@@ -3,6 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware'
 import {
   defaultDanmakuSettings,
   defaultPlayerSettings,
+  PLAYER_SPEEDS,
   type DanmakuSettings,
   type PlayerSettings,
 } from '@aniku/shared'
@@ -34,6 +35,14 @@ export function applyDocumentTheme(theme: AppTheme) {
   root.style.colorScheme = theme
 }
 
+const PLAYER_SPEED_MIN = PLAYER_SPEEDS[0]
+const PLAYER_SPEED_MAX = PLAYER_SPEEDS[PLAYER_SPEEDS.length - 1]
+
+function clampPlayerSpeed(speed: unknown): number {
+  const n = typeof speed === 'number' && Number.isFinite(speed) ? speed : 1
+  return Math.min(PLAYER_SPEED_MAX, Math.max(PLAYER_SPEED_MIN, n))
+}
+
 function mergePlayer(partial?: Partial<PlayerSettings>): PlayerSettings {
   const p = partial && typeof partial === 'object' ? partial : {}
   const sr = p.superResolution
@@ -49,6 +58,7 @@ function mergePlayer(partial?: Partial<PlayerSettings>): PlayerSettings {
   return {
     ...defaultPlayerSettings,
     ...rest,
+    speed: clampPlayerSpeed(rest.speed ?? defaultPlayerSettings.speed),
     superResolution,
     forceAdBlocker: Boolean(
       p.forceAdBlocker ?? defaultPlayerSettings.forceAdBlocker,

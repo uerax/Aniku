@@ -646,13 +646,20 @@
   background: rgba(9, 9, 11, 0.96);
 }
 
-/* Mobile: fixed menus (position set inline) — not clipped by bar overflow */
-.kz-mobile-fixed-menu {
+/*
+ * Mobile bar menus: absolute on .kz-bar (sibling of .kz-bar-row).
+ * Not position:fixed — .kz-bar uses transform for show/hide, which would
+ * retarget fixed children to the bar box and break placement.
+ * Inline style sets left + bottom:100% + translateX(-50%).
+ */
+.kz-mobile-bar-menu {
   z-index: 80;
   min-width: 5rem;
   max-height: min(40dvh, 14rem);
   pointer-events: auto;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  /* Override .kz-speed-menu absolute right / bottom calc */
+  right: auto !important;
 }
 
 .kz-speed-menu button {
