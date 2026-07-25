@@ -1,5 +1,27 @@
 # Aniku 项目状态
 
+## [2026-07-26] 选集面板视觉 + 选源后聚焦 UX
+
+- 状态：已完成
+- 优先级：P2
+- 描述：
+  1. 选集：线路（紫描边 chip）与集数（蓝实心）分色；移动端更密更小
+  2. 有分集后自动折叠视频源；手动点选结果同样折叠
+  3. 移动端点选后 scrollIntoView 到 #kz-watch-focus（选集+播放器）
+- 涉及文件：
+  - apps/web/src/pages/WatchPage.tsx
+  - apps/web/src/pages/watch/MobileWatchLayout.tsx
+  - apps/web/src/player/plyr-overrides.css
+- 备注：无自动命中时视频源保持展开
+
+## [2026-07-26] 视频源搜索结果引导
+
+- 状态：已完成
+- 优先级：P2
+- 描述：点规则源后用户不知还需点搜索条目；强化「点选条目」引导与结果可点击感
+- 涉及文件：apps/web/src/pages/WatchPage.tsx
+- 备注：needsPick 态高亮卡片 + 列表「选用」标签 + 选集空态两步文案
+
 ## [2026-07-26] 桌面 rail 分板 + Anime1 搜索过滤
 
 - 状态：已完成

@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react'
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import clsx from 'clsx'
@@ -34,12 +34,36 @@ export function WatchPage() {
   const token = useSettingsStore((s) => s.bangumiToken)
   const qc = useQueryClient()
   const [summaryOpen, setSummaryOpen] = useState(false)
-  /** Sources panel open by default so user can pick a rule */
+  /** Sources open until a selection lands; then auto-collapse to focus 选集 */
   const [sourcesOpen, setSourcesOpen] = useState(true)
   /** Episodes open when we have a selection / resume */
   const [epsOpen, setEpsOpen] = useState(true)
+  /** Last selection key we auto-focused (collapse sources / mobile scroll) */
+  const focusedSelectionKey = useRef<string | null>(null)
 
   const [kwInput, setKwInput] = useState('')
+
+  /** Collapse 视频源 + ensure 选集 open; on mobile scroll cinema into view. */
+  const focusAfterSelection = useCallback(
+    (key: string, opts?: { forceScroll?: boolean }) => {
+      if (!key) return
+      const already = focusedSelectionKey.current === key
+      focusedSelectionKey.current = key
+      setEpsOpen(true)
+      setSourcesOpen(false)
+      if (layoutMode !== 'mobile') return
+      if (already && !opts?.forceScroll) return
+      // Wait layout paint after collapse before scrolling
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          document
+            .getElementById('kz-watch-focus')
+            ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        })
+      })
+    },
+    [layoutMode],
+  )
 
   const collection = useQuery({
     queryKey: ['collection', bangumiId, token],
@@ -94,10 +118,13 @@ export function WatchPage() {
   const activeRoad = w.selection?.roads[activeRoadIndex]
   const epCount = activeRoad?.identifier?.length ?? 0
 
-  // Auto-expand episodes when chapters arrive
+  // Chapters ready (auto-pick or resume): fold 视频源, open 选集; mobile → scroll to cinema
   useEffect(() => {
-    if (w.selection?.roads?.length) setEpsOpen(true)
-  }, [w.selection])
+    const sel = w.selection
+    if (!sel?.roads?.length) return
+    const key = `${sel.plugin.name}::${sel.source.src}`
+    focusAfterSelection(key)
+  }, [w.selection, focusAfterSelection])
 
   function onKeywordSubmit(e: FormEvent) {
     e.preventDefault()
@@ -253,9 +280,9 @@ export function WatchPage() {
             视频源
           </span>
           <span className="mt-0.5 block text-[12px] text-[var(--kz-fg-muted)]">
-            默认 {w.defaultSourceName}
+            点源搜索 → 再点条目加载选集
             {w.searchResults.length
-              ? ` · ${w.searchResults.filter((r) => r.searched).length}/${w.searchResults.length} 已搜索`
+              ? ` · ${w.searchResults.filter((r) => r.searched).length}/${w.searchResults.length} 已搜`
               : ''}
           </span>
         </span>
@@ -368,23 +395,35 @@ export function WatchPage() {
                       r.plugin.name
                         .toLowerCase()
                         .includes(w.defaultSourceName.toLowerCase())
+                    const hasItems =
+                      r.searched && !r.pending && r.items.length > 0
+                    const selectedInThis =
+                      w.selection?.plugin.name === r.plugin.name
+                    /** Search done with hits but user hasn't picked a title yet */
+                    const needsPick = hasItems && !selectedInThis
                     const statusLabel = r.pending
                       ? '搜索中…'
-                      : r.searched
-                        ? r.items.length
-                          ? `${r.items.length} 条`
-                          : '无结果'
-                        : isDefault
-                          ? '默认 · 点击搜索'
-                          : '点击搜索'
+                      : needsPick
+                        ? `点选 · ${r.items.length}`
+                        : r.searched
+                          ? r.items.length
+                            ? selectedInThis
+                              ? '已选'
+                              : `${r.items.length} 条`
+                            : '无结果'
+                          : isDefault
+                            ? '默认 · 点此搜索'
+                            : '点此搜索'
                     return (
                       <div
                         key={r.plugin.id}
                         className={clsx(
                           'rounded-xl border transition',
-                          isTarget
-                            ? 'border-[var(--kz-accent)]/45 bg-[var(--kz-accent-soft)]'
-                            : 'border-[var(--kz-border)] bg-[var(--kz-bg-elevated)]',
+                          needsPick
+                            ? 'border-[var(--kz-accent)] bg-[var(--kz-accent-soft)]/40 shadow-[0_0_0_1px_var(--kz-accent-ring)]'
+                            : isTarget
+                              ? 'border-[var(--kz-accent)]/45 bg-[var(--kz-accent-soft)]'
+                              : 'border-[var(--kz-border)] bg-[var(--kz-bg-elevated)]',
                         )}
                       >
                         <button
@@ -397,9 +436,11 @@ export function WatchPage() {
                             }
                           }}
                           title={
-                            isDefault
-                              ? `默认源 ${w.defaultSourceName} · 点击搜索`
-                              : '点击搜索此源'
+                            needsPick
+                              ? '已搜到结果，请在下方点选番剧条目'
+                              : isDefault
+                                ? `默认源 ${w.defaultSourceName} · 点击搜索`
+                                : '点击搜索此源'
                           }
                         >
                           <span className="min-w-0 flex-1">
@@ -421,12 +462,13 @@ export function WatchPage() {
                             {r.keyword ? (
                               <span className="mt-1 block truncate text-[12px] text-[var(--kz-fg-muted)]">
                                 关键词「{r.keyword}」
+                                {needsPick ? ' · 下一步点下方条目' : ''}
                               </span>
                             ) : (
                               <span className="mt-1 block text-[12px] text-[var(--kz-fg-dim)]">
                                 {isDefault
                                   ? '进入页面会自动搜索此源'
-                                  : '规则源'}
+                                  : '点此开始搜索'}
                               </span>
                             )}
                           </span>
@@ -435,11 +477,13 @@ export function WatchPage() {
                               'shrink-0 rounded-full px-2.5 py-1 text-[12px] font-medium tabular-nums',
                               r.pending
                                 ? 'bg-[var(--kz-bg-soft)] text-[var(--kz-accent)]'
-                                : r.searched && r.items.length
-                                  ? 'bg-[var(--kz-bg-soft)] text-[var(--kz-fg)]'
-                                  : r.searched
-                                    ? 'bg-[var(--kz-bg-soft)] text-[var(--kz-fg-muted)]'
-                                    : 'bg-[var(--kz-bg-soft)] text-[var(--kz-fg-muted)]',
+                                : needsPick
+                                  ? 'bg-[var(--kz-accent)] text-white'
+                                  : selectedInThis
+                                    ? 'bg-[var(--kz-accent-soft)] text-[var(--kz-accent)]'
+                                    : r.searched && r.items.length
+                                      ? 'bg-[var(--kz-bg-soft)] text-[var(--kz-fg)]'
+                                      : 'bg-[var(--kz-bg-soft)] text-[var(--kz-fg-muted)]',
                             )}
                           >
                             {statusLabel}
@@ -452,60 +496,94 @@ export function WatchPage() {
                           </div>
                         )}
 
-                        {r.searched && !r.pending && r.items.length > 0 && (
-                          <ul className="max-h-40 space-y-0.5 overflow-y-auto border-t border-[var(--kz-border)] px-2 py-2">
-                            {r.items.map((it, idx) => {
-                              const selected =
-                                w.selection?.plugin.name === r.plugin.name &&
-                                w.selection?.source.src === it.src
-                              const pending =
-                                w.pendingSource?.pluginName ===
-                                  r.plugin.name &&
-                                w.pendingSource?.src === it.src
-                              const score = bestTitleSimilarity(
-                                it.name,
-                                w.titleRefs,
-                              )
-                              return (
-                                <li
-                                  key={`${r.plugin.name}:${it.src}:${idx}`}
-                                >
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      w.setKeywordTargetPlugin(r.plugin)
-                                      void w.pickSource(r.plugin, it)
-                                      setEpsOpen(true)
-                                    }}
-                                    className={clsx(
-                                      'flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-[13px] leading-snug transition',
-                                      selected
-                                        ? 'bg-[var(--kz-accent)] font-medium text-white'
-                                        : pending
-                                          ? 'bg-[var(--kz-accent-soft)] text-[var(--kz-accent)]'
-                                          : 'text-[var(--kz-fg)] hover:bg-[var(--kz-bg-hover)]',
-                                    )}
+                        {hasItems && (
+                          <div className="border-t border-[var(--kz-border)]">
+                            {needsPick && (
+                              <div className="flex items-center gap-1.5 px-3 pt-2.5 pb-1 text-[12px] font-medium text-[var(--kz-accent)]">
+                                <span aria-hidden>↓</span>
+                                <span>点选匹配条目，加载分集</span>
+                              </div>
+                            )}
+                            <ul
+                              className={clsx(
+                                'max-h-40 space-y-1 overflow-y-auto px-2',
+                                needsPick ? 'pb-2.5 pt-1' : 'py-2',
+                              )}
+                              aria-label={`${r.plugin.name} 搜索结果，点击条目加载选集`}
+                            >
+                              {r.items.map((it, idx) => {
+                                const selected =
+                                  w.selection?.plugin.name === r.plugin.name &&
+                                  w.selection?.source.src === it.src
+                                const pending =
+                                  w.pendingSource?.pluginName ===
+                                    r.plugin.name &&
+                                  w.pendingSource?.src === it.src
+                                const score = bestTitleSimilarity(
+                                  it.name,
+                                  w.titleRefs,
+                                )
+                                return (
+                                  <li
+                                    key={`${r.plugin.name}:${it.src}:${idx}`}
                                   >
-                                    <span className="min-w-0 flex-1 truncate">
-                                      {it.name}
-                                    </span>
-                                    {score >= 0.85 && (
-                                      <span
-                                        className={clsx(
-                                          'shrink-0 text-[11px] font-medium',
-                                          selected
-                                            ? 'text-white/80'
-                                            : 'text-emerald-400',
-                                        )}
-                                      >
-                                        相近
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        w.setKeywordTargetPlugin(r.plugin)
+                                        void w.pickSource(r.plugin, it)
+                                        // Immediate fold + mobile scroll; effect also runs when roads arrive
+                                        focusAfterSelection(
+                                          `${r.plugin.name}::${it.src}`,
+                                          { forceScroll: true },
+                                        )
+                                      }}
+                                      className={clsx(
+                                        'flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-[13px] leading-snug transition',
+                                        selected
+                                          ? 'bg-[var(--kz-accent)] font-medium text-white'
+                                          : pending
+                                            ? 'bg-[var(--kz-accent-soft)] text-[var(--kz-accent)]'
+                                            : needsPick
+                                              ? 'bg-[var(--kz-bg)] text-[var(--kz-fg)] ring-1 ring-[var(--kz-border)] hover:bg-[var(--kz-bg-hover)] hover:ring-[var(--kz-accent)]'
+                                              : 'text-[var(--kz-fg)] hover:bg-[var(--kz-bg-hover)]',
+                                      )}
+                                    >
+                                      <span className="min-w-0 flex-1 truncate">
+                                        {it.name}
                                       </span>
-                                    )}
-                                  </button>
-                                </li>
-                              )
-                            })}
-                          </ul>
+                                      {selected ? (
+                                        <span className="shrink-0 text-[11px] font-medium text-white/85">
+                                          播放中
+                                        </span>
+                                      ) : pending ? (
+                                        <span className="shrink-0 text-[11px] font-medium text-[var(--kz-accent)]">
+                                          加载中
+                                        </span>
+                                      ) : (
+                                        <span
+                                          className={clsx(
+                                            'shrink-0 text-[11px] font-medium',
+                                            needsPick
+                                              ? 'text-[var(--kz-accent)]'
+                                              : score >= 0.85
+                                                ? 'text-emerald-400'
+                                                : 'text-[var(--kz-fg-dim)]',
+                                          )}
+                                        >
+                                          {needsPick
+                                            ? '选用'
+                                            : score >= 0.85
+                                              ? '相近'
+                                              : '选用'}
+                                        </span>
+                                      )}
+                                    </button>
+                                  </li>
+                                )
+                              })}
+                            </ul>
+                          </div>
                         )}
                       </div>
                     )
@@ -519,161 +597,160 @@ export function WatchPage() {
   const epsPanel = (
     <section
       className={clsx(
-        'shrink-0 overflow-hidden rounded-2xl border border-[var(--kz-border)] bg-[var(--kz-bg-elevated)]',
+        'kz-watch-eps-panel shrink-0 overflow-hidden rounded-2xl border border-[var(--kz-border)] bg-[var(--kz-bg-elevated)]',
         epsOpen && 'kz-watch-eps',
       )}
     >
       <button
         type="button"
         onClick={() => setEpsOpen((v) => !v)}
-        className="flex w-full shrink-0 items-center gap-3 px-4 py-3 text-left transition hover:bg-[var(--kz-bg-hover)]"
+        className="flex w-full shrink-0 items-center gap-2.5 px-3.5 py-2.5 text-left transition hover:bg-[var(--kz-bg-hover)] sm:gap-3 sm:px-4 sm:py-3"
         aria-expanded={epsOpen}
       >
         <span className="min-w-0 flex-1">
-          <span className="block text-[15px] font-bold tracking-tight text-[var(--kz-fg)]">
+          <span className="block text-[14px] font-bold tracking-tight text-[var(--kz-fg)] sm:text-[15px]">
             选集
           </span>
-          <span className="mt-0.5 block text-[12px] text-[var(--kz-fg-muted)]">
+          <span className="mt-0.5 block text-[11px] text-[var(--kz-fg-muted)] sm:text-[12px]">
             {epCount > 0
               ? w.episode
-                ? `正在播放第 ${w.episode.episode} 集 · 共 ${epCount} 集`
+                ? `第 ${w.episode.episode} 集 · 共 ${epCount} 集`
                 : `共 ${epCount} 集`
-              : '选择搜索结果后加载分集'}
+              : '点选视频源结果后加载'}
             {w.selection && w.selection.roads.length > 1
-              ? ` · ${w.selection.roads.length} 条线路`
-              : ''}
+              ? ` · ${w.selection.roads.length} 线路`
+              : w.selection?.roads?.[0]?.name
+                ? ` · ${w.selection.roads[0].name}`
+                : ''}
           </span>
         </span>
         <WatchCollapseChevron open={epsOpen} />
       </button>
 
-            {epsOpen && (
-              <div className="border-t border-[var(--kz-border)]">
-                {/* 线路分类：多线路时必须用 Tab，避免 1/2/3/4 混在同一网格 */}
-                {w.selection && w.selection.roads.length > 0 && (
-                  <div className="space-y-2 border-b border-[var(--kz-border)] px-3 py-2.5">
-                    <div className="text-[11px] font-medium text-[var(--kz-fg-muted)]">
-                      线路
-                    </div>
-                    <div
-                      className="flex gap-1.5 overflow-x-auto pb-0.5"
-                      role="tablist"
-                      aria-label="播放线路"
-                    >
-                      {w.selection.roads.map((road, ri) => {
-                        const active = ri === activeRoadIndex
-                        const playingHere = w.episode?.road === ri
-                        return (
-                          <button
-                            key={`${road.name}-${ri}`}
-                            type="button"
-                            role="tab"
-                            aria-selected={active}
-                            onClick={() => w.setVisibleRoad(ri)}
-                            className={clsx(
-                              'shrink-0 rounded-full px-3 py-1.5 text-[12px] font-medium transition',
-                              active
-                                ? 'bg-[var(--kz-accent)] text-white'
-                                : 'bg-[var(--kz-bg-soft)] text-[var(--kz-fg-muted)] hover:bg-[var(--kz-bg-hover)] hover:text-[var(--kz-fg)]',
-                            )}
-                            title={road.name || `线路 ${ri + 1}`}
-                          >
-                            {road.name?.trim() || `线路 ${ri + 1}`}
-                            {road.data?.length ? (
-                              <span
-                                className={clsx(
-                                  'ml-1 tabular-nums',
-                                  active
-                                    ? 'text-white/80'
-                                    : 'text-[var(--kz-fg-dim)]',
-                                )}
-                              >
-                                {road.data.length}
-                              </span>
-                            ) : null}
-                            {playingHere && !active ? (
-                              <span className="ml-1 text-[var(--kz-accent)]">
-                                ·播
-                              </span>
-                            ) : null}
-                          </button>
-                        )
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {/* Only scroll when episode grid exceeds --kz-watch-eps-max-h */}
-                <div className="kz-watch-eps-body px-3 py-3">
-                  {w.roadLoading && (
-                    <p className="py-6 text-center text-[13px] text-[var(--kz-fg-muted)]">
-                      加载分集
-                      {w.pendingSource?.pluginName
-                        ? `（${w.pendingSource.pluginName}）`
-                        : ''}
-                      …
-                    </p>
-                  )}
-                  {w.roadError && (
-                    <p className="px-1 py-2 text-[13px] text-red-400">
-                      {w.roadError}
-                    </p>
-                  )}
-                  {!w.selection && !w.roadLoading && (
-                    <p className="py-6 text-center text-[13px] leading-relaxed text-[var(--kz-fg-muted)]">
-                      {layoutMode === 'mobile' ? (
-                        <>
-                          先在播放器下方的视频源中搜索，
-                          <br />
-                          再点搜索结果加载分集
-                        </>
-                      ) : (
-                        <>
-                          先在上方搜索规则源，
-                          <br />
-                          再点搜索结果加载分集
-                        </>
-                      )}
-                    </p>
-                  )}
-                  {w.selection && !w.roadLoading && activeRoad && (
-                    <div className="grid grid-cols-4 gap-2 sm:grid-cols-5 lg:grid-cols-4">
-                      {activeRoad.identifier.map((name, epIndex) => {
-                        const playing =
-                          w.episode?.road === activeRoadIndex &&
-                          w.episode?.episode === epIndex + 1
-                        return (
-                          <button
-                            key={activeRoad.data[epIndex] + name + epIndex}
-                            type="button"
-                            onClick={() => {
-                              w.pickEpisode(epIndex, activeRoadIndex)
-                            }}
-                            title={name}
-                            className={clsx(
-                              'truncate rounded-xl px-1.5 py-2.5 text-center text-[13px] transition',
-                              playing
-                                ? 'bg-[var(--kz-accent)] font-semibold text-white shadow-sm shadow-sky-900/30'
-                                : 'bg-[var(--kz-bg-soft)] text-[var(--kz-fg)] hover:bg-[var(--kz-bg-hover)]',
-                            )}
-                          >
-                            {name}
-                          </button>
-                        )
-                      })}
-                    </div>
-                  )}
-                  {w.selection &&
-                    !w.roadLoading &&
-                    !activeRoad &&
-                    w.selection.roads.length > 0 && (
-                      <p className="py-6 text-center text-[13px] text-[var(--kz-fg-muted)]">
-                        请选择上方线路查看集数
-                      </p>
-                    )}
+      {epsOpen && (
+        <div className="border-t border-[var(--kz-border)]">
+          {/* 线路：描边 chip，与集数实心块区分色/形 */}
+          {w.selection && w.selection.roads.length > 0 && (
+            <div className="kz-watch-roads space-y-1.5 border-b border-[var(--kz-border)] px-2.5 py-2 sm:space-y-2 sm:px-3 sm:py-2.5">
+              {w.selection.roads.length > 1 ? (
+                <div className="px-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--kz-fg-dim)] sm:text-[11px]">
+                  线路
                 </div>
+              ) : null}
+              <div
+                className="flex gap-1.5 overflow-x-auto pb-0.5"
+                role="tablist"
+                aria-label="播放线路"
+              >
+                {w.selection.roads.map((road, ri) => {
+                  const active = ri === activeRoadIndex
+                  const playingHere = w.episode?.road === ri
+                  return (
+                    <button
+                      key={`${road.name}-${ri}`}
+                      type="button"
+                      role="tab"
+                      aria-selected={active}
+                      onClick={() => w.setVisibleRoad(ri)}
+                      className={clsx(
+                        'kz-watch-road-chip shrink-0 rounded-lg px-2.5 py-1 text-[11px] font-semibold transition sm:rounded-full sm:px-3 sm:py-1.5 sm:text-[12px]',
+                        active
+                          ? 'border border-violet-400/50 bg-violet-500/15 text-violet-300'
+                          : 'border border-[var(--kz-border)] bg-transparent text-[var(--kz-fg-muted)] hover:border-violet-400/35 hover:text-[var(--kz-fg)]',
+                      )}
+                      title={road.name || `线路 ${ri + 1}`}
+                    >
+                      {road.name?.trim() || `线路 ${ri + 1}`}
+                      {road.data?.length ? (
+                        <span
+                          className={clsx(
+                            'ml-1 tabular-nums font-medium',
+                            active ? 'text-violet-300/80' : 'text-[var(--kz-fg-dim)]',
+                          )}
+                        >
+                          {road.data.length}
+                        </span>
+                      ) : null}
+                      {playingHere && !active ? (
+                        <span className="ml-1 text-[var(--kz-accent)]">·播</span>
+                      ) : null}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          <div className="kz-watch-eps-body px-2.5 py-2 sm:px-3 sm:py-3">
+            {w.roadLoading && (
+              <p className="py-5 text-center text-[12px] text-[var(--kz-fg-muted)] sm:py-6 sm:text-[13px]">
+                加载分集
+                {w.pendingSource?.pluginName
+                  ? `（${w.pendingSource.pluginName}）`
+                  : ''}
+                …
+              </p>
+            )}
+            {w.roadError && (
+              <p className="px-1 py-2 text-[12px] text-red-400 sm:text-[13px]">
+                {w.roadError}
+              </p>
+            )}
+            {!w.selection && !w.roadLoading && (
+              <p className="py-5 text-center text-[12px] leading-relaxed text-[var(--kz-fg-muted)] sm:py-6 sm:text-[13px]">
+                {layoutMode === 'mobile' ? (
+                  <>
+                    ① 在下方「视频源」点规则搜索
+                    <br />
+                    ② 再点搜出的番剧条目加载分集
+                  </>
+                ) : (
+                  <>
+                    ① 在上方「视频源」点规则搜索
+                    <br />
+                    ② 再点搜出的番剧条目加载分集
+                  </>
+                )}
+              </p>
+            )}
+            {w.selection && !w.roadLoading && activeRoad && (
+              <div className="kz-watch-ep-grid grid grid-cols-5 gap-1.5 sm:grid-cols-5 sm:gap-2 lg:grid-cols-4">
+                {activeRoad.identifier.map((name, epIndex) => {
+                  const playing =
+                    w.episode?.road === activeRoadIndex &&
+                    w.episode?.episode === epIndex + 1
+                  return (
+                    <button
+                      key={activeRoad.data[epIndex] + name + epIndex}
+                      type="button"
+                      onClick={() => {
+                        w.pickEpisode(epIndex, activeRoadIndex)
+                      }}
+                      title={name}
+                      className={clsx(
+                        'kz-watch-ep-btn truncate rounded-lg px-1 py-1.5 text-center text-[12px] font-medium transition sm:rounded-xl sm:px-1.5 sm:py-2 sm:text-[13px]',
+                        playing
+                          ? 'bg-[var(--kz-accent)] font-semibold text-white shadow-sm shadow-sky-900/25'
+                          : 'bg-[var(--kz-bg-soft)] text-[var(--kz-fg)] hover:bg-[var(--kz-bg-hover)]',
+                      )}
+                    >
+                      {name}
+                    </button>
+                  )
+                })}
               </div>
             )}
+            {w.selection &&
+              !w.roadLoading &&
+              !activeRoad &&
+              w.selection.roads.length > 0 && (
+                <p className="py-5 text-center text-[12px] text-[var(--kz-fg-muted)] sm:py-6 sm:text-[13px]">
+                  请选择上方线路查看集数
+                </p>
+              )}
+          </div>
+        </div>
+      )}
     </section>
   )
 

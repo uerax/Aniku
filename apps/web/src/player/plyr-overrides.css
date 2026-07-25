@@ -108,6 +108,26 @@
   overflow: visible;
 }
 
+/* Mobile: denser ep grid — more columns, tighter chips */
+.kz-watch-cinema--mobile .kz-watch-ep-grid {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0.35rem;
+}
+
+.kz-watch-cinema--mobile .kz-watch-ep-btn {
+  border-radius: 0.5rem;
+  padding: 0.35rem 0.2rem;
+  font-size: 0.72rem;
+  line-height: 1.2;
+}
+
+/* Light theme: violet road chips stay readable */
+html[data-theme='light'] .kz-watch-road-chip[aria-selected='true'] {
+  color: #6d28d9;
+  background: rgba(139, 92, 246, 0.12);
+  border-color: rgba(139, 92, 246, 0.45);
+}
+
 .kz-watch-cinema--desktop .kz-watch-rail {
   width: var(--kz-watch-rail-w);
   position: sticky;
