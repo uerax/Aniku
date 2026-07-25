@@ -365,18 +365,21 @@ export function MobileControls(props: PlayerControlsProps) {
           onClick={stop}
           onPointerDown={stop}
         >
+          {/* Bilibili-style vertical bubble: value + thin rail + blue thumb */}
           <span className="kz-vol-popup-label tabular-nums">{volPct}</span>
-          <div className="kz-vol-popup-track">
-            <div
-              className="kz-vol-popup-fill"
-              style={{ height: `${volPct}%` }}
-              aria-hidden
-            />
+          <div className="kz-vol-popup-slider">
+            <div className="kz-vol-popup-rail" aria-hidden>
+              <div
+                className="kz-vol-popup-fill"
+                style={{ height: `${volPct}%` }}
+              />
+            </div>
             <input
               type="range"
               className="kz-vol-popup-range"
               min={0}
               max={100}
+              step={1}
               value={volPct}
               onChange={(e) => onVolume(Number(e.target.value) / 100)}
               aria-label="音量"

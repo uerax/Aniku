@@ -682,10 +682,12 @@
 }
 
 /*
- * Mobile volume: icon button + vertical popup.
- * Popup is position:fixed (set inline from button rect) so it is not clipped
- * by .kz-bar-row { overflow-x:auto; overflow-y:hidden } on narrow screens.
- * Desktop keeps the horizontal .kz-vol-wrap rail.
+ * Mobile volume bubble (Bilibili-style):
+ * dark glass capsule above the speaker icon — number + thin rail + blue thumb.
+ * Only used by MobileControls; desktop keeps .kz-vol-wrap horizontal rail.
+ *
+ * Menu is position:absolute on .kz-bar (see MobileControls barPopupStyle),
+ * outside .kz-bar-row so overflow-x on the row cannot clip it.
  */
 .kz-vol-popup-wrap {
   position: relative;
@@ -696,35 +698,72 @@
 }
 
 .kz-vol-popup {
+  /* Match reference: slim capsule (~36px), not a wide card */
+  --kz-vol-track-h: 6.5rem;
+  --kz-vol-hit: 1.75rem; /* rotated range height = horizontal hit width */
+  --kz-vol-thumb: 14px;
+  --kz-vol-rail: 2px;
+  --kz-vol-accent: #1d9bf0;
+
   z-index: 80;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 0.35rem;
-  width: 2.75rem;
-  padding: 0.55rem 0.4rem 0.65rem;
-  border-radius: 0.75rem;
-  border: 1px solid #3f3f46;
-  background: rgba(9, 9, 11, 0.96);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  width: 2rem; /* ~32px — close to reference */
+  min-width: 2rem;
+  max-width: 2.15rem;
+  padding: 0.5rem 0.2rem 0.55rem;
+  border: 0;
+  border-radius: 0.65rem;
+  background: rgba(24, 24, 27, 0.92);
+  box-shadow:
+    0 6px 20px rgba(0, 0, 0, 0.48),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   pointer-events: auto;
   touch-action: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .kz-vol-popup-label {
-  font-size: 11px;
+  flex: 0 0 auto;
+  min-width: 0;
+  font-size: 12px;
   font-weight: 600;
   line-height: 1;
-  color: #e4e4e7;
+  letter-spacing: -0.02em;
+  text-align: center;
+  color: #f4f4f5;
+  font-variant-numeric: tabular-nums;
 }
 
-.kz-vol-popup-track {
+/* Hit area + visual rail; keep only slightly wider than capsule for thumb */
+.kz-vol-popup-slider {
   position: relative;
+  flex: 0 0 auto;
   width: 1.75rem;
-  height: 7.5rem;
+  height: var(--kz-vol-track-h);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: visible;
+}
+
+/* Thin vertical rail (gray) with blue fill from bottom → thumb */
+.kz-vol-popup-rail {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: var(--kz-vol-rail);
+  transform: translateX(-50%);
   border-radius: 999px;
-  background: #3f3f46;
+  background: rgba(255, 255, 255, 0.28);
   overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
 }
 
 .kz-vol-popup-fill {
@@ -733,17 +772,21 @@
   right: 0;
   bottom: 0;
   border-radius: 999px;
-  background: #1d9bf0;
+  background: var(--kz-vol-accent);
   pointer-events: none;
 }
 
-/* Vertical range: native + rotated fallback for WebKit */
+/*
+ * Native range rotated -90deg:
+ * min (left) → bottom, max (right) → top — matches vertical volume.
+ * Track itself is transparent; only the blue thumb is painted by the input.
+ */
 .kz-vol-popup-range {
   position: absolute;
   left: 50%;
   top: 50%;
-  width: 7.5rem;
-  height: 1.75rem;
+  width: var(--kz-vol-track-h);
+  height: var(--kz-vol-hit);
   margin: 0;
   padding: 0;
   border: 0;
@@ -754,10 +797,16 @@
   transform: translate(-50%, -50%) rotate(-90deg);
   transform-origin: center;
   z-index: 1;
+  outline: none;
+}
+
+.kz-vol-popup-range:focus-visible {
+  outline: none;
 }
 
 .kz-vol-popup-range::-webkit-slider-runnable-track {
-  height: 100%;
+  width: 100%;
+  height: var(--kz-vol-hit);
   background: transparent;
   border: 0;
 }
@@ -765,35 +814,40 @@
 .kz-vol-popup-range::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 14px;
-  height: 14px;
-  margin-top: calc((1.75rem - 14px) / 2);
+  width: var(--kz-vol-thumb);
+  height: var(--kz-vol-thumb);
+  margin-top: calc((var(--kz-vol-hit) - var(--kz-vol-thumb)) / 2);
   border: 0;
   border-radius: 50%;
-  background: #fafafa;
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4);
+  background: var(--kz-vol-accent);
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.4),
+    0 0 0 1.5px rgba(24, 24, 27, 0.5);
   cursor: pointer;
 }
 
 .kz-vol-popup-range::-moz-range-track {
-  height: 100%;
+  width: 100%;
+  height: var(--kz-vol-hit);
   background: transparent;
   border: 0;
 }
 
 .kz-vol-popup-range::-moz-range-progress {
-  height: 100%;
+  height: var(--kz-vol-hit);
   background: transparent;
   border: 0;
 }
 
 .kz-vol-popup-range::-moz-range-thumb {
-  width: 14px;
-  height: 14px;
+  width: var(--kz-vol-thumb);
+  height: var(--kz-vol-thumb);
   border: 0;
   border-radius: 50%;
-  background: #fafafa;
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4);
+  background: var(--kz-vol-accent);
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.4),
+    0 0 0 1.5px rgba(24, 24, 27, 0.5);
   cursor: pointer;
 }
 
