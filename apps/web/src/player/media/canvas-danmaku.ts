@@ -8,6 +8,12 @@
  *
  * Here every frame: x = f(video.currentTime). Pause/hitch freezes text with picture.
  * Scroll duration = (stageW + textW) / speed → uniform visual velocity.
+ *
+ * Dense-desktop hot path (2026-07):
+ * - Glyph atlas: stroke+fill once into offscreen, paint via drawImage
+ * - Lazy measureText only on spawn / font change (not full list every reload paint)
+ * - In-place running prune (no per-frame filter alloc)
+ * - Desktop concurrent cap + DPR soft clamp under load
  */
 import type { DanmakuComment, DanmakuMode, DanmakuSettings } from '@aniku/shared'
 import {
@@ -21,6 +27,8 @@ const BILI_BASE_PX = 25
 const REF_WIDTH = 720
 /** Soft cap concurrent draws — density budget, not collision alone */
 const MAX_RUNNING = 80
+/** Desktop default: slightly lower than absolute max; room for adaptive raise */
+const MAX_RUNNING_DESKTOP = 64
 /** Mobile fullscreen: fewer concurrent lines so small screens stay readable */
 const MAX_RUNNING_MOBILE_FS = 48
 /** Top/bottom static hold (seconds), clamped */
@@ -28,6 +36,15 @@ const STATIC_MIN_S = 4
 const STATIC_MAX_S = 6
 /** Gap between successive scroll comments on same lane (px) */
 const LANE_GAP_PX = 24
+/** Glyph cache entries before LRU-ish clear (font change clears anyway) */
+const GLYPH_CACHE_MAX = 256
+/** Pad around glyph so stroke does not clip */
+const GLYPH_PAD = 4
+/**
+ * When stage CSS pixels exceed this, drop effective DPR toward 1 so we are not
+ * filling ~4–8M px of transparent canvas every frame on 2×/3× desktop monitors.
+ */
+const DPR_SOFT_AREA = 1280 * 720
 
 export type CanvasDanmakuOptions = {
   container: HTMLElement
@@ -40,16 +57,30 @@ export type CanvasDanmakuOptions = {
   layout?: DanmakuLayoutHints
 }
 
+type GlyphEntry = {
+  canvas: HTMLCanvasElement | OffscreenCanvas
+  /** CSS-pixel width of drawable text (not including pad) */
+  textW: number
+  /** Full bitmap css width / height including pad */
+  bw: number
+  bh: number
+  /** Draw offset so text baseline matches previous stroke/fill coords */
+  ox: number
+  oy: number
+}
+
 type Prepared = {
   time: number
   mode: DanmakuMode
   text: string
   color: string
-  /** Measured text width at current font */
+  /** Measured text width at current font; 0 = not measured yet */
   width: number
   height: number
   /** Scroll: seconds to cross (W + textW) / speed. Static: hold duration. */
   duration: number
+  /** True after measureText for current font */
+  measured: boolean
 }
 
 type Running = Prepared & {
@@ -57,6 +88,8 @@ type Running = Prepared & {
   y: number
   /** Binary-search index into prepared list when spawned */
   idx: number
+  /** Cached glyph (null until first paint after spawn) */
+  glyph: GlyphEntry | null
 }
 
 function parseColor(c?: string): string {
@@ -70,6 +103,22 @@ function parseColor(c?: string): string {
     return `#${(n >>> 0).toString(16).padStart(6, '0').slice(-6)}`
   }
   return s
+}
+
+function makeOffscreen(w: number, h: number): HTMLCanvasElement | OffscreenCanvas {
+  const tw = Math.max(1, Math.ceil(w))
+  const th = Math.max(1, Math.ceil(h))
+  if (typeof OffscreenCanvas !== 'undefined') {
+    try {
+      return new OffscreenCanvas(tw, th)
+    } catch {
+      /* fall through */
+    }
+  }
+  const c = document.createElement('canvas')
+  c.width = tw
+  c.height = th
+  return c
 }
 
 export class CanvasDanmaku {
@@ -104,6 +153,10 @@ export class CanvasDanmaku {
   private onSeeked: () => void
   private onRate: () => void
   private onSize: ResizeObserver
+  /** color|fontPx|text → pre-rasterized glyph */
+  private glyphCache = new Map<string, GlyphEntry>()
+  /** Scratch for measure-only (avoids thrashing main ctx state) */
+  private measureCtx: CanvasRenderingContext2D | null = null
 
   constructor(opts: CanvasDanmakuOptions) {
     this.container = opts.container
@@ -127,10 +180,21 @@ export class CanvasDanmaku {
       display: 'block',
     } as CSSStyleDeclaration)
     this.canvas = canvas
-    const ctx = canvas.getContext('2d', { alpha: true })
+    // desynchronized: lower latency compositing when browser supports it
+    const ctx =
+      canvas.getContext('2d', {
+        alpha: true,
+        desynchronized: true,
+      } as CanvasRenderingContext2DSettings) ||
+      canvas.getContext('2d', { alpha: true })
     if (!ctx) throw new Error('CanvasDanmaku: 2d context unavailable')
     this.ctx = ctx
     this.container.appendChild(canvas)
+
+    const measureEl = document.createElement('canvas')
+    measureEl.width = 1
+    measureEl.height = 1
+    this.measureCtx = measureEl.getContext('2d')
 
     this.onPlay = () => this.ensureLoop()
     this.onPause = () => {
@@ -216,7 +280,25 @@ export class CanvasDanmaku {
     if (this.layout.mode === 'mobile' && this.layout.fullscreen) {
       return MAX_RUNNING_MOBILE_FS
     }
-    return MAX_RUNNING
+    // Mobile windowed: small stage already; keep full budget
+    if (this.layout.mode === 'mobile') return MAX_RUNNING
+    // Desktop: lane-aware soft cap — dense 1080p was hitting 80×strokeText/frame
+    const lanes = this.scrollLaneFree.length || 1
+    return Math.min(
+      MAX_RUNNING,
+      Math.max(48, Math.min(MAX_RUNNING_DESKTOP, lanes * 3)),
+    )
+  }
+
+  /** Effective device pixel ratio — soft-clamp on large desktop stages. */
+  private effectiveDpr(cw = this.cssW, ch = this.cssH): number {
+    const raw = window.devicePixelRatio || 1
+    if (this.layout.mode === 'mobile') return Math.min(raw, 2)
+    const area = Math.max(1, cw) * Math.max(1, ch)
+    if (area <= DPR_SOFT_AREA) return Math.min(raw, 2)
+    // Large window: prefer ~1–1.5× so clear+blit stays cheap under dense text
+    const scale = Math.sqrt(DPR_SOFT_AREA / area)
+    return Math.min(2, Math.max(1, Math.min(raw, raw * scale)))
   }
 
   show(): this {
@@ -230,7 +312,7 @@ export class CanvasDanmaku {
   hide(): this {
     this.visible = false
     this.canvas.style.visibility = 'hidden'
-    this.running = []
+    this.running.length = 0
     this.clearCanvas()
     return this
   }
@@ -241,30 +323,37 @@ export class CanvasDanmaku {
     const ch = this.container.clientHeight || 0
     if (cw <= 0 || ch <= 0) return this
 
-    const dpr = Math.min(window.devicePixelRatio || 1, 2)
+    const prevW = this.cssW
+    const prevH = this.cssH
+    const prevDpr = this.dpr
+    const dprNow = this.effectiveDpr(cw, ch)
     const sizeChanged =
-      Math.abs(cw - this.cssW) > 0.5 ||
-      Math.abs(ch - this.cssH) > 0.5 ||
-      dpr !== this.dpr
+      Math.abs(cw - prevW) > 0.5 ||
+      Math.abs(ch - prevH) > 0.5 ||
+      Math.abs(dprNow - prevDpr) > 0.01
 
     this.cssW = cw
     this.cssH = ch
     this.layout = { ...this.layout, height: ch }
-    this.dpr = dpr
+    this.dpr = dprNow
 
     if (sizeChanged) {
-      this.canvas.width = Math.max(1, Math.floor(cw * dpr))
-      this.canvas.height = Math.max(1, Math.floor(ch * dpr))
+      this.canvas.width = Math.max(1, Math.floor(cw * dprNow))
+      this.canvas.height = Math.max(1, Math.floor(ch * dprNow))
       this.canvas.style.width = `${cw}px`
       this.canvas.style.height = `${ch}px`
-      this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+      this.ctx.setTransform(dprNow, 0, 0, dprNow, 0, 0)
+      // Glyph bitmaps are rasterized at dpr — rebuild when backing store scale moves
+      if (Math.abs(dprNow - prevDpr) > 0.01) this.clearGlyphCache()
     }
 
     const hints = this.layoutHints(ch)
     const scale = danmakuFontScale(cw, hints)
-    this.fontPx = Math.round(
+    const nextFontPx = Math.round(
       BILI_BASE_PX * scale * (this.settings.fontSize || 1),
     )
+    const fontChanged = nextFontPx !== this.fontPx
+    this.fontPx = nextFontPx
     this.font = `700 ${this.fontPx}px SimHei, "Microsoft YaHei", "Microsoft JhengHei", Arial, Helvetica, sans-serif`
     // Mobile fullscreen: tighter lane spacing so more tracks fit without huge glyphs
     const laneMult =
@@ -272,11 +361,19 @@ export class CanvasDanmaku {
     this.laneH = Math.max(16, Math.ceil(this.fontPx * laneMult))
     this.speedPx = danmakuPixelSpeed(cw, this.settings.speed || 1, hints)
 
-    // Remeasure text widths at new font
-    this.ctx.font = this.font
-    for (const p of this.prepared) {
-      p.width = Math.ceil(this.ctx.measureText(p.text).width)
-      p.height = this.laneH
+    if (fontChanged) {
+      this.clearGlyphCache()
+      // Invalidate measurements; remeasure lazily on spawn
+      for (const p of this.prepared) {
+        p.measured = false
+        p.width = 0
+        p.height = this.laneH
+        p.duration = 0
+      }
+    } else {
+      for (const p of this.prepared) {
+        p.height = this.laneH
+      }
     }
     this.recomputeDurations()
     this.initLanes()
@@ -292,9 +389,11 @@ export class CanvasDanmaku {
       this.area = Math.min(1, Math.max(0.15, settings.area || 0.5))
       const hints = this.layoutHints()
       const scale = danmakuFontScale(this.cssW || REF_WIDTH, hints)
-      this.fontPx = Math.round(
+      const nextFontPx = Math.round(
         BILI_BASE_PX * scale * (settings.fontSize || 1),
       )
+      if (nextFontPx !== this.fontPx) this.clearGlyphCache()
+      this.fontPx = nextFontPx
       this.font = `700 ${this.fontPx}px SimHei, "Microsoft YaHei", "Microsoft JhengHei", Arial, Helvetica, sans-serif`
       const laneMult =
         this.layout.mode === 'mobile' && this.layout.fullscreen ? 1.22 : 1.35
@@ -308,22 +407,21 @@ export class CanvasDanmaku {
 
     const offset = this.settings.timeOffset || 0
     const filtered = filterComments(comments, this.settings)
-    this.ctx.font = this.font
+    // Lazy width: measure only when spawning / computing duration for visible ones
     this.prepared = filtered
       .map((c) => {
         const text = c.text || ''
-        const width = Math.ceil(this.ctx.measureText(text).width) || 1
         const mode = c.mode || 'rtl'
         const p: Prepared = {
           time: c.time + offset,
           mode,
           text,
           color: parseColor(c.style?.color),
-          width,
+          width: 0,
           height: this.laneH,
           duration: 0,
+          measured: false,
         }
-        p.duration = this.durationFor(p)
         return p
       })
       .sort((a, b) => a.time - b.time)
@@ -364,13 +462,24 @@ export class CanvasDanmaku {
     this.media.removeEventListener('seeked', this.onSeeked)
     this.media.removeEventListener('ratechange', this.onRate)
     this.onSize.disconnect()
-    this.running = []
+    this.running.length = 0
     this.prepared = []
+    this.clearGlyphCache()
     try {
       this.canvas.remove()
     } catch {
       /* ignore */
     }
+  }
+
+  private ensureMeasured(p: Prepared): void {
+    if (p.measured && p.width > 0) return
+    const mctx = this.measureCtx || this.ctx
+    mctx.font = this.font
+    p.width = Math.ceil(mctx.measureText(p.text).width) || 1
+    p.height = this.laneH
+    p.measured = true
+    p.duration = this.durationFor(p)
   }
 
   private durationFor(p: Prepared): number {
@@ -380,14 +489,21 @@ export class CanvasDanmaku {
         Math.max(STATIC_MIN_S, (this.cssW || REF_WIDTH) / this.speedPx),
       )
     }
-    // Constant px/s across full path (stage + text)
-    const path = (this.cssW || REF_WIDTH) + p.width
+    // Need width for constant px/s; estimate if not measured yet
+    const tw = p.measured && p.width > 0 ? p.width : Math.max(40, p.text.length * this.fontPx * 0.6)
+    const path = (this.cssW || REF_WIDTH) + tw
     return Math.max(0.5, path / Math.max(40, this.speedPx))
   }
 
   private recomputeDurations(): void {
-    for (const p of this.prepared) p.duration = this.durationFor(p)
-    for (const r of this.running) r.duration = this.durationFor(r)
+    for (const p of this.prepared) {
+      if (p.measured) p.duration = this.durationFor(p)
+      else p.duration = 0
+    }
+    for (const r of this.running) {
+      this.ensureMeasured(r)
+      r.duration = this.durationFor(r)
+    }
   }
 
   private initLanes(): void {
@@ -401,7 +517,7 @@ export class CanvasDanmaku {
   }
 
   private seek(): void {
-    this.running = []
+    this.running.length = 0
     this.initLanes()
     const t = this.mediaTime()
     // Cursor: first comment that might still be on screen or upcoming
@@ -417,6 +533,7 @@ export class CanvasDanmaku {
     while (this.cursor < this.prepared.length) {
       const p = this.prepared[this.cursor]
       if (p.time > t) break
+      this.ensureMeasured(p)
       if (t - p.time <= p.duration) {
         this.trySpawn(p, this.cursor, t, true)
       }
@@ -459,19 +576,29 @@ export class CanvasDanmaku {
   private tick(): void {
     const t = this.mediaTime()
 
-    // Drop finished
-    this.running = this.running.filter((r) => t - r.time < r.duration)
+    // In-place drop finished (avoid filter() alloc every frame)
+    const run = this.running
+    let w = 0
+    for (let i = 0; i < run.length; i++) {
+      if (t - run[i].time < run[i].duration) {
+        if (w !== i) run[w] = run[i]
+        w++
+      }
+    }
+    run.length = w
 
     // Spawn newly due comments
+    const cap = this.maxRunning()
     while (this.cursor < this.prepared.length) {
       const p = this.prepared[this.cursor]
       if (p.time > t) break
+      this.ensureMeasured(p)
       // Too late to show (jumped forward past duration)
       if (t - p.time > p.duration) {
         this.cursor++
         continue
       }
-      if (this.running.length < this.maxRunning()) {
+      if (run.length < cap) {
         this.trySpawn(p, this.cursor, t, false)
       }
       this.cursor++
@@ -487,14 +614,13 @@ export class CanvasDanmaku {
     retro: boolean,
   ): boolean {
     if (this.running.length >= this.maxRunning()) return false
+    this.ensureMeasured(p)
 
     if (p.mode === 'rtl') {
       const lanes = this.scrollLaneFree
       if (!lanes.length) return false
       const path = (this.cssW || REF_WIDTH) + p.width
       const pxPerSec = path / p.duration
-      // Time until this comment's right edge clears the left of stage enough for next
-      // Free when previous has traveled far enough that gap is LANE_GAP
       let chosen = -1
       for (let i = 0; i < lanes.length; i++) {
         if (lanes[i] <= p.time) {
@@ -503,15 +629,11 @@ export class CanvasDanmaku {
         }
       }
       if (chosen < 0) return false // no lane — drop (overlap false)
-      // Reserve lane until this comment has advanced so a follower won't collide
-      // Follower may start when lead's tail is LANE_GAP past the right edge entry.
-      // Lead starts at x=W (rtl right edge of text at W). Tail clears spawn zone when
-      // travel >= textW + gap → time += (textW + gap) / pxPerSec
       const clearIn = (p.width + LANE_GAP_PX) / Math.max(1, pxPerSec)
       lanes[chosen] = p.time + clearIn
       const y = chosen * this.laneH
       if (!retro || now - p.time < p.duration) {
-        this.running.push({ ...p, y, idx })
+        this.running.push({ ...p, y, idx, glyph: null })
       }
       return true
     }
@@ -527,7 +649,12 @@ export class CanvasDanmaku {
       }
       if (chosen < 0) return false
       lanes[chosen] = p.time + p.duration
-      this.running.push({ ...p, y: chosen * this.laneH, idx })
+      this.running.push({
+        ...p,
+        y: chosen * this.laneH,
+        idx,
+        glyph: null,
+      })
       return true
     }
 
@@ -542,11 +669,86 @@ export class CanvasDanmaku {
       }
       if (chosen < 0) return false
       lanes[chosen] = p.time + p.duration
-      this.running.push({ ...p, y: chosen * this.laneH, idx })
+      this.running.push({
+        ...p,
+        y: chosen * this.laneH,
+        idx,
+        glyph: null,
+      })
       return true
     }
 
     return false
+  }
+
+  private clearGlyphCache(): void {
+    this.glyphCache.clear()
+    for (const r of this.running) r.glyph = null
+  }
+
+  private glyphKeyOf(text: string, color: string): string {
+    return `${this.fontPx}|${color}|${text}`
+  }
+
+  private getGlyph(text: string, color: string, textW: number): GlyphEntry {
+    const key = this.glyphKeyOf(text, color)
+    const hit = this.glyphCache.get(key)
+    if (hit) {
+      // refresh insertion order for simple LRU
+      this.glyphCache.delete(key)
+      this.glyphCache.set(key, hit)
+      return hit
+    }
+
+    const pad = Math.max(GLYPH_PAD, Math.ceil(this.fontPx * 0.2))
+    const lineW = Math.max(2, this.fontPx * 0.12)
+    const bw = textW + pad * 2 + lineW * 2
+    const bh = this.fontPx + pad * 2 + lineW * 2
+    const g = makeOffscreen(bw * this.dpr, bh * this.dpr)
+    const gctx = g.getContext('2d') as
+      | CanvasRenderingContext2D
+      | OffscreenCanvasRenderingContext2D
+      | null
+    if (!gctx) {
+      // Fallback empty — paint path will stroke/fill
+      const empty: GlyphEntry = {
+        canvas: g,
+        textW,
+        bw,
+        bh,
+        ox: pad,
+        oy: pad,
+      }
+      return empty
+    }
+    gctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0)
+    gctx.font = this.font
+    gctx.textBaseline = 'top'
+    gctx.lineWidth = lineW
+    gctx.lineJoin = 'round'
+    gctx.miterLimit = 2
+    gctx.strokeStyle = 'rgba(0,0,0,0.85)'
+    gctx.fillStyle = color || '#ffffff'
+    const tx = pad + lineW
+    const ty = pad + lineW * 0.5
+    gctx.strokeText(text, tx, ty)
+    gctx.fillText(text, tx, ty)
+
+    const entry: GlyphEntry = {
+      canvas: g,
+      textW,
+      bw,
+      bh,
+      ox: tx,
+      oy: ty,
+    }
+    if (this.glyphCache.size >= GLYPH_CACHE_MAX) {
+      // drop oldest
+      const first = this.glyphCache.keys().next().value
+      if (first !== undefined) this.glyphCache.delete(first)
+    }
+    this.glyphCache.set(key, entry)
+    return entry
   }
 
   private clearCanvas(): void {
@@ -561,45 +763,48 @@ export class CanvasDanmaku {
     if (cssW <= 0 || cssH <= 0) return
 
     ctx.clearRect(0, 0, cssW, cssH)
-    if (!this.running.length) return
+    const n = this.running.length
+    if (!n) return
 
     ctx.save()
     ctx.globalAlpha = this._opacity
-    ctx.font = this.font
-    ctx.textBaseline = 'top'
-    // Light stroke (cheaper than 4-way DOM text-shadow, still readable)
-    ctx.lineWidth = Math.max(2, this.fontPx * 0.12)
-    ctx.lineJoin = 'round'
-    ctx.miterLimit = 2
-    ctx.strokeStyle = 'rgba(0,0,0,0.85)'
+    // drawImage path — no per-frame font/stroke setup needed when glyphs hit
 
     const t = this.mediaTime()
     const W = cssW
+    const laneMid = (this.laneH - this.fontPx) * 0.5
 
-    for (const r of this.running) {
+    for (let i = 0; i < n; i++) {
+      const r = this.running[i]
       const age = t - r.time
       if (age < 0 || age >= r.duration) continue
 
-      ctx.fillStyle = r.color || '#ffffff'
-
+      let x: number
+      let y: number
       if (r.mode === 'rtl') {
         const path = W + r.width
-        const x = W - (age / r.duration) * path
-        const y = r.y + (this.laneH - this.fontPx) * 0.5
-        ctx.strokeText(r.text, x, y)
-        ctx.fillText(r.text, x, y)
+        x = W - (age / r.duration) * path
+        y = r.y + laneMid
       } else if (r.mode === 'top') {
-        const x = (W - r.width) * 0.5
-        const y = r.y + (this.laneH - this.fontPx) * 0.5
-        ctx.strokeText(r.text, x, y)
-        ctx.fillText(r.text, x, y)
+        x = (W - r.width) * 0.5
+        y = r.y + laneMid
       } else if (r.mode === 'bottom') {
-        const x = (W - r.width) * 0.5
-        const y =
-          cssH - r.height - r.y + (this.laneH - this.fontPx) * 0.5
-        ctx.strokeText(r.text, x, y)
-        ctx.fillText(r.text, x, y)
+        x = (W - r.width) * 0.5
+        y = cssH - r.height - r.y + laneMid
+      } else {
+        continue
       }
+
+      const entry = r.glyph || this.getGlyph(r.text, r.color, r.width)
+      r.glyph = entry
+      // drawImage ≪ strokeText+fillText under density (glyph built once)
+      ctx.drawImage(
+        entry.canvas as CanvasImageSource,
+        x - entry.ox,
+        y - entry.oy,
+        entry.bw,
+        entry.bh,
+      )
     }
 
     ctx.restore()

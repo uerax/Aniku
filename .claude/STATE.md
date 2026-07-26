@@ -1,5 +1,18 @@
 # Aniku 项目状态
 
+## [2026-07-26] 桌面密集弹幕卡顿优化
+
+- 状态：已完成
+- 优先级：P0
+- 描述：桌面弹幕一多卡顿、移动端流畅。根因：大画布 + 大字号 + 每帧 80×(strokeText+fillText)。优化 CanvasDanmaku：
+  1. 字形 atlas：stroke/fill 只做一次，热路径 drawImage
+  2. measureText 懒测（spawn 时），reload 不再全量测量
+  3. running 原地 prune，去掉每帧 filter 分配
+  4. 桌面同屏 soft cap（lane×3，≤64）+ 大舞台 DPR soft-clamp
+  5. getContext({ desynchronized: true })
+- 涉及文件：apps/web/src/player/media/canvas-danmaku.ts
+- 备注：typecheck 通过；移动端路径保持原有上限与字号曲线
+
 ## [2026-07-26] 去广告混合代理（playlist-only）
 
 - 状态：已完成
