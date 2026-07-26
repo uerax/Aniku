@@ -380,7 +380,7 @@ export function SettingsPage() {
                   </label>
                   <label
                     className="flex items-center gap-1 text-xs text-[var(--kz-fg-muted)]"
-                    title="HLS 分片广告过滤（#EXT-X-DISCONTINUITY 短段）。需走媒体代理。"
+                    title="HLS 分片广告过滤（#EXT-X-DISCONTINUITY 短段）。播放列表经服务器过滤；无 cookie 时分片可直连 CDN。"
                   >
                     <input
                       type="checkbox"
@@ -607,7 +607,8 @@ export function SettingsPage() {
         <p className="text-xs text-[var(--kz-fg-dim)]">
           开启后所有规则播放 m3u8 时强制过滤（忽略下方规则的「广告过滤」关闭）。默认仅
           MXdm 规则开启；Anime1 / otage / xifan 默认关。无 DISCONTINUITY
-          的片源无效。过滤本身也需要走媒体代理。
+          的片源无效。只需服务器处理播放列表；无 cookie
+          时分片仍直连 CDN（不经本机出站）。若分片被热链拦截，可开上方「媒体走服务器代理」。
         </p>
         <Toggle
           label="自动播放"

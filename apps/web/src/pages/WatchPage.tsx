@@ -249,9 +249,11 @@ export function WatchPage() {
       episodeLabel={w.episode ? `第 ${w.episode.episode} 集` : null}
       mediaHint={
         w.mediaSrc
-          ? w.playbackMode === 'proxy'
-            ? '经服务器代理'
-            : '直连源站'
+          ? w.playbackTransit === 'playlist-proxy'
+            ? '列表代理·分片直连'
+            : w.playbackTransit === 'direct' || w.playbackMode === 'direct'
+              ? '直连源站'
+              : '经服务器代理'
           : null
       }
       summaryOpen={summaryOpen}

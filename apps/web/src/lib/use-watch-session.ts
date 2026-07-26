@@ -21,7 +21,7 @@ import {
 } from '@aniku/shared'
 import { bangumiApi } from './bangumi'
 import { pluginApi } from './plugin-api'
-import { pickPlaybackSrc } from './playback-src'
+import { pickPlaybackSrc, type PlaybackTransit } from './playback-src'
 import {
   findRoadsForPlay,
   writeRoadsForSource,
@@ -156,6 +156,8 @@ export type WatchSession = {
   setKeywordTargetPlugin: (p: PluginMeta | null) => void
   mediaSrc: string
   playbackMode: 'direct' | 'proxy'
+  /** direct | playlist-proxy (ad hybrid) | full-proxy — for WatchMeta hint */
+  playbackTransit: PlaybackTransit
   playerKey: string
   resumeTime: number
   resolveLoading: boolean
@@ -974,6 +976,8 @@ export function useWatchSession(bangumiId: number): WatchSession {
     setKeywordTargetPlugin,
     mediaSrc,
     playbackMode: playback.mode,
+    /** direct | playlist-proxy (ad hybrid) | full-proxy — for WatchMeta hint */
+    playbackTransit: playback.transit,
     // Include resume bucket so late history hydrate / auth remount re-seeks
     playerKey: `${mediaSrc}#${playerRemount}#${playback.mode}#r${Math.floor(resumeTime)}`,
     resumeTime,

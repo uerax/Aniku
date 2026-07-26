@@ -99,44 +99,83 @@ async function readTextLimited(
   return new TextDecoder('utf-8', { fatal: false }).decode(merged)
 }
 
-function rewriteM3u8Uri(
-  u: string,
-  base: URL,
-  referer: string,
-  cookie: string,
-  /** Propagate parent adFilter so nested media playlists still filter */
-  adFilter = false,
-): string {
+function isM3u8Path(abs: URL): boolean {
+  return /\.m3u8($|[?#])/i.test(abs.pathname + abs.search)
+}
+
+type RewriteOpts = {
+  referer: string
+  cookie: string
+  /** Propagate so nested media playlists still filter (master is a no-op) */
+  adFilter?: boolean
+  /**
+   * Force every public URI through proxy (cookie auth, forceMediaProxy,
+   * or session fallback after direct segment failure).
+   */
+  fullProxy?: boolean
+  /**
+   * Always proxy this URI even in hybrid ad-filter mode.
+   * Used for #EXT-X-KEY / MAP URI= attrs (small, often hotlink-gated).
+   */
+  alwaysProxy?: boolean
+}
+
+/**
+ * Rewrite one playlist URI for the client.
+ *
+ * - Default / fullProxy / cookie: all public URIs → /api/media/proxy (classic).
+ * - adFilter without cookie/fullProxy (**hybrid**): only nested .m3u8 stay on
+ *   proxy (so discontinuity ads still get stripped); .ts/.m4s etc. stay on CDN.
+ *   Ad strip only needs a clean playlist — segment bodies need not transit us.
+ */
+function rewriteM3u8Uri(u: string, base: URL, opts: RewriteOpts): string {
   const abs = new URL(u, base)
   if (isPrivateHost(abs.hostname)) {
     // Do not proxy private segment/key URLs
     return abs.toString()
   }
+
+  const adFilter = Boolean(opts.adFilter)
+  const fullProxy = Boolean(opts.fullProxy)
+  const cookie = opts.cookie || ''
+  const playlist = isM3u8Path(abs)
+
+  // Hybrid ad-filter: browser pulls media segments straight from CDN.
+  if (
+    adFilter &&
+    !cookie &&
+    !fullProxy &&
+    !playlist &&
+    !opts.alwaysProxy
+  ) {
+    return abs.toString()
+  }
+
   const q = new URLSearchParams({
     url: abs.toString(),
-    referer,
+    referer: opts.referer,
   })
   if (cookie) q.set('cookie', cookie)
+  if (fullProxy) q.set('fullProxy', '1')
   // Master → media child must keep adFilter=1; without this only the
   // top playlist is filtered (no-op on master) and ads stay in mixed.m3u8.
   // Only attach to nested playlists (.m3u8), not TS/KEY segments.
-  if (adFilter && /\.m3u8($|[?#])/i.test(abs.pathname + abs.search)) {
+  if (adFilter && playlist) {
     q.set('adFilter', '1')
   }
   return `/api/media/proxy?${q.toString()}`
 }
 
-/** Rewrite URI="..." and URI='...' in #EXT lines */
+/** Rewrite URI="..." and URI='...' in #EXT lines (KEY / MAP / …) */
 function rewriteExtUriAttrs(
   line: string,
   base: URL,
-  referer: string,
-  cookie: string,
-  adFilter = false,
+  opts: RewriteOpts,
 ): string {
   return line.replace(/URI=(["'])([^"']+)\1/gi, (_m, quote: string, u: string) => {
     try {
-      const proxied = rewriteM3u8Uri(u, base, referer, cookie, adFilter)
+      // KEY/MAP: always proxy even in hybrid — tiny payloads, often referer-gated
+      const proxied = rewriteM3u8Uri(u, base, { ...opts, alwaysProxy: true })
       return `URI=${quote}${proxied}${quote}`
     } catch {
       return `URI=${quote}${u}${quote}`
@@ -154,6 +193,13 @@ mediaRoutes.get('/proxy', async (c) => {
     c.req.query('adFilter') === '1' ||
     c.req.query('adFilter') === 'true' ||
     c.req.query('hlsAdFilter') === '1'
+  /**
+   * fullProxy=1 → rewrite every segment through us (forceMediaProxy / fallback).
+   * Cookie alone also disables hybrid segment direct (browser can't send it).
+   */
+  const fullProxy =
+    c.req.query('fullProxy') === '1' ||
+    c.req.query('fullProxy') === 'true'
   if (!url) return c.json({ error: 'bad_request', message: '缺少 url' }, 400)
 
   let target: URL
@@ -318,15 +364,21 @@ mediaRoutes.get('/proxy', async (c) => {
         // Keep original playlist if filter fails
       }
     }
+    const rewriteOpts: RewriteOpts = {
+      referer,
+      cookie,
+      adFilter,
+      fullProxy,
+    }
     const rewritten = text
       .split('\n')
       .map((line) => {
         const trimmed = line.trim()
         if (!trimmed || trimmed.startsWith('#')) {
-          return rewriteExtUriAttrs(line, base, referer, cookie, adFilter)
+          return rewriteExtUriAttrs(line, base, rewriteOpts)
         }
         try {
-          return rewriteM3u8Uri(trimmed, base, referer, cookie, adFilter)
+          return rewriteM3u8Uri(trimmed, base, rewriteOpts)
         } catch {
           return line
         }

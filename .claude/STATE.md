@@ -1,5 +1,16 @@
 # Aniku 项目状态
 
+## [2026-07-26] 去广告混合代理（playlist-only）
+
+- 状态：已完成
+- 优先级：P1
+- 描述：
+  1. adFilter 且无 cookie/fullProxy 时，m3u8 rewrite 只代理嵌套 .m3u8；.ts 保持 CDN 绝对地址
+  2. forceMediaProxy / 直连失败降级 → fullProxy=1，恢复全量代理
+  3. KEY/MAP URI= 仍代理；简介条区分「列表代理·分片直连」/「经服务器代理」/「直连源站」
+- 涉及文件：media.ts、playback-src.ts、use-watch-session.ts、WatchPage.tsx、SettingsPage.tsx、docs/CONTEXT.md
+- 备注：MXdm 默认 adBlocker 开 → 入口仍是 proxy（滤列表），但文案不再误报「全量代理」
+
 ## [2026-07-26] 移动端播放器与下方模块同宽 + 日志精简
 
 - 状态：已完成
