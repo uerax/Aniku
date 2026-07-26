@@ -103,6 +103,10 @@ export function VideoPlayer({
   const resumedRef = useRef(false)
   /** Suppress volumechange → settings during softPlay mute dance. */
   const ignoreVolumePersistRef = useRef(false)
+  /** Last non-zero volume for mute-toggle restore (desktop speaker icon). */
+  const lastAudibleVolumeRef = useRef(
+    player.volume && player.volume > 0 ? player.volume : 0.7,
+  )
   /** User intentionally paused — do not auto-resume after rebuffer. */
   const userPausedRef = useRef(false)
   /** We paused because buffer emptied (weak net); resume when ahead is enough. */
@@ -196,6 +200,9 @@ export function VideoPlayer({
   pointerModeRef.current = pointerMode
   playerFsRef.current = playerFs
   webFsRef.current = webFs
+  if ((player.volume ?? 0) > 0.001) {
+    lastAudibleVolumeRef.current = player.volume
+  }
 
   function reportLoadFailed(reason: string) {
     if (loadFailedOnceRef.current) return
@@ -374,8 +381,19 @@ export function VideoPlayer({
     video.load()
 
     const cfg = playerRef.current
+    /** Apply rate + default so load()/MSE attach cannot silently fall back to 1. */
+    const applyPlaybackRate = (rate?: number) => {
+      const s = rate ?? playerRef.current.speed ?? 1
+      try {
+        video.defaultPlaybackRate = s
+        video.playbackRate = s
+      } catch {
+        /* some engines reject while HAVE_NOTHING */
+      }
+    }
     video.volume = cfg.volume ?? 0.7
-    video.playbackRate = cfg.speed || 1
+    video.muted = (cfg.volume ?? 0.7) <= 0
+    applyPlaybackRate(cfg.speed || 1)
     video.playsInline = true
 
     /** Clean up softPlay waiters on src change / unmount */
@@ -418,18 +436,19 @@ export function VideoPlayer({
         cleanupWaiters()
         // Read volume/speed from live ref — user may have changed them while loading
         const live = playerRef.current
-        video.playbackRate = live.speed || 1
         // Mute dance for autoplay policy — don't persist transient mute/volume
         ignoreVolumePersistRef.current = true
+        applyPlaybackRate(live.speed || 1)
         video.muted = true
         video
           .play()
           .then(() => {
             if (!alive()) return
-            video.muted = false
+            const wantVol = playerRef.current.volume ?? 0.7
+            video.muted = wantVol <= 0
             // Re-read after await: volume may change during muted autoplay
-            video.volume = playerRef.current.volume ?? 0.7
-            video.playbackRate = playerRef.current.speed || 1
+            video.volume = wantVol
+            applyPlaybackRate(playerRef.current.speed || 1)
             ignoreVolumePersistRef.current = false
             setPaused(false)
             setLoading(false)
@@ -437,8 +456,10 @@ export function VideoPlayer({
           })
           .catch(() => {
             if (!alive()) return
-            video.muted = false
-            video.volume = playerRef.current.volume ?? 0.7
+            const wantVol = playerRef.current.volume ?? 0.7
+            video.muted = wantVol <= 0
+            video.volume = wantVol
+            applyPlaybackRate(playerRef.current.speed || 1)
             ignoreVolumePersistRef.current = false
             setPaused(true)
             setLoading(false)
@@ -481,6 +502,8 @@ export function VideoPlayer({
     const onReady = () => {
       if (!alive()) return
       setDuration(video.duration || 0)
+      // load()/attachMedia often resets rate → re-apply saved default here
+      applyPlaybackRate()
       const t0 = initialTimeRef.current
       if (!resumedRef.current && cfg.continuePlay && t0 > 15) {
         resumedRef.current = true
@@ -767,12 +790,16 @@ export function VideoPlayer({
     }
     const onVol = () => {
       if (ignoreVolumePersistRef.current) return
-      onPlayerChangeRef.current?.({ volume: video.volume })
+      // Keep last audible level so mute-toggle can restore
+      if (video.volume > 0.001 && !video.muted) {
+        lastAudibleVolumeRef.current = video.volume
+      }
+      onPlayerChangeRef.current?.({
+        volume: video.muted ? 0 : video.volume,
+      })
     }
-    const onRate = () => {
-      if (ignoreVolumePersistRef.current) return
-      onPlayerChangeRef.current?.({ speed: video.playbackRate })
-    }
+    // Intentionally no ratechange → settings: media load/MSE resets rate to 1
+    // and would clobber the saved default. Speed only saves via onPickSpeed / Settings.
     const onSeeking = () => {
       isSeekingRef.current = true
       // Spinner only if seek lands outside buffered ranges (nothing to paint)
@@ -949,7 +976,6 @@ export function VideoPlayer({
     video.addEventListener('play', onPlay)
     video.addEventListener('ended', onEndedHandler)
     video.addEventListener('volumechange', onVol)
-    video.addEventListener('ratechange', onRate)
     video.addEventListener('seeking', onSeeking)
     video.addEventListener('seeked', onSeeked)
     video.addEventListener('waiting', onWaiting)
@@ -1093,7 +1119,6 @@ export function VideoPlayer({
       video.removeEventListener('play', onPlay)
       video.removeEventListener('ended', onEndedHandler)
       video.removeEventListener('volumechange', onVol)
-      video.removeEventListener('ratechange', onRate)
       video.removeEventListener('seeking', onSeeking)
       video.removeEventListener('seeked', onSeeked)
       video.removeEventListener('waiting', onWaiting)
@@ -1161,8 +1186,17 @@ export function VideoPlayer({
   useEffect(() => {
     const video = videoRef.current
     if (!video) return
-    if (Math.abs(video.playbackRate - (player.speed || 1)) > 0.01) {
-      video.playbackRate = player.speed || 1
+    const s = player.speed || 1
+    if (
+      Math.abs(video.playbackRate - s) > 0.01 ||
+      Math.abs((video.defaultPlaybackRate || 1) - s) > 0.01
+    ) {
+      try {
+        video.defaultPlaybackRate = s
+        video.playbackRate = s
+      } catch {
+        /* ignore */
+      }
     }
   }, [player.speed])
 
@@ -1590,7 +1624,14 @@ export function VideoPlayer({
     },
     onPickSpeed: (s) => {
       const v = videoRef.current
-      if (v) v.playbackRate = s
+      if (v) {
+        try {
+          v.defaultPlaybackRate = s
+          v.playbackRate = s
+        } catch {
+          /* ignore */
+        }
+      }
       onPlayerChange?.({ speed: s })
       setSpeedMenuOpen(false)
     },
@@ -1602,11 +1643,36 @@ export function VideoPlayer({
       }
     },
     onVolume: (vol) => {
+      if (vol > 0.001) lastAudibleVolumeRef.current = vol
       if (videoRef.current) {
         videoRef.current.volume = vol
         videoRef.current.muted = vol <= 0
       }
       onPlayerChange?.({ volume: vol })
+    },
+    onToggleMute: () => {
+      const v = videoRef.current
+      const cur = player.volume ?? 0
+      const muted = cur <= 0.001 || Boolean(v?.muted)
+      if (muted) {
+        const restore = lastAudibleVolumeRef.current || 0.7
+        if (v) {
+          v.muted = false
+          v.volume = restore
+        }
+        onPlayerChange?.({ volume: restore })
+      } else {
+        if ((player.volume ?? 0) > 0.001) {
+          lastAudibleVolumeRef.current = player.volume
+        }
+        if (v) {
+          v.muted = true
+          // Keep element volume for restore; settings show 0 as muted
+          // (slider + icon reflect player.volume)
+          v.volume = 0
+        }
+        onPlayerChange?.({ volume: 0 })
+      }
     },
     onTogglePlayerFs: () => {
       void togglePlayerFs()

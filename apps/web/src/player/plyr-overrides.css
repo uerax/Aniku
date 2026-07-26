@@ -673,14 +673,25 @@ html[data-theme='light'] .kz-watch-road-chip[aria-selected='true'] {
 }
 
 /*
- * Volume — decorative rail absolutely centered on the row mid-line.
+ * Volume — speaker icon (mute toggle) + decorative rail.
  * Native <input type=range> is transparent (hit-testing + thumb only).
  */
 .kz-vol-wrap {
-  position: relative;
-  width: 80px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
   height: var(--kz-ctrl-h);
   margin: 0 4px;
+}
+
+.kz-vol-btn {
+  flex-shrink: 0;
+}
+
+.kz-vol-slider {
+  position: relative;
+  width: 72px;
+  height: var(--kz-ctrl-h);
 }
 
 .kz-vol-rail {

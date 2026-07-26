@@ -8,6 +8,8 @@ import {
   IconPlay,
   IconPrev,
   IconSettings,
+  IconVolume,
+  IconVolumeMute,
   IconWebFs,
   IconWebFsExit,
 } from './icons'
@@ -45,6 +47,7 @@ export function DesktopControls(props: PlayerControlsProps) {
     onPickSpeed,
     onPickSr,
     onVolume,
+    onToggleMute,
     onTogglePlayerFs,
     onToggleWebFs,
     formatTime,
@@ -54,6 +57,8 @@ export function DesktopControls(props: PlayerControlsProps) {
   // volumeMenuOpen / onToggleVolumeMenu are mobile-only (icon + vertical popup)
 
   const pinBar = showBar || paused || panelOpen || srMenuOpen || speedMenuOpen
+  const vol = player.volume ?? 0.7
+  const isMuted = vol <= 0.001
 
   return (
     <div
@@ -186,23 +191,36 @@ export function DesktopControls(props: PlayerControlsProps) {
             )}
           </div>
           <div className="kz-vol-wrap">
-            <div className="kz-vol-rail" aria-hidden>
-              <div
-                className="kz-vol-fill"
-                style={{
-                  width: `${Math.round((player.volume ?? 0.7) * 100)}%`,
-                }}
+            <button
+              type="button"
+              className="kz-ctrl kz-ctrl-icon kz-vol-btn"
+              data-active={isMuted}
+              onClick={onToggleMute}
+              title={isMuted ? '取消静音' : '静音'}
+              aria-label={isMuted ? '取消静音' : '静音'}
+              aria-pressed={isMuted}
+            >
+              {isMuted ? <IconVolumeMute /> : <IconVolume />}
+            </button>
+            <div className="kz-vol-slider">
+              <div className="kz-vol-rail" aria-hidden>
+                <div
+                  className="kz-vol-fill"
+                  style={{
+                    width: `${Math.round(vol * 100)}%`,
+                  }}
+                />
+              </div>
+              <input
+                type="range"
+                className="kz-vol"
+                min={0}
+                max={100}
+                value={Math.round(vol * 100)}
+                onChange={(e) => onVolume(Number(e.target.value) / 100)}
+                aria-label="音量"
               />
             </div>
-            <input
-              type="range"
-              className="kz-vol"
-              min={0}
-              max={100}
-              value={Math.round((player.volume ?? 0.7) * 100)}
-              onChange={(e) => onVolume(Number(e.target.value) / 100)}
-              aria-label="音量"
-            />
           </div>
           <button
             type="button"

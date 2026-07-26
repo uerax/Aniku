@@ -35,6 +35,8 @@ export interface PlayerControlsProps {
   onPickSpeed: (speed: number) => void
   onPickSr: (mode: SuperResolutionMode) => void
   onVolume: (vol: number) => void
+  /** Desktop speaker icon: mute ↔ restore last audible volume */
+  onToggleMute: () => void
   onTogglePlayerFs: () => void
   onToggleWebFs: () => void
   formatTime: (sec: number) => string

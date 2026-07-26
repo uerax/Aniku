@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import type { PluginCatalogItem, PluginMeta } from '@animaku/shared'
-import { catalogItemStatus } from '@animaku/shared'
+import { catalogItemStatus, PLAYER_SPEEDS } from '@animaku/shared'
 import { bangumiApi } from '../lib/bangumi'
 import { pluginApi } from '../lib/plugin-api'
 import {
@@ -632,7 +632,7 @@ export function SettingsPage() {
             onChange={(e) => setPlayer({ speed: Number(e.target.value) || 1 })}
             className="rounded-lg border border-[var(--kz-border)] bg-[var(--kz-bg)] px-2 py-1.5 text-sm"
           >
-            {[0.5, 0.75, 1, 1.25, 1.5, 2, 2.5, 3, 3.5, 4].map((s) => (
+            {PLAYER_SPEEDS.map((s) => (
               <option key={s} value={s}>
                 {s}x
               </option>
