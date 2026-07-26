@@ -10,6 +10,13 @@
   /* Faster double-tap; avoid browser double-tap-to-zoom stealing play/pause */
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
+  /*
+   * Control bar compact rules key off *player* width, not viewport.
+   * Landscape phone: viewport often >720px while the 16:9 box is ~600px —
+   * media queries would keep desktop-dense chrome and crush the bar.
+   */
+  container-type: inline-size;
+  container-name: kz-player;
 }
 
 /*
@@ -57,12 +64,32 @@
   width: 100%;
 }
 
-/* Mobile: full width stack, player uses normal stack max-width */
+/*
+ * Mobile: player stack matches meta / 视频源 / 选集 — full content width.
+ * Fixed 16:9 from width (not height-capped / centered narrower box).
+ * Landscape may exceed viewport height; page scrolls (no sticky there).
+ */
 .kz-watch-cinema--mobile {
   max-width: 100%;
-  /* Slightly less chrome than desktop cinema (no under-player page chrome) */
-  --kz-player-max-h: calc(100dvh - 8rem);
-  --kz-header-offset: 3.5rem; /* sticky top under site header */
+  --kz-header-offset: 3.5rem; /* sticky top under site header (portrait) */
+}
+
+.kz-watch-cinema--mobile .kz-player-stack {
+  width: 100%;
+  max-width: 100%;
+  margin-inline: 0;
+  flex-shrink: 0;
+}
+
+.kz-watch-cinema--mobile .kz-player-frame,
+.kz-watch-cinema--mobile .kz-player-placeholder {
+  width: 100%;
+  max-width: none;
+  margin-inline: 0;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  /* No max-height: width drives size so edges align with modules below */
+  max-height: none;
 }
 
 .kz-watch-meta {
@@ -81,35 +108,6 @@
     background: var(--kz-bg, #0a0a0a);
     /* Soft separation when content scrolls underneath */
     box-shadow: 0 1px 0 var(--kz-border, rgba(255, 255, 255, 0.08));
-  }
-}
-
-/*
- * Mobile landscape: short axis is height. Force width from max height so
- * 16:9 never claims full landscape width (was ~portrait-ratio / clipped).
- * Prefer explicit stack width — more reliable than aspect-ratio + max-height
- * alone on WebKit when height binds first.
- */
-@media (max-width: 1023px) and (orientation: landscape) {
-  .kz-watch-cinema--mobile {
-    /* Header only — landscape has little vertical chrome to spare */
-    --kz-player-max-h: calc(100dvh - 4.5rem);
-  }
-
-  .kz-watch-cinema--mobile .kz-player-stack {
-    width: min(100%, calc(var(--kz-player-max-h) * 16 / 9));
-    max-width: min(100%, calc(var(--kz-player-max-h) * 16 / 9));
-    margin-inline: auto;
-  }
-
-  .kz-watch-cinema--mobile .kz-player-frame,
-  .kz-watch-cinema--mobile .kz-player-placeholder {
-    width: 100%;
-    max-width: none;
-    height: var(--kz-player-max-h);
-    max-height: var(--kz-player-max-h);
-    /* Width already 16:9 of height via stack; drop aspect so max-h can't squash */
-    aspect-ratio: auto;
   }
 }
 
@@ -1055,12 +1053,15 @@ html[data-theme='light'] .kz-watch-road-chip[aria-selected='true'] {
 }
 
 /*
- * Narrow / mobile control bar — keep ONE row, compress by width:
- * - hide volume rail (hardware volume)
- * - allow the whole row to scroll horizontally if still tight
- * - drop low-priority controls at smaller breakpoints
+ * Narrow control bar — keyed to player shell width (@container), not viewport.
+ * Landscape mobile: viewport can be 800px+ while the 16:9 player is ~560–700px;
+ * media(max-width:720) never fired → dense chrome crushed into a short bar.
+ *
+ * - hide desktop volume rail (hardware volume / mobile popup)
+ * - single row, horizontal scroll if still tight
+ * - drop labels / low-priority controls as the box shrinks
  */
-@media (max-width: 720px) {
+@container kz-player (max-width: 720px) {
   .kz-bar {
     padding: 0.2rem 0.35rem 0.35rem;
   }
@@ -1111,7 +1112,7 @@ html[data-theme='light'] .kz-watch-road-chip[aria-selected='true'] {
     padding: 0;
   }
 
-  /* Icon-only fullscreen on narrow screens — no clipped text */
+  /* Icon-only fullscreen — no clipped text */
   .kz-ctrl-fs,
   .kz-ctrl-web-fs {
     width: var(--kz-ctrl-h);
@@ -1123,12 +1124,17 @@ html[data-theme='light'] .kz-watch-road-chip[aria-selected='true'] {
   .kz-ctrl-web-fs .kz-ctrl-label {
     display: none;
   }
-
-  /* Keep super-res on phone bar — space is available in single-row layout */
 }
 
-/* Extra-tight phones */
-@media (max-width: 400px) {
+/* Mid-narrow (typical landscape phone player ~500–640px): drop SR label bulk */
+@container kz-player (max-width: 640px) {
+  .kz-sr-wrap {
+    display: none;
+  }
+}
+
+/* Extra-tight player boxes (portrait phones / very short landscape) */
+@container kz-player (max-width: 400px) {
   .kz-bar-row {
     --kz-ctrl-h: 30px;
   }
@@ -1151,6 +1157,52 @@ html[data-theme='light'] .kz-watch-road-chip[aria-selected='true'] {
   /* Webpage FS is redundant next to FS on tiny bars */
   .kz-ctrl-web-fs {
     display: none;
+  }
+}
+
+/*
+ * Fallback when container queries are unavailable: viewport media (portrait
+ * phones still get a compact bar). Landscape narrow-player case needs @container.
+ */
+@supports not (container-type: inline-size) {
+  @media (max-width: 720px) {
+    .kz-bar {
+      padding: 0.2rem 0.35rem 0.35rem;
+    }
+
+    .kz-bar-row {
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      overflow-y: hidden;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+
+    .kz-bar-row::-webkit-scrollbar {
+      display: none;
+    }
+
+    .kz-vol-wrap {
+      display: none;
+    }
+
+    .kz-ctrl-fs .kz-ctrl-label,
+    .kz-ctrl-web-fs .kz-ctrl-label {
+      display: none;
+    }
+
+    .kz-ctrl-fs,
+    .kz-ctrl-web-fs {
+      width: var(--kz-ctrl-h);
+      min-width: var(--kz-ctrl-h);
+      padding: 0;
+    }
+  }
+
+  @media (max-width: 400px) {
+    .kz-ctrl-web-fs {
+      display: none;
+    }
   }
 }
 

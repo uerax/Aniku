@@ -593,10 +593,6 @@ export async function startAnime4K(
   // Prime one frame so first paint is not empty black
   copyFrame()
 
-  console.info(
-    `[anime4k] started mode=${mode} native=${native.width}x${native.height} → target=${target.width}x${target.height} (~${scaleX.toFixed(2)}×) maxDim=${maxDimension}`,
-  )
-
   if (!document.hidden) {
     scheduleFrame()
   } else {

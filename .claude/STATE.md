@@ -1,5 +1,16 @@
 # Aniku 项目状态
 
+## [2026-07-26] 移动端播放器与下方模块同宽 + 日志精简
+
+- 状态：已完成
+- 优先级：P1
+- 描述：
+  1. 移动端播放器不再按 max-h 反推变窄居中；与弹幕/简介/视频源同宽，固定 16:9（宽驱动，无 max-height）
+  2. 控制条仍按 @container 播放器宽度压缩
+  3. 去掉例行 console.info：`[player] load` / `manifest ok` / `[anime4k] started`
+- 涉及文件：apps/web/src/player/plyr-overrides.css、VideoPlayer.tsx、anime4k.ts
+- 备注：真错误路径 console.warn 保留
+
 ## [2026-07-26] 桌面同步视频源/选集设计
 
 - 状态：已完成

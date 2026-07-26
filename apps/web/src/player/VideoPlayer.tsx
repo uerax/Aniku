@@ -500,8 +500,6 @@ export function VideoPlayer({
       })
     }
 
-    console.info('[player] load', src.slice(0, 120), 'm3u8=', isM3u8(src))
-
     /** Progressive mp4 path (sync). HLS path is async after dynamic import. */
     const attachProgressive = () => {
       video.src = src
@@ -613,7 +611,6 @@ export function VideoPlayer({
             hls.attachMedia(video)
             hls.on(HlsCtor.Events.MANIFEST_PARSED, () => {
               if (!alive()) return
-              console.info('[player] manifest ok')
               onReady()
             })
             hls.on(HlsCtor.Events.ERROR, (_e, data) => {
