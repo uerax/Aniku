@@ -1,12 +1,32 @@
 # Animaku 项目状态
 
+## [2026-07-26] iOS 首页「继续观看」卡片超宽
+
+- 状态：已完成
+- 优先级：P1
+- 描述：iOS Safari 首页继续观看卡片宽于热门趋势等模块。Grid 子项 min-width:auto + 横向 flex 副标题未 truncate 撑破轨道。
+- 涉及文件：apps/web/src/pages/HomePage.tsx、apps/web/src/components/Layout.tsx
+- 备注：grid/item min-w-0 + max-w-full overflow-hidden；封面 shrink-0；副标题 truncate；main min-w-0
+
+## [2026-07-26] 移动端双击暂停 + stall UI 策略
+
+- 状态：已完成
+- 优先级：P0
+- 描述：
+  1. 双击无法暂停：click 计时双击与 dblclick 各调一次 togglePlay → PLAY_TOGGLE_DEDUP_MS 去重
+  2. stall 策略（用户规则）：能继续播 → 完全无提示；只有无可播数据（underrun / seek hole / 首载）→ 屏幕中间转圈，无「缓冲中…」等文案
+- 涉及文件：
+  - apps/web/src/player/chrome/useShellPointerHandlers.ts
+  - apps/web/src/player/VideoPlayer.tsx
+  - apps/web/src/player/plyr-overrides.css
+- 备注：waiting 有 buffer 静默；isUnplayable 才 arm 转圈；HLS non-fatal 不亮 UI
+
 ## [2026-07-26] 产品改名 aniku → animaku
 
 - 状态：已完成
 - 优先级：P1
 - 描述：全仓产品名/包名从 Aniku/`aniku`/`@aniku/*` 改为 Animaku/`animaku`/`@animaku/*`。含 package.json、import、Docker、UA、localStorage key（`animaku-*`，迁移兼容 `aniku-*` 与 `kazumi-web-*`）、`X-Animaku-Proxy-Token`（仍接受旧 `X-Aniku-Proxy-Token`）。
 - 涉及文件：package.json、apps/*、packages/shared、scripts、docker-compose、Dockerfile、README、docs/CONTEXT.md、pnpm-lock.yaml 等
-- 备注：磁盘目录仍为 `kazumi-web/`（未改文件夹名）；若需一并改目录名另说
 
 ## [2026-07-26] 桌面密集弹幕卡顿优化
 

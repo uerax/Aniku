@@ -416,7 +416,9 @@ export function Layout() {
 
       <main
         className={clsx(
-          'mx-auto w-full flex-1',
+          // min-w-0: flex column child can otherwise refuse to shrink on iOS,
+          // letting wide grid cards blow past the page gutters.
+          'mx-auto w-full min-w-0 flex-1',
           isWatch
             ? 'max-w-[1760px] px-0 py-3 sm:px-5 sm:py-4 lg:px-6'
             : 'max-w-[1760px] px-4 py-6 sm:px-5 lg:px-6',

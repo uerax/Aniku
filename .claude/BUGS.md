@@ -1,5 +1,29 @@
 # Bug / 优化清单
 
+## [2026-07-26] iOS Safari 首页继续观看卡片超宽
+
+- 状态：已完成
+- 优先级：P1
+- 描述：继续观看视频卡片宽度超出热门趋势等其他模块
+- 涉及文件：HomePage.tsx、Layout.tsx
+- 备注：iOS grid min-width:auto；min-w-0 + truncate 修复
+
+## [2026-07-26] 移动端双击无法暂停
+
+- 状态：已完成
+- 优先级：P0
+- 描述：双击舞台应 pause，实际像没暂停（或闪一下又继续播）
+- 涉及文件：apps/web/src/player/chrome/useShellPointerHandlers.ts
+- 备注：click 双击检测 + dblclick 各调一次 togglePlay；PLAY_TOGGLE_DEDUP_MS=420 去重
+
+## [2026-07-26] 播放中瞬间闪「缓冲中…」
+
+- 状态：已完成
+- 优先级：P0
+- 描述：画面流畅时仍偶尔弹出缓冲提示并瞬间消失 → 改为仅无可播数据时中间转圈，去掉文案
+- 涉及文件：apps/web/src/player/VideoPlayer.tsx、plyr-overrides.css
+- 备注：能播静默；underrun/seek hole/首载才 spinner；HLS non-fatal 不亮 UI
+
 ## [2026-07-26] 桌面端视频源与选集共用 rail 滚动
 
 - 状态：已完成

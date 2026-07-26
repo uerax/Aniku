@@ -32,9 +32,14 @@ function isPlayerChromeTarget(target: EventTarget | null): boolean {
 }
 
 /** Max gap between taps to count as double-tap (mobile). */
-const MOBILE_DOUBLE_TAP_MS = 300
+const MOBILE_DOUBLE_TAP_MS = 320
 /** Delay before treating a lone tap as chrome toggle. */
-const MOBILE_SINGLE_TAP_DELAY_MS = 300
+const MOBILE_SINGLE_TAP_DELAY_MS = 320
+/**
+ * Mobile browsers often fire: click → click (our double-tap) → dblclick.
+ * Without dedup, togglePlay runs twice (pause then immediate play).
+ */
+const PLAY_TOGGLE_DEDUP_MS = 420
 
 /**
  * Stage pointer handlers. Desktop and mobile policies live in separate branches
@@ -58,9 +63,18 @@ export function useShellPointerHandlers(
   const shellClickTimerRef = useRef(0)
   /** Last stage tap time for mobile double-tap (dblclick is unreliable on iOS). */
   const lastTapAtRef = useRef(0)
+  /** Last play/pause toggle from stage gestures (dedup click+dblclick). */
+  const lastPlayToggleAtRef = useRef(0)
 
   useEffect(() => {
     return () => window.clearTimeout(shellClickTimerRef.current)
+  }, [])
+
+  const requestTogglePlay = useCallback(() => {
+    const now = Date.now()
+    if (now - lastPlayToggleAtRef.current < PLAY_TOGGLE_DEDUP_MS) return
+    lastPlayToggleAtRef.current = now
+    apiRef.current.togglePlay()
   }, [])
 
   const onShellClick = useCallback(
@@ -80,6 +94,7 @@ export function useShellPointerHandlers(
           a.bumpBar()
           return
         }
+        // Desktop single-click is one event — no dedup needed vs dblclick (FS)
         a.togglePlay()
         return
       }
@@ -91,7 +106,7 @@ export function useShellPointerHandlers(
         window.clearTimeout(shellClickTimerRef.current)
         shellClickTimerRef.current = 0
         lastTapAtRef.current = 0
-        a.togglePlay()
+        requestTogglePlay()
         return
       }
       lastTapAtRef.current = now
@@ -116,7 +131,7 @@ export function useShellPointerHandlers(
         else a.bumpBar()
       }, MOBILE_SINGLE_TAP_DELAY_MS)
     },
-    [pointerMode],
+    [pointerMode, requestTogglePlay],
   )
 
   const onShellDoubleClick = useCallback(
@@ -131,10 +146,11 @@ export function useShellPointerHandlers(
         a.toggleFs()
         return
       }
-      // Fallback if browser still emits dblclick (desktop touch / some Androids)
-      a.togglePlay()
+      // Fallback if browser still emits dblclick (some Androids).
+      // Deduped: click-path double-tap usually already toggled.
+      requestTogglePlay()
     },
-    [pointerMode],
+    [pointerMode, requestTogglePlay],
   )
 
   const onShellMouseMove = useCallback(() => {

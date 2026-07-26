@@ -144,8 +144,9 @@ export function VideoPlayer({
   const [current, setCurrent] = useState(0)
   const [duration, setDuration] = useState(0)
   /**
-   * True while seeking or rebuffering (waiting for network).
-   * Distinct copy: 跳转中… vs 缓冲中…
+   * Stall chrome (center spinner only — no text tips).
+   * Show only when there is nothing paint-able: initial load, seek into hole,
+   * or real underrun. Never while frames are still advancing.
    */
   const [seekingUi, setSeekingUi] = useState(false)
   const [bufferingUi, setBufferingUi] = useState(false)
@@ -396,7 +397,6 @@ export function VideoPlayer({
       }
       userPausedRef.current = false
       bufferGatePausedRef.current = false
-      setBufferingUi(true)
       setLoading(true)
 
       const startedAt = Date.now()
@@ -616,12 +616,8 @@ export function VideoPlayer({
             hls.on(HlsCtor.Events.ERROR, (_e, data) => {
               if (!alive()) return
               if (!data.fatal) {
-                if (
-                  data.details === HlsCtor.ErrorDetails.BUFFER_STALLED_ERROR ||
-                  data.details === HlsCtor.ErrorDetails.BUFFER_SEEK_OVER_HOLE
-                ) {
-                  setBufferingUi(true)
-                }
+                // Non-fatal stalls are often sub-second (hole skip / append).
+                // Don't flash 缓冲中… — video `waiting` path debounces real ones.
                 return
               }
               console.error('[player] hls fatal', data.type, data.details)
@@ -751,20 +747,20 @@ export function VideoPlayer({
         onProgressRef.current?.(video.currentTime, video.duration)
       }
     }
+    // Filled once buffering helpers exist (below) so play/end can cancel blip timers.
+    let hideBufferingUi: () => void = () => setBufferingUi(false)
     const onPlay = () => {
       setPaused(false)
       setLoading(false)
-      // If play resumed for any reason, clear buffer-gate flag when ahead is OK
-      if (bufferedAhead(video) >= 0.5) {
-        bufferGatePausedRef.current = false
-        setBufferingUi(false)
-      }
+      // play event = intentional start; drop any pending blip timer
+      bufferGatePausedRef.current = false
+      hideBufferingUi()
       bumpBar()
     }
     const onEndedHandler = () => {
       userPausedRef.current = false
       bufferGatePausedRef.current = false
-      setBufferingUi(false)
+      hideBufferingUi()
       onPause()
       if (playerRef.current.autoNext && onNextRef.current) onNextRef.current()
       else onEndedRef.current?.()
@@ -779,39 +775,102 @@ export function VideoPlayer({
     }
     const onSeeking = () => {
       isSeekingRef.current = true
-      setSeekingUi(true)
+      // Spinner only if seek lands outside buffered ranges (nothing to paint)
+      try {
+        const t = video.currentTime
+        let covered = false
+        for (let i = 0; i < video.buffered.length; i++) {
+          if (t >= video.buffered.start(i) && t <= video.buffered.end(i) - 0.05) {
+            covered = true
+            break
+          }
+        }
+        setSeekingUi(!covered)
+      } catch {
+        setSeekingUi(true)
+      }
     }
     const onSeeked = () => {
-      // Progressive files may still be waiting for data after seeked fires
       const clearSeekUi = () => {
         isSeekingRef.current = false
         setSeekingUi(false)
       }
-      // If buffer covers currentTime, clear quickly; else keep spinner until canplay
+      // Buffered seek: drop chrome immediately. Hole: keep until canplay/playing.
       try {
         const t = video.currentTime
         for (let i = 0; i < video.buffered.length; i++) {
           if (t >= video.buffered.start(i) && t <= video.buffered.end(i) - 0.1) {
-            setTimeout(clearSeekUi, 120)
+            clearSeekUi()
             return
           }
         }
       } catch {
         /* ignore */
       }
-      setTimeout(clearSeekUi, 800)
+      setSeekingUi(true)
+      setTimeout(clearSeekUi, 1200)
     }
 
     /**
      * Weak-net rebuffer: when decoder starves, pause so audio doesn't run ahead
      * of frozen frames; resume once we have MIN_RESUME_BUFFER_SEC ahead.
+     *
+     * Stall spinner policy (user rule):
+     * - Frames still advancing / buffer ahead → no chrome at all
+     * - Nothing left to paint (underrun / seek hole) → center spinner only
+     * Never show text tips like 「缓冲中…」.
      */
     let resumePoll = 0
+    let stallShowTimer = 0
+    /** Brief delay so micro-stalls that recover don't flash a spinner. */
+    const STALL_SPINNER_DELAY_MS = 280
     const clearResumePoll = () => {
       if (resumePoll) {
         window.clearInterval(resumePoll)
         resumePoll = 0
       }
+    }
+    const clearStallShowTimer = () => {
+      if (stallShowTimer) {
+        window.clearTimeout(stallShowTimer)
+        stallShowTimer = 0
+      }
+    }
+    hideBufferingUi = () => {
+      clearStallShowTimer()
+      setBufferingUi(false)
+    }
+    /** True when there is essentially nothing left to decode/paint. */
+    const isUnplayable = () => {
+      const ahead = bufferedAhead(video)
+      return (
+        ahead < 0.2 ||
+        video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA
+      )
+    }
+    /**
+     * Arm center spinner only for real unplayable stalls.
+     * `force` = already confirmed underrun (buffer-gate pause).
+     */
+    const armStallSpinner = (force = false) => {
+      if (userPausedRef.current) return
+      if (!force && !isUnplayable()) return
+      if (force) {
+        clearStallShowTimer()
+        setBufferingUi(true)
+        return
+      }
+      if (stallShowTimer) return
+      stallShowTimer = window.setTimeout(() => {
+        stallShowTimer = 0
+        if (!alive() || userPausedRef.current) return
+        if (!isUnplayable()) return
+        // Still painting? keep quiet
+        if (!video.paused && video.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) {
+          return
+        }
+        setBufferingUi(true)
+      }, STALL_SPINNER_DELAY_MS)
     }
     const tryResumeFromBuffer = () => {
       if (!alive()) {
@@ -820,7 +879,7 @@ export function VideoPlayer({
       }
       if (userPausedRef.current) {
         clearResumePoll()
-        setBufferingUi(false)
+        hideBufferingUi()
         return
       }
       const ahead = bufferedAhead(video)
@@ -830,7 +889,7 @@ export function VideoPlayer({
       ) {
         clearResumePoll()
         bufferGatePausedRef.current = false
-        setBufferingUi(false)
+        hideBufferingUi()
         if (video.paused) {
           void video.play().catch(() => {
             /* autoplay / user gesture */
@@ -841,16 +900,22 @@ export function VideoPlayer({
     const onWaiting = () => {
       // Network rebuffer (HLS + progressive via proxy)
       if (userPausedRef.current) return
-      setBufferingUi(true)
       const ahead = bufferedAhead(video)
-      // If almost empty and still "playing", force pause so A/V don't desync
-      if (!video.paused && ahead < 0.35) {
+      // Still have playable data → silent (no spinner, no tip)
+      if (ahead >= 0.35 && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+        return
+      }
+      // Real underrun: freeze A/V together and show spinner
+      if (!video.paused) {
         bufferGatePausedRef.current = true
+        armStallSpinner(true)
         try {
           video.pause()
         } catch {
           /* ignore */
         }
+      } else if (bufferGatePausedRef.current || isUnplayable()) {
+        armStallSpinner(true)
       }
       if (!resumePoll) {
         resumePoll = window.setInterval(tryResumeFromBuffer, 250)
@@ -858,7 +923,9 @@ export function VideoPlayer({
     }
     const onStalledPlay = () => {
       if (userPausedRef.current) return
-      setBufferingUi(true)
+      // stalled while still playable → ignore chrome
+      if (!isUnplayable()) return
+      armStallSpinner(false)
       if (!resumePoll) {
         resumePoll = window.setInterval(tryResumeFromBuffer, 250)
       }
@@ -869,13 +936,12 @@ export function VideoPlayer({
       tryResumeFromBuffer()
     }
     const onPlayingClear = () => {
-      if (bufferedAhead(video) >= 0.3) {
-        bufferGatePausedRef.current = false
-        setBufferingUi(false)
-        setSeekingUi(false)
-        isSeekingRef.current = false
-        clearResumePoll()
-      }
+      // Frames painting again → no stall chrome
+      bufferGatePausedRef.current = false
+      hideBufferingUi()
+      setSeekingUi(false)
+      isSeekingRef.current = false
+      clearResumePoll()
     }
 
     video.addEventListener('timeupdate', onTime)
@@ -1036,6 +1102,7 @@ export function VideoPlayer({
       video.removeEventListener('playing', onPlayingClear)
       video.removeEventListener('progress', tryResumeFromBuffer)
       clearResumePoll()
+      clearStallShowTimer()
       const stalled = (
         video as HTMLVideoElement & { __a1Stalled?: () => void }
       ).__a1Stalled
@@ -1265,12 +1332,16 @@ export function VideoPlayer({
     if (v.paused) {
       userPausedRef.current = false
       bufferGatePausedRef.current = false
-      // Prefer waiting for a small buffer if empty (manual play after lag)
-      if (bufferedAhead(v) < 0.5 && v.readyState < HTMLMediaElement.HAVE_FUTURE_DATA) {
+      // Spinner only when nothing is paint-able yet
+      if (
+        bufferedAhead(v) < 0.2 ||
+        v.readyState < HTMLMediaElement.HAVE_CURRENT_DATA
+      ) {
         setBufferingUi(true)
       }
       void v.play().catch(() => {
         userPausedRef.current = true
+        setBufferingUi(false)
       })
       bumpBar()
     } else {
@@ -1409,29 +1480,26 @@ export function VideoPlayer({
     const v = videoRef.current
     if (!v || !Number.isFinite(v.duration) || v.duration <= 0) return
     const target = Math.max(0, Math.min(v.duration, ratio * v.duration))
-    // Progressive MP4 (anime1 etc.) must re-Range from CDN via proxy — expect 0.5–2s lag.
-    // Scrubbing without waiting for keyframes looks "stuck" until data arrives.
-    setSeekingUi(true)
-    isSeekingRef.current = true
-    try {
-      v.currentTime = target
-    } catch {
-      setSeekingUi(false)
-      isSeekingRef.current = false
-    }
-    // If already buffered at target, clear UI on next frame
+    // Spinner only when target is outside buffered ranges (nothing to paint).
+    // In-buffer scrub stays silent.
+    let covered = false
     try {
       for (let i = 0; i < v.buffered.length; i++) {
         if (target >= v.buffered.start(i) && target <= v.buffered.end(i) - 0.15) {
-          requestAnimationFrame(() => {
-            setSeekingUi(false)
-            isSeekingRef.current = false
-          })
+          covered = true
           break
         }
       }
     } catch {
       /* ignore */
+    }
+    isSeekingRef.current = true
+    setSeekingUi(!covered)
+    try {
+      v.currentTime = target
+    } catch {
+      setSeekingUi(false)
+      isSeekingRef.current = false
     }
   }
 
@@ -1626,14 +1694,8 @@ export function VideoPlayer({
       />
 
       {(loading || seekingUi || bufferingUi) && !mediaError && (
-        <div className="kz-status-layer">
-          <div className="kz-status-hint">
-            {loading
-              ? '加载视频中…'
-              : seekingUi
-                ? '跳转中…'
-                : '缓冲中…'}
-          </div>
+        <div className="kz-status-layer" aria-busy="true">
+          <div className="kz-stall-spinner" aria-label="加载中" />
         </div>
       )}
 

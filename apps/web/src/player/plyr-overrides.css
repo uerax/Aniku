@@ -381,6 +381,22 @@ html[data-theme='light'] .kz-watch-road-chip[aria-selected='true'] {
   font-size: 0.875rem;
 }
 
+/* Center stall spinner — only when nothing is paint-able (no text tips). */
+.kz-stall-spinner {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 50%;
+  border: 2.5px solid rgba(255, 255, 255, 0.22);
+  border-top-color: rgba(255, 255, 255, 0.92);
+  animation: kz-stall-spin 0.7s linear infinite;
+}
+
+@keyframes kz-stall-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .kz-media-error {
   max-width: 90%;
   padding: 0.75rem 1rem;

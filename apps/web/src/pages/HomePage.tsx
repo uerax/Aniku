@@ -37,27 +37,32 @@ export function HomePage() {
               全部历史
             </Link>
           </div>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {/*
+            min-w-0 on grid + items: iOS Safari keeps min-width:auto on grid
+            children, so horizontal resume cards (long plugin names) can grow
+            wider than the page shell / Bangumi grid.
+          */}
+          <div className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {recent.map((h) => (
               <Link
                 key={h.id}
                 to={`/play/${h.bangumiId}?plugin=${encodeURIComponent(h.pluginName)}&pageUrl=${encodeURIComponent(h.pageUrl)}&ep=${h.episode}&road=${h.road}&title=${encodeURIComponent(h.title)}${h.cover ? `&cover=${encodeURIComponent(h.cover)}` : ''}${h.sourceUrl ? `&source=${encodeURIComponent(h.sourceUrl)}` : ''}`}
-                className="flex items-center gap-3 rounded-2xl border border-[var(--kz-border)] bg-[var(--kz-bg-elevated)] p-3 transition hover:bg-[var(--kz-bg-hover)]"
+                className="flex min-w-0 max-w-full items-center gap-3 overflow-hidden rounded-2xl border border-[var(--kz-border)] bg-[var(--kz-bg-elevated)] p-3 transition hover:bg-[var(--kz-bg-hover)]"
               >
                 {h.cover ? (
                   <img
                     src={h.cover}
                     alt=""
-                    className="h-16 w-12 rounded-lg object-cover shadow-md ring-1 ring-[var(--kz-border)]"
+                    className="h-16 w-12 shrink-0 rounded-lg object-cover shadow-md ring-1 ring-[var(--kz-border)]"
                   />
                 ) : (
-                  <div className="h-16 w-12 rounded-lg bg-[var(--kz-bg-soft)]" />
+                  <div className="h-16 w-12 shrink-0 rounded-lg bg-[var(--kz-bg-soft)]" />
                 )}
-                <div className="min-w-0 flex-1">
+                <div className="min-w-0 flex-1 overflow-hidden">
                   <div className="truncate text-[13px] font-medium text-[var(--kz-fg)]">
                     {h.title}
                   </div>
-                  <div className="mt-0.5 text-[13px] text-[var(--kz-fg-muted)]">
+                  <div className="mt-0.5 truncate text-[13px] text-[var(--kz-fg-muted)]">
                     第 {h.episode} 集 · {h.pluginName}
                     {h.duration > 0 &&
                       ` · ${Math.floor((h.position / h.duration) * 100)}%`}
