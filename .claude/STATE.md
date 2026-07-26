@@ -1,5 +1,20 @@
 # Animaku 项目状态
 
+## [2026-07-26] 倍速记忆 + 桌面音量静音图标
+
+- 状态：已完成
+- 优先级：P0
+- 描述：
+  1. 选 1.25x 设置已存，新视频仍 1x：load/src/MSE 重置 playbackRate；ratechange 曾把 1 写回设置。现设 defaultPlaybackRate + 媒体 ready 再 apply；不再用 ratechange 写设置；设置页档位对齐 PLAYER_SPEEDS
+  2. 桌面控制条音量旁加扬声器图标：点静音 / 再点恢复上次音量
+- 涉及文件：
+  - apps/web/src/player/VideoPlayer.tsx
+  - apps/web/src/player/chrome/DesktopControls.tsx
+  - apps/web/src/player/chrome/types.ts
+  - apps/web/src/player/plyr-overrides.css
+  - apps/web/src/pages/SettingsPage.tsx
+- 备注：typecheck 通过
+
 ## [2026-07-26] iOS 首页「继续观看」卡片超宽
 
 - 状态：已完成
