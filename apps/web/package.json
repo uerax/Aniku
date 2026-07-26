@@ -1,5 +1,5 @@
 {
-  "name": "@aniku/web",
+  "name": "@animaku/web",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -11,7 +11,7 @@
     "lint": "tsc -b --pretty false"
   },
   "dependencies": {
-    "@aniku/shared": "workspace:*",
+    "@animaku/shared": "workspace:*",
     "@tanstack/react-query": "^5.69.0",
     "anime4k-webgpu": "^1.0.0",
     "clsx": "^2.1.1",

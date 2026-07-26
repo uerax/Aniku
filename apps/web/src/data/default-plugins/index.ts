@@ -1,4 +1,4 @@
-import type { PluginRule } from '@aniku/shared'
+import type { PluginRule } from '@animaku/shared'
 import anime1 from './Anime1.json'
 import otage from './otage.json'
 import xifan from './xifan.json'

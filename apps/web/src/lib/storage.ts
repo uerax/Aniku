@@ -1,5 +1,5 @@
 /**
- * One-shot migrate localStorage keys after product rename (kazumi-web → aniku).
+ * One-shot migrate localStorage keys after product rename (kazumi-web → aniku → animaku).
  * Call before creating each Zustand persist store.
  */
 export function migrateLocalStorageKey(newKey: string, oldKeys: string[]) {

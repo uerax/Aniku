@@ -1,4 +1,12 @@
-# Aniku 项目状态
+# Animaku 项目状态
+
+## [2026-07-26] 产品改名 aniku → animaku
+
+- 状态：已完成
+- 优先级：P1
+- 描述：全仓产品名/包名从 Aniku/`aniku`/`@aniku/*` 改为 Animaku/`animaku`/`@animaku/*`。含 package.json、import、Docker、UA、localStorage key（`animaku-*`，迁移兼容 `aniku-*` 与 `kazumi-web-*`）、`X-Animaku-Proxy-Token`（仍接受旧 `X-Aniku-Proxy-Token`）。
+- 涉及文件：package.json、apps/*、packages/shared、scripts、docker-compose、Dockerfile、README、docs/CONTEXT.md、pnpm-lock.yaml 等
+- 备注：磁盘目录仍为 `kazumi-web/`（未改文件夹名）；若需一并改目录名另说
 
 ## [2026-07-26] 桌面密集弹幕卡顿优化
 

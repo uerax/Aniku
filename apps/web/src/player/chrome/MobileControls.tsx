@@ -5,7 +5,7 @@ import {
   type CSSProperties,
   type SyntheticEvent,
 } from 'react'
-import type { SuperResolutionMode } from '@aniku/shared'
+import type { SuperResolutionMode } from '@animaku/shared'
 import type { PlayerControlsProps } from './types'
 import {
   IconFullscreen,

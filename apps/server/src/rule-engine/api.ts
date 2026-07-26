@@ -9,7 +9,7 @@ import type {
   PluginRule,
   Road,
   SearchItem,
-} from '@aniku/shared'
+} from '@animaku/shared'
 import { config } from '../config'
 import { assertPublicHttpUrl, fetchPublic } from '../lib/private-host'
 

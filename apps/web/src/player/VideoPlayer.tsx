@@ -14,7 +14,7 @@ import type Hls from 'hls.js'
 import {
   PLAYER_SPEEDS,
   type SuperResolutionMode,
-} from '@aniku/shared'
+} from '@animaku/shared'
 import { DanmakuPanel, type DanmakuPanelTab } from './DanmakuPanel'
 import {
   hasWebGPU,

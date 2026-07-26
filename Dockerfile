@@ -1,5 +1,5 @@
-# Aniku — single image: Hono API + Vite SPA
-# Build:  docker build -t aniku .
+# Animaku — single image: Hono API + Vite SPA
+# Build:  docker build -t animaku .
 # Run:    docker compose up -d --build
 #         open http://localhost:$WEB_PORT  (compose maps host WEB_PORT → container PORT)
 
@@ -18,8 +18,8 @@ RUN pnpm install --frozen-lockfile
 # ---- build frontend + server bundle ----
 FROM deps AS build
 COPY . .
-RUN pnpm --filter @aniku/web build \
- && pnpm --filter @aniku/server build
+RUN pnpm --filter @animaku/web build \
+ && pnpm --filter @animaku/server build
 
 # ---- runtime (node dist only; no tsx / no full monorepo src) ----
 FROM node:22-bookworm-slim AS runner

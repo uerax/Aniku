@@ -99,8 +99,8 @@ async function waitForHealth(port, timeoutMs = 30_000) {
 }
 
 console.log(`[dev] monorepo root: ${root}`)
-console.log(`[dev] starting @aniku/server (expect :${apiPort})…`)
-spawnPkg('@aniku/server')
+console.log(`[dev] starting @animaku/server (expect :${apiPort})…`)
+spawnPkg('@animaku/server')
 
 try {
   await waitForHealth(apiPort)
@@ -108,11 +108,11 @@ try {
 } catch (e) {
   console.error(`[dev] ${e instanceof Error ? e.message : e}`)
   console.error(
-    '[dev] Tip: free the port, or run `pnpm --filter @aniku/server dev` alone to see errors.',
+    '[dev] Tip: free the port, or run `pnpm --filter @animaku/server dev` alone to see errors.',
   )
   shutdown(1)
   process.exit(1)
 }
 
-console.log('[dev] starting @aniku/web (Vite)…')
-spawnPkg('@aniku/web')
+console.log('[dev] starting @animaku/web (Vite)…')
+spawnPkg('@animaku/web')

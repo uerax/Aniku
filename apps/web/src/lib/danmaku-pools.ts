@@ -1,4 +1,4 @@
-import type { DanmakuComment } from '@aniku/shared'
+import type { DanmakuComment } from '@animaku/shared'
 
 /** Independent comment pools that can be shown / hidden without reloading */
 export type DanmakuPoolId = 'dandan' | 'bilibili' | 'upload'

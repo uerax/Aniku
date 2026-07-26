@@ -18,7 +18,7 @@ import {
   type Road,
   type DanmakuSettings,
   type PlayerSettings,
-} from '@aniku/shared'
+} from '@animaku/shared'
 import { bangumiApi } from './bangumi'
 import { pluginApi } from './plugin-api'
 import { pickPlaybackSrc, type PlaybackTransit } from './playback-src'

@@ -14,7 +14,7 @@ import type {
   ResolvePlayResult,
   Road,
   SearchItem,
-} from '@aniku/shared'
+} from '@animaku/shared'
 import { config } from '../config'
 import { keywordVariantsZh } from './opencc-s2t'
 

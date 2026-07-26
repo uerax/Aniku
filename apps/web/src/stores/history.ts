@@ -1,11 +1,14 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
-import type { WatchHistoryEntry } from '@aniku/shared'
-import { historyId } from '@aniku/shared'
+import type { WatchHistoryEntry } from '@animaku/shared'
+import { historyId } from '@animaku/shared'
 import { createDebouncedStorage } from '../lib/debounced-storage'
 import { migrateLocalStorageKey } from '../lib/storage'
 
-migrateLocalStorageKey('aniku-history', ['kazumi-web-history'])
+migrateLocalStorageKey('animaku-history', [
+  'aniku-history',
+  'kazumi-web-history',
+])
 
 /** Cap persisted history rows */
 const MAX_ITEMS = 200
@@ -72,7 +75,7 @@ export const useHistoryStore = create<HistoryState>()(
       },
     }),
     {
-      name: 'aniku-history',
+      name: 'animaku-history',
       storage: createJSONStorage(() => createDebouncedStorage(PERSIST_DEBOUNCE_MS)),
       partialize: (s) => ({ items: s.items }),
       merge: (persisted, current) => {

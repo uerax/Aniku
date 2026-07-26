@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import type { PluginCatalogItem, PluginMeta } from '@aniku/shared'
-import { catalogItemStatus } from '@aniku/shared'
+import type { PluginCatalogItem, PluginMeta } from '@animaku/shared'
+import { catalogItemStatus } from '@animaku/shared'
 import { bangumiApi } from '../lib/bangumi'
 import { pluginApi } from '../lib/plugin-api'
 import {
@@ -859,7 +859,7 @@ export function SettingsPage() {
       <section className="space-y-2 rounded-2xl border border-[var(--kz-border)] bg-[var(--kz-bg-elevated)] p-5 text-sm text-[var(--kz-fg-muted)]">
         <h2 className="text-lg font-bold tracking-tight text-[var(--kz-fg)]">关于</h2>
         <p>
-          <strong className="font-medium text-[var(--kz-fg)]">Aniku</strong>{' '}
+          <strong className="font-medium text-[var(--kz-fg)]">Animaku</strong>{' '}
           是浏览器端番剧应用。规则格式兼容{' '}
           <a
             className="kz-link"

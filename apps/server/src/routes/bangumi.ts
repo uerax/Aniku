@@ -8,7 +8,7 @@ import {
   type BangumiCollectionEntry,
   type CollectType,
   type BangumiUser,
-} from '@aniku/shared'
+} from '@animaku/shared'
 import { config } from '../config'
 import { bangumiFetch, getBearerToken } from '../lib/http'
 

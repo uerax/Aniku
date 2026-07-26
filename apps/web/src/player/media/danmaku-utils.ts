@@ -1,4 +1,4 @@
-import type { DanmakuComment, DanmakuSettings } from '@aniku/shared'
+import type { DanmakuComment, DanmakuSettings } from '@animaku/shared'
 
 /**
  * Pixel speed helpers for canvas (and legacy) danmaku.

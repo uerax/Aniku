@@ -10,7 +10,7 @@ importers:
 
   apps/server:
     dependencies:
-      '@aniku/shared':
+      '@animaku/shared':
         specifier: workspace:*
         version: link:../../packages/shared
       '@hono/node-server':
@@ -47,7 +47,7 @@ importers:
 
   apps/web:
     dependencies:
-      '@aniku/shared':
+      '@animaku/shared':
         specifier: workspace:*
         version: link:../../packages/shared
       '@tanstack/react-query':

@@ -1,7 +1,7 @@
 import { memo } from 'react'
 import { Link } from 'react-router-dom'
-import type { BangumiItem } from '@aniku/shared'
-import { coverOf } from '@aniku/shared'
+import type { BangumiItem } from '@animaku/shared'
+import { coverOf } from '@animaku/shared'
 
 export const BangumiCard = memo(function BangumiCard({
   item,

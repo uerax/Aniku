@@ -63,6 +63,7 @@ export function canUseOpenProxy(c: Context): boolean {
   const token = config.proxyToken
   if (token) {
     const hdr =
+      c.req.header('x-animaku-proxy-token') ||
       c.req.header('x-aniku-proxy-token') ||
       c.req.header('x-proxy-token') ||
       ''

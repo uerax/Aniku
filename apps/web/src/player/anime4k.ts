@@ -11,7 +11,7 @@
  */
 /// <reference types="@webgpu/types" />
 
-import type { SuperResolutionMode } from '@aniku/shared'
+import type { SuperResolutionMode } from '@animaku/shared'
 
 export type Anime4KStop = () => void
 
@@ -371,7 +371,7 @@ export async function startAnime4K(
   })()
 
   const renderBindGroupLayout = device.createBindGroupLayout({
-    label: 'Aniku SR Bind Group Layout',
+    label: 'Animaku SR Bind Group Layout',
     entries: [
       { binding: 1, visibility: GPUShaderStage.FRAGMENT, sampler: {} },
       { binding: 2, visibility: GPUShaderStage.FRAGMENT, texture: {} },

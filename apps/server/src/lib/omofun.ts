@@ -17,7 +17,7 @@ import type {
   PluginSearchResult,
   Road,
   SearchItem,
-} from '@aniku/shared'
+} from '@animaku/shared'
 import { config } from '../config'
 import { assertPublicHttpUrl, fetchPublic } from './private-host'
 

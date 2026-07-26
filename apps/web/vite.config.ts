@@ -5,7 +5,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-/** Monorepo root (…/aniku) — where `.env` / `.env.example` live */
+/** Monorepo root (…/animaku) — where `.env` / `.env.example` live */
 const repoRoot = path.resolve(__dirname, '../..')
 
 function envInt(
@@ -46,7 +46,7 @@ export default defineConfig(({ mode }) => {
         '@': path.resolve(__dirname, 'src'),
         // Workspace package exports raw TS; pin path so Vite always finds it
         // even if node_modules links are stale after rename/reinstall.
-        '@aniku/shared': path.resolve(repoRoot, 'packages/shared/src/index.ts'),
+        '@animaku/shared': path.resolve(repoRoot, 'packages/shared/src/index.ts'),
       },
     },
     build: {

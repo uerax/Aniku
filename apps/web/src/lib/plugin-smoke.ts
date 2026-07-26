@@ -3,7 +3,7 @@
  * Keywords are fixed (no user input); first hit that yields chapters wins.
  */
 
-import type { PluginRule } from '@aniku/shared'
+import type { PluginRule } from '@animaku/shared'
 import { pluginApi } from './plugin-api'
 
 /** Common titles most anime indexes still list; try in order until search hits. */

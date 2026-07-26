@@ -1,4 +1,4 @@
-# Aniku
+# Animaku
 
 浏览器里的番剧应用：**Bangumi 元数据** · **规则选源播放** · **弹弹弹幕** · **本地历史 / 追番**。
 
@@ -24,8 +24,8 @@ node -v && pnpm -v
 ### 2. 安装与配置
 
 ```bash
-git clone <remote> aniku
-cd aniku
+git clone <remote> animaku
+cd animaku
 
 pnpm install
 cp .env.example .env   # 按需修改
@@ -65,7 +65,7 @@ pnpm typecheck     # 全仓 tsc
 | `WEB_HMR_HOST` | — | `WEB_HOST=0.0.0.0` 时 HMR 主机，默认 `127.0.0.1` |
 | `API_PROXY_*` | — | 可选；Vite `/api` 代理目标 |
 | `DANDAN_APP_ID` / `DANDAN_APP_SECRET` | 空 | 空则用内置 legacy 客户端密钥，开箱可弹幕 |
-| `BANGUMI_USER_AGENT` / `PRODUCT_USER_AGENT` | `aniku/0.1` | 上游 UA |
+| `BANGUMI_USER_AGENT` / `PRODUCT_USER_AGENT` | `animaku/0.1` | 上游 UA |
 | `DEFAULT_USER_AGENT` | 浏览器型 UA | 抓插件 HTML / 媒体 |
 
 ### 公网部署（重要）
@@ -73,7 +73,7 @@ pnpm typecheck     # 全仓 tsc
 | 变量 | 说明 |
 |------|------|
 | `PUBLIC_PROXY` | 默认关：媒体代理 + 规则 search/chapters/resolve **仅本机/局域网**。VPS 给浏览器公网访问时设 `1` |
-| `PROXY_TOKEN` | 可选；请求头 `X-Aniku-Proxy-Token` 或 `?proxyToken=` 可绕过局域网限制 |
+| `PROXY_TOKEN` | 可选；请求头 `X-Animaku-Proxy-Token` 或 `?proxyToken=` 可绕过局域网限制 |
 | `CORS_ORIGINS` | 额外允许的浏览器 Origin（逗号分隔）；localhost 始终可用。`*` 开放 CORS（不推荐） |
 
 **本机 / 局域网开发：不必开 `PUBLIC_PROXY`。**  
@@ -125,8 +125,8 @@ docker compose down
 
 ```bash
 # 不用 compose
-docker build -t aniku .
-docker run --rm -p 8787:8787 --env-file .env -e PORT=8787 -e PUBLIC_PROXY=1 aniku
+docker build -t animaku .
+docker run --rm -p 8787:8787 --env-file .env -e PORT=8787 -e PUBLIC_PROXY=1 animaku
 ```
 
 - 健康检查：`GET /api/health`

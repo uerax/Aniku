@@ -8,18 +8,20 @@
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/site.webmanifest" />
-    <title>Aniku</title>
+    <title>Animaku</title>
     <meta
       name="description"
-      content="Aniku — 浏览器端番剧浏览、规则选源、弹幕与 Bangumi 追番"
+      content="Animaku — 浏览器端番剧浏览、规则选源、弹幕与 Bangumi 追番"
     />
   </head>
   <body>
     <div id="root"></div>
     <script>
-      // Early theme paint before React — match aniku-settings localStorage
+      // Early theme paint before React — match animaku-settings localStorage
       try {
-        var raw = localStorage.getItem('aniku-settings')
+        var raw =
+          localStorage.getItem('animaku-settings') ||
+          localStorage.getItem('aniku-settings')
         var theme = 'dark'
         if (raw) {
           var parsed = JSON.parse(raw)

@@ -2,7 +2,7 @@ import type {
   DanmakuAnime,
   DanmakuEpisode,
   DanmakuSettings,
-} from '@aniku/shared'
+} from '@animaku/shared'
 import type { DanmakuSourceChip } from '../lib/danmaku-pools'
 import type { DanmakuPoolId } from '../lib/danmaku-pools'
 import type { PointerMode } from './chrome/usePointerMode'

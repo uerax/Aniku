@@ -8,7 +8,7 @@ import type {
   PluginChapterResult,
   ResolvePlayResult,
   PluginCatalogItem,
-} from '@aniku/shared'
+} from '@animaku/shared'
 
 type SignalOpt = { signal?: AbortSignal }
 

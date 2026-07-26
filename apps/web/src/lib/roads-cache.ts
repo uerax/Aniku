@@ -1,4 +1,4 @@
-import type { Road } from '@aniku/shared'
+import type { Road } from '@animaku/shared'
 
 /** sessionStorage payload for episode lists (per bangumi + plugin). */
 export type RoadsCachePayload = {

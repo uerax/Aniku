@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { filterM3u8AdsIfApplicable } from '@aniku/shared'
+import { filterM3u8AdsIfApplicable } from '@animaku/shared'
 import { config } from '../config'
 import { requireLocalOrToken } from '../lib/access'
 import { fetchPublic, isPrivateHost } from '../lib/private-host'

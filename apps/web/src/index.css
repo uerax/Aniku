@@ -1,7 +1,7 @@
 @import 'tailwindcss';
 
 /*
- * Aniku visual system — Twitter / X dual theme
+ * Animaku visual system — Twitter / X dual theme
  * Dark (default): Lights out black + #1d9bf0
  * Light: white canvas + same blue accent
  * Toggle via html[data-theme="dark"|"light"] (settings store + top-right button).

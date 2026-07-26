@@ -4,7 +4,7 @@ import {
   CollectTypeLabel,
   coverOf,
   type BangumiItem,
-} from '@aniku/shared'
+} from '@animaku/shared'
 
 /**
  * Same chrome + type scale as player 弹幕 status strip:

@@ -1,11 +1,14 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
-import type { PluginMeta, PluginRule } from '@aniku/shared'
-import { parsePluginRule } from '@aniku/shared'
+import type { PluginMeta, PluginRule } from '@animaku/shared'
+import { parsePluginRule } from '@animaku/shared'
 import { DEFAULT_PLUGIN_RULES } from '../data/default-plugins'
 import { migrateLocalStorageKey } from '../lib/storage'
 
-migrateLocalStorageKey('aniku-plugins', ['kazumi-web-plugins'])
+migrateLocalStorageKey('animaku-plugins', [
+  'aniku-plugins',
+  'kazumi-web-plugins',
+])
 
 /** Bump when built-in rule set changes so empty/legacy stores re-seed */
 /** v8: default adBlocker only on MXdm; Anime1/otage/xifan off */
@@ -244,7 +247,7 @@ export const usePluginStore = create<PluginState>()(
       },
     }),
     {
-      name: 'aniku-plugins',
+      name: 'animaku-plugins',
       version: 1,
       storage: createJSONStorage(() => localStorage),
       partialize: (s) => ({

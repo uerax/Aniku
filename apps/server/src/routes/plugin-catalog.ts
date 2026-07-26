@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
-import type { PluginCatalogItem } from '@aniku/shared'
-import { parsePluginRule } from '@aniku/shared'
+import type { PluginCatalogItem } from '@animaku/shared'
+import { parsePluginRule } from '@animaku/shared'
 import { config } from '../config'
 
 export const pluginCatalogRoutes = new Hono()

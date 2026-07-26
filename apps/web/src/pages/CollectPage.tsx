@@ -4,7 +4,7 @@ import {
   CollectType,
   toBangumiCollectionType,
   type BangumiItem,
-} from '@aniku/shared'
+} from '@animaku/shared'
 import { bangumiApi } from '../lib/bangumi'
 import { useSettingsStore } from '../stores/settings'
 import {

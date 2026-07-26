@@ -3,13 +3,13 @@
 面向后续维护者与协作者的**设计背景、架构约定与踩坑记录**。  
 日常上手见根目录 [README.md](../README.md)；给 AI 助手的精简约定见 [CLAUDE.md](../CLAUDE.md)。
 
-产品名：**Aniku**（包：`aniku` / `@aniku/*`）。
+产品名：**Animaku**（包：`animaku` / `@animaku/*`）。
 
 ---
 
 ## 1. 这是什么
 
-**Aniku** = 浏览器里的番剧应用：
+**Animaku** = 浏览器里的番剧应用：
 
 - 浏览 / 搜索 / 时间表（Bangumi）
 - 用户导入的 **兼容规则**（KazumiRules JSON）选源、解析、播放
@@ -19,7 +19,7 @@
 
 | 仓库 | 角色 |
 |------|------|
-| 本仓库 `aniku` | 完整读写 |
+| 本仓库 `animaku` | 完整读写 |
 | 工作区旁 `Kazumi/`（若存在） | 只读参考 |
 | 工作区旁 `agefans-enhance/`（若存在） | 只读参考 |
 
@@ -47,10 +47,10 @@
 ## 3. 技术栈与 monorepo
 
 ```
-aniku/
-  apps/web/          @aniku/web     React 19 + Vite 6 + Tailwind 4 + TanStack Query + Zustand
-  apps/server/       @aniku/server  Hono + @hono/node-server
-  packages/shared/   @aniku/shared  类型与解析器（源码导出，无独立 build）
+animaku/
+  apps/web/          @animaku/web     React 19 + Vite 6 + Tailwind 4 + TanStack Query + Zustand
+  apps/server/       @animaku/server  Hono + @hono/node-server
+  packages/shared/   @animaku/shared  类型与解析器（源码导出，无独立 build）
   docs/              开发者文档（本文件等）
   .env.example
 ```
@@ -65,8 +65,8 @@ aniku/
 pnpm install
 pnpm dev              # web + server (ports from .env WEB_DEV_PORT / PORT)
 pnpm typecheck
-pnpm --filter @aniku/web typecheck
-pnpm --filter @aniku/server typecheck
+pnpm --filter @animaku/web typecheck
+pnpm --filter @animaku/server typecheck
 ```
 
 当前**没有**单元/集成测试 runner；校验靠 `tsc` + 手动 `pnpm dev`。
@@ -100,12 +100,12 @@ Browser (WEB_DEV_PORT，默认 5173)
 | `WEB_HMR_HOST` | 可选；`WEB_HOST=0.0.0.0` 时 HMR 用的主机，默认 `127.0.0.1` |
 | `API_PROXY_HOST` / `API_PROXY_TARGET` | 可选；Vite `/api` 代理目标，默认 `http://127.0.0.1:$PORT` |
 | `DANDAN_APP_ID` / `DANDAN_APP_SECRET` | 可选；空则用内置 legacy 密钥 + `X-AppId`/`X-AppSecret` |
-| `BANGUMI_USER_AGENT` | 请求 Bangumi 的 UA，默认 `aniku/0.1` |
-| `PRODUCT_USER_AGENT` | 产品身份 UA（弹弹等），默认 `aniku/0.1` |
+| `BANGUMI_USER_AGENT` | 请求 Bangumi 的 UA，默认 `animaku/0.1` |
+| `PRODUCT_USER_AGENT` | 产品身份 UA（弹弹等），默认 `animaku/0.1` |
 | `DEFAULT_USER_AGENT` | 抓插件 HTML / 媒体等浏览器型 UA |
 | `CORS_ORIGINS` | 额外浏览器 Origin（逗号分隔）；默认仅 localhost/127.0.0.1。`*` 开放 CORS（不推荐） |
 | `PUBLIC_PROXY` | 默认关：媒体代理 + 规则 search/chapters/resolve 仅本机/局域网。公网部署设 `1` |
-| `PROXY_TOKEN` | 可选；请求头 `X-Aniku-Proxy-Token` 或 query `proxyToken` 可绕过局域网限制 |
+| `PROXY_TOKEN` | 可选；请求头 `X-Animaku-Proxy-Token` 或 query `proxyToken` 可绕过局域网限制 |
 
 **不要**再引入已死的公共 DPlayer 弹幕池 / `DPLAYER_API`。
 

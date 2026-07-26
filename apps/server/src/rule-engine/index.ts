@@ -5,8 +5,8 @@ import type {
   PluginSearchResult,
   PluginChapterResult,
   ResolvePlayResult,
-} from '@aniku/shared'
-import { parsePluginRule } from '@aniku/shared'
+} from '@animaku/shared'
+import { parsePluginRule } from '@animaku/shared'
 import * as cheerio from 'cheerio'
 import { DOMParser } from '@xmldom/xmldom'
 import xpath from 'xpath'

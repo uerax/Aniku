@@ -15,7 +15,7 @@ import {
   type DanmakuAnime,
   type DanmakuComment,
   type DanmakuEpisode,
-} from '@aniku/shared'
+} from '@animaku/shared'
 import { danmakuApi } from './plugin-api'
 import {
   emptyDanmakuPools,

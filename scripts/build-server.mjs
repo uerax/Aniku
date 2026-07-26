@@ -1,8 +1,8 @@
 /**
- * Bundle @aniku/server (+ workspace shared) to a single Node ESM file.
+ * Bundle @animaku/server (+ workspace shared) to a single Node ESM file.
  * Dev still uses tsx; production / Docker use `node dist/index.js`.
  *
- * Run from apps/server via: pnpm --filter @aniku/server build
+ * Run from apps/server via: pnpm --filter @animaku/server build
  * (esbuild is a server package devDependency)
  */
 import { createRequire } from 'node:module'
@@ -31,10 +31,10 @@ await esbuild.build({
   // require unless we inject createRequire; without this Node throws:
   //   Dynamic require of "buffer" is not supported
   banner: {
-    js: "import { createRequire as __anikuCreateRequire } from 'node:module';const require = __anikuCreateRequire(import.meta.url);",
+    js: "import { createRequire as __animakuCreateRequire } from 'node:module';const require = __animakuCreateRequire(import.meta.url);",
   },
   alias: {
-    '@aniku/shared': path.join(root, 'packages/shared/src/index.ts'),
+    '@animaku/shared': path.join(root, 'packages/shared/src/index.ts'),
   },
   logLevel: 'info',
   sourcemap: true,

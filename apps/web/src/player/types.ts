@@ -4,7 +4,7 @@ import type {
   DanmakuEpisode,
   DanmakuSettings,
   PlayerSettings,
-} from '@aniku/shared'
+} from '@animaku/shared'
 import type {
   DanmakuPoolId,
   DanmakuSourceChip,

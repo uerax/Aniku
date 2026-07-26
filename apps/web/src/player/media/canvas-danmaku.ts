@@ -15,7 +15,7 @@
  * - In-place running prune (no per-frame filter alloc)
  * - Desktop concurrent cap + DPR soft clamp under load
  */
-import type { DanmakuComment, DanmakuMode, DanmakuSettings } from '@aniku/shared'
+import type { DanmakuComment, DanmakuMode, DanmakuSettings } from '@animaku/shared'
 import {
   danmakuFontScale,
   danmakuPixelSpeed,

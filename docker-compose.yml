@@ -1,15 +1,15 @@
-# Aniku — one-command deploy
+# Animaku — one-command deploy
 #   cp .env.example .env   # optional; set PORT (and WEB_DEV_PORT for local Vite only)
 #   docker compose up -d --build
 # Open http://localhost:${PORT:-8787}  (SPA + /api on same origin)
 
 services:
-  aniku:
+  animaku:
     build:
       context: .
       dockerfile: Dockerfile
-    image: aniku:local
-    container_name: aniku
+    image: animaku:local
+    container_name: animaku
     # Host PORT → container PORT (production single process; no Vite)
     # Browser: http://localhost:$PORT
     ports:
@@ -21,8 +21,8 @@ services:
       WEB_DIST: "public"
       DANDAN_APP_ID: ${DANDAN_APP_ID:-}
       DANDAN_APP_SECRET: ${DANDAN_APP_SECRET:-}
-      BANGUMI_USER_AGENT: ${BANGUMI_USER_AGENT:-aniku/0.1}
-      PRODUCT_USER_AGENT: ${PRODUCT_USER_AGENT:-aniku/0.1}
+      BANGUMI_USER_AGENT: ${BANGUMI_USER_AGENT:-animaku/0.1}
+      PRODUCT_USER_AGENT: ${PRODUCT_USER_AGENT:-animaku/0.1}
       DEFAULT_USER_AGENT: ${DEFAULT_USER_AGENT:-Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36}
       PLUGIN_SHOP: ${PLUGIN_SHOP:-}
       PLUGIN_SHOP_MIRROR: ${PLUGIN_SHOP_MIRROR:-}

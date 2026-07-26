@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { parseDanmakuComments } from '@aniku/shared'
+import { parseDanmakuComments } from '@animaku/shared'
 import { dandanGet, isDanmakuUsingFallback } from '../lib/dandan'
 
 export const danmakuRoutes = new Hono()

@@ -2,7 +2,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 're
 import { useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import clsx from 'clsx'
-import { CollectType } from '@aniku/shared'
+import { CollectType } from '@animaku/shared'
 import {
   useWatchSession,
   bestTitleSimilarity,

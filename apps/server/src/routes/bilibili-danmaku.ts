@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import { gunzipSync } from 'node:zlib'
-import { parseDanmakuXml, extractBvid } from '@aniku/shared'
+import { parseDanmakuXml, extractBvid } from '@animaku/shared'
 import { config } from '../config'
 
 /**

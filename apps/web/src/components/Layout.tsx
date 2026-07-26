@@ -251,7 +251,7 @@ export function Layout() {
             />
             <span className="hidden flex-col leading-tight sm:flex">
               <span className="text-[15px] font-bold tracking-tight">
-                Aniku
+                Animaku
               </span>
               <span className="text-[10px] font-normal text-[var(--kz-fg-muted)]">
                 本地番剧 · 规则选源
@@ -427,7 +427,7 @@ export function Layout() {
 
       {!isWatch && (
         <footer className="border-t border-[var(--kz-border)] py-5 text-center text-[12px] leading-relaxed text-[var(--kz-fg-muted)]">
-          Aniku · 仅供学习研究 · 请遵守当地法律法规
+          Animaku · 仅供学习研究 · 请遵守当地法律法规
           <br className="sm:hidden" />
           <span className="hidden sm:inline"> · </span>
           数据来自 Bangumi / 弹弹play · 规则由用户自行导入

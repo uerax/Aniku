@@ -6,14 +6,17 @@ import {
   PLAYER_SPEEDS,
   type DanmakuSettings,
   type PlayerSettings,
-} from '@aniku/shared'
+} from '@animaku/shared'
 import { createDebouncedStorage } from '../lib/debounced-storage'
 import { migrateLocalStorageKey } from '../lib/storage'
 
 /** Debounce settings disk writes (volume scrub / slider spam). */
 const SETTINGS_PERSIST_DEBOUNCE_MS = 800
 
-migrateLocalStorageKey('aniku-settings', ['kazumi-web-settings'])
+migrateLocalStorageKey('animaku-settings', [
+  'aniku-settings',
+  'kazumi-web-settings',
+])
 
 export type AppTheme = 'dark' | 'light'
 
@@ -109,7 +112,7 @@ export const useSettingsStore = create<SettingsState>()(
       resetPlayer: () => set({ player: { ...defaultPlayerSettings } }),
     }),
     {
-      name: 'aniku-settings',
+      name: 'animaku-settings',
       storage: createJSONStorage(() =>
         createDebouncedStorage(SETTINGS_PERSIST_DEBOUNCE_MS),
       ),

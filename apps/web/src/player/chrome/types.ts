@@ -1,4 +1,4 @@
-import type { PlayerSettings, SuperResolutionMode } from '@aniku/shared'
+import type { PlayerSettings, SuperResolutionMode } from '@animaku/shared'
 
 /**
  * Control-bar props bag — display state + callbacks only.

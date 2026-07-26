@@ -70,15 +70,15 @@ export const config = {
   publicProxy: envBool(process.env.PUBLIC_PROXY, false),
   /**
    * Optional shared secret. When set, media + plugin exec also accept
-   * `X-Aniku-Proxy-Token: <token>` even from public IPs.
+   * `X-Animaku-Proxy-Token: <token>` even from public IPs.
    */
   proxyToken: (process.env.PROXY_TOKEN || '').trim(),
   dandanAppId: process.env.DANDAN_APP_ID || '',
   dandanAppSecret: process.env.DANDAN_APP_SECRET || '',
   bangumiUserAgent:
-    process.env.BANGUMI_USER_AGENT || 'aniku/0.1',
+    process.env.BANGUMI_USER_AGENT || 'animaku/0.1',
   /** Product UA for APIs that expect an app identity (e.g. DanDanPlay) */
-  productUserAgent: process.env.PRODUCT_USER_AGENT || 'aniku/0.1',
+  productUserAgent: process.env.PRODUCT_USER_AGENT || 'animaku/0.1',
   defaultUserAgent:
     process.env.DEFAULT_USER_AGENT ||
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
