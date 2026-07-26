@@ -1,5 +1,20 @@
 # Aniku 项目状态
 
+## [2026-07-26] 移动/桌面弹幕字号分轨 + 全屏压小
+
+- 状态：已完成
+- 优先级：P1
+- 描述：弹幕原先只按容器宽度缩放，手机全屏宽≈桌面中档 → 字号过大遮画面。现按 pointerMode + fullscreen 分轨：
+  - desktop：仍 width/720，[0.48, 1.1]
+  - mobile 窗内：按 stage 高度 ~4.2%，约 12–18px
+  - mobile 全屏：按高度 ~3.2%，约 11–14.5px（横屏 844×390 从 ~28px → ~12px）
+  - 移动全屏同屏上限 48、行距略紧、速度略慢
+- 涉及文件：
+  - apps/web/src/player/media/danmaku-utils.ts
+  - apps/web/src/player/media/canvas-danmaku.ts
+  - apps/web/src/player/VideoPlayer.tsx
+- 备注：typecheck 通过；布局经 ref 避免 src effect 闭包过期
+
 ## [2026-07-26] P0 完整弹幕：Canvas + 媒体时间 + 恒速
 
 - 状态：已完成

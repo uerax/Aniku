@@ -36,7 +36,11 @@ import {
   requestDomFullscreen,
 } from './media/fullscreen'
 import { CanvasDanmaku } from './media/canvas-danmaku'
-import { danmakuFontScale, danmakuPixelSpeed } from './media/danmaku-utils'
+import {
+  danmakuFontScaleBucket,
+  danmakuPixelSpeed,
+  type DanmakuLayoutHints,
+} from './media/danmaku-utils'
 import {
   bufferedAhead,
   formatTime,
@@ -107,6 +111,10 @@ export function VideoPlayer({
   const playerRef = useRef(player)
   const danmakuRef = useRef(danmaku)
   const commentsRef = useRef(comments)
+  /** Live layout for danmaku (avoid stale closure inside src effect). */
+  const pointerModeRef = useRef<'desktop' | 'mobile'>('desktop')
+  const playerFsRef = useRef(false)
+  const webFsRef = useRef(false)
   const onNextRef = useRef(onNext)
   const onPrevRef = useRef(onPrev)
   const onEndedRef = useRef(onEnded)
@@ -184,12 +192,29 @@ export function VideoPlayer({
   onMediaAuthExpiredRef.current = onMediaAuthExpired
   onMediaLoadFailedRef.current = onMediaLoadFailed
   initialTimeRef.current = initialTime
+  pointerModeRef.current = pointerMode
+  playerFsRef.current = playerFs
+  webFsRef.current = webFs
 
   function reportLoadFailed(reason: string) {
     if (loadFailedOnceRef.current) return
     loadFailedOnceRef.current = true
     const pos = videoRef.current?.currentTime || 0
     onMediaLoadFailedRef.current?.({ position: pos, reason })
+  }
+
+  /** Desktop/mobile + fullscreen → danmaku font/speed curve (not width alone). */
+  function danmakuLayoutHints(height?: number): DanmakuLayoutHints {
+    const shell = shellRef.current
+    const h =
+      height && height > 0
+        ? height
+        : shell?.clientHeight || layerRef.current?.clientHeight || 0
+    return {
+      mode: pointerModeRef.current,
+      fullscreen: Boolean(playerFsRef.current || webFsRef.current),
+      height: h > 0 ? h : undefined,
+    }
   }
 
   /**
@@ -203,17 +228,21 @@ export function VideoPlayer({
     const layer = layerRef.current
     if (!video || !layer) return
     const dm = danmakuRef.current
+    const shell = shellRef.current
     const w =
-      shellRef.current?.clientWidth ||
-      layer.clientWidth ||
-      video.clientWidth ||
-      0
-    const pixelSpeed = danmakuPixelSpeed(w, dm.speed || 1)
+      shell?.clientWidth || layer.clientWidth || video.clientWidth || 0
+    const h =
+      shell?.clientHeight || layer.clientHeight || video.clientHeight || 0
+    const layout = danmakuLayoutHints(h)
+    const pixelSpeed = danmakuPixelSpeed(w, dm.speed || 1, layout)
     const prevW = lastDanmakuWidthRef.current
     const widthBucketChanged =
       w > 0 &&
       (prevW <= 0 ||
-        Math.abs(danmakuFontScale(w) - danmakuFontScale(prevW)) >= 0.02)
+        Math.abs(
+          danmakuFontScaleBucket(w, layout) -
+            danmakuFontScaleBucket(prevW, layout),
+        ) >= 1)
     lastDanmakuWidthRef.current = w
 
     const contentKey = [
@@ -227,7 +256,7 @@ export function VideoPlayer({
       dm.showBottom ? 1 : 0,
       dm.showColor ? 1 : 0,
       (dm.filters || []).join('\0'),
-      Math.round(danmakuFontScale(w) * 50),
+      danmakuFontScaleBucket(w, layout),
     ].join('|')
 
     try {
@@ -243,16 +272,19 @@ export function VideoPlayer({
           comments: commentsRef.current,
           settings: dm,
           width: w,
+          layout,
         })
         danmakuContentKeyRef.current = contentKey
       } else if (needReload) {
         const core = danmakuCoreRef.current
+        core.setLayout(layout)
         core.reload(commentsRef.current, dm)
         core.speed = pixelSpeed
         danmakuContentKeyRef.current = contentKey
         if (widthBucketChanged) core.resize(w)
       } else {
         const core = danmakuCoreRef.current
+        core.setLayout(layout)
         core.applyVisual(dm)
         core.speed = pixelSpeed
         // Geometry only when player width actually moved a font-scale bucket
@@ -865,20 +897,27 @@ export function VideoPlayer({
 
     const ro = new ResizeObserver(() => {
       try {
-        const w = shellRef.current?.clientWidth || 0
+        const shell = shellRef.current
+        const w = shell?.clientWidth || 0
+        const h = shell?.clientHeight || 0
         const core = danmakuCoreRef.current
         if (!core || w <= 0) return
-        // Font scale is width-based; full content re-apply only when scale bucket
-        // would change. Pure geometry uses resize() (media-time progress kept).
+        // Font scale is layout+size based; full content re-apply only when
+        // scale bucket would change. Pure geometry uses resize().
+        const layout = danmakuLayoutHints(h)
         const prev = lastDanmakuWidthRef.current
         const scaleChanged =
           prev <= 0 ||
-          Math.abs(danmakuFontScale(w) - danmakuFontScale(prev)) >= 0.02
+          Math.abs(
+            danmakuFontScaleBucket(w, layout) -
+              danmakuFontScaleBucket(prev, layout),
+          ) >= 1
         if (scaleChanged) {
           applyDanmaku()
         } else {
           const dm = danmakuRef.current
-          core.speed = danmakuPixelSpeed(w, dm.speed || 1)
+          core.setLayout(layout)
+          core.speed = danmakuPixelSpeed(w, dm.speed || 1, layout)
           core.resize(w)
         }
       } catch {
@@ -1039,6 +1078,21 @@ export function VideoPlayer({
     applyDanmaku()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [comments, danmaku])
+
+  // Mobile/desktop + fullscreen change font curve without comment rebuild
+  useEffect(() => {
+    const core = danmakuCoreRef.current
+    if (!core) return
+    const shell = shellRef.current
+    const w = shell?.clientWidth || 0
+    const h = shell?.clientHeight || 0
+    const layout = danmakuLayoutHints(h)
+    core.setLayout(layout)
+    if (w > 0) {
+      core.speed = danmakuPixelSpeed(w, danmakuRef.current.speed || 1, layout)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pointerMode, playerFs, webFs])
 
   useEffect(() => {
     const video = videoRef.current

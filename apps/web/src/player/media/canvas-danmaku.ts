@@ -14,12 +14,15 @@ import {
   danmakuFontScale,
   danmakuPixelSpeed,
   filterComments,
+  type DanmakuLayoutHints,
 } from './danmaku-utils'
 
 const BILI_BASE_PX = 25
 const REF_WIDTH = 720
 /** Soft cap concurrent draws — density budget, not collision alone */
 const MAX_RUNNING = 80
+/** Mobile fullscreen: fewer concurrent lines so small screens stay readable */
+const MAX_RUNNING_MOBILE_FS = 48
 /** Top/bottom static hold (seconds), clamped */
 const STATIC_MIN_S = 4
 const STATIC_MAX_S = 6
@@ -33,6 +36,8 @@ export type CanvasDanmakuOptions = {
   settings: DanmakuSettings
   /** Container CSS width hint for font/speed (updated on resize) */
   width?: number
+  /** Desktop vs mobile + fullscreen — drives font scale curve */
+  layout?: DanmakuLayoutHints
 }
 
 type Prepared = {
@@ -88,6 +93,7 @@ export class CanvasDanmaku {
   private _opacity = 0.85
   private area = 0.5
   private settings: DanmakuSettings
+  private layout: DanmakuLayoutHints = {}
   /** Lane free-at media time (scroll). Key = lane index */
   private scrollLaneFree: number[] = []
   private topLaneFree: number[] = []
@@ -103,6 +109,7 @@ export class CanvasDanmaku {
     this.container = opts.container
     this.media = opts.media
     this.settings = opts.settings
+    this.layout = opts.layout ? { ...opts.layout } : {}
     this._opacity = opts.settings.opacity ?? 0.85
     this.area = Math.min(1, Math.max(0.15, opts.settings.area || 0.5))
 
@@ -177,6 +184,41 @@ export class CanvasDanmaku {
     this.seek()
   }
 
+  /** Update desktop/mobile + fullscreen hints; triggers font recompute via resize. */
+  setLayout(hints: DanmakuLayoutHints): this {
+    const prev = this.layout
+    const next: DanmakuLayoutHints = {
+      mode: hints.mode ?? prev.mode,
+      fullscreen: hints.fullscreen ?? prev.fullscreen,
+      height: hints.height ?? prev.height,
+    }
+    const changed =
+      prev.mode !== next.mode ||
+      prev.fullscreen !== next.fullscreen ||
+      Math.abs((prev.height || 0) - (next.height || 0)) > 0.5
+    this.layout = next
+    if (changed) this.resize()
+    return this
+  }
+
+  private layoutHints(heightOverride?: number): DanmakuLayoutHints {
+    return {
+      mode: this.layout.mode,
+      fullscreen: this.layout.fullscreen,
+      height:
+        heightOverride && heightOverride > 0
+          ? heightOverride
+          : this.layout.height || this.cssH || undefined,
+    }
+  }
+
+  private maxRunning(): number {
+    if (this.layout.mode === 'mobile' && this.layout.fullscreen) {
+      return MAX_RUNNING_MOBILE_FS
+    }
+    return MAX_RUNNING
+  }
+
   show(): this {
     this.visible = true
     this.canvas.style.visibility = 'visible'
@@ -207,6 +249,7 @@ export class CanvasDanmaku {
 
     this.cssW = cw
     this.cssH = ch
+    this.layout = { ...this.layout, height: ch }
     this.dpr = dpr
 
     if (sizeChanged) {
@@ -217,13 +260,17 @@ export class CanvasDanmaku {
       this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     }
 
-    const scale = danmakuFontScale(cw)
+    const hints = this.layoutHints(ch)
+    const scale = danmakuFontScale(cw, hints)
     this.fontPx = Math.round(
       BILI_BASE_PX * scale * (this.settings.fontSize || 1),
     )
     this.font = `700 ${this.fontPx}px SimHei, "Microsoft YaHei", "Microsoft JhengHei", Arial, Helvetica, sans-serif`
-    this.laneH = Math.max(18, Math.ceil(this.fontPx * 1.35))
-    this.speedPx = danmakuPixelSpeed(cw, this.settings.speed || 1)
+    // Mobile fullscreen: tighter lane spacing so more tracks fit without huge glyphs
+    const laneMult =
+      this.layout.mode === 'mobile' && this.layout.fullscreen ? 1.22 : 1.35
+    this.laneH = Math.max(16, Math.ceil(this.fontPx * laneMult))
+    this.speedPx = danmakuPixelSpeed(cw, this.settings.speed || 1, hints)
 
     // Remeasure text widths at new font
     this.ctx.font = this.font
@@ -243,15 +290,19 @@ export class CanvasDanmaku {
       this.settings = settings
       this._opacity = settings.opacity ?? 0.85
       this.area = Math.min(1, Math.max(0.15, settings.area || 0.5))
-      const scale = danmakuFontScale(this.cssW || REF_WIDTH)
+      const hints = this.layoutHints()
+      const scale = danmakuFontScale(this.cssW || REF_WIDTH, hints)
       this.fontPx = Math.round(
         BILI_BASE_PX * scale * (settings.fontSize || 1),
       )
       this.font = `700 ${this.fontPx}px SimHei, "Microsoft YaHei", "Microsoft JhengHei", Arial, Helvetica, sans-serif`
-      this.laneH = Math.max(18, Math.ceil(this.fontPx * 1.35))
+      const laneMult =
+        this.layout.mode === 'mobile' && this.layout.fullscreen ? 1.22 : 1.35
+      this.laneH = Math.max(16, Math.ceil(this.fontPx * laneMult))
       this.speedPx = danmakuPixelSpeed(
         this.cssW || REF_WIDTH,
         settings.speed || 1,
+        hints,
       )
     }
 
@@ -292,6 +343,7 @@ export class CanvasDanmaku {
     this.speedPx = danmakuPixelSpeed(
       this.cssW || REF_WIDTH,
       settings.speed || 1,
+      this.layoutHints(),
     )
     this.recomputeDurations()
     if (areaChanged) {
@@ -419,7 +471,7 @@ export class CanvasDanmaku {
         this.cursor++
         continue
       }
-      if (this.running.length < MAX_RUNNING) {
+      if (this.running.length < this.maxRunning()) {
         this.trySpawn(p, this.cursor, t, false)
       }
       this.cursor++
@@ -434,7 +486,7 @@ export class CanvasDanmaku {
     now: number,
     retro: boolean,
   ): boolean {
-    if (this.running.length >= MAX_RUNNING) return false
+    if (this.running.length >= this.maxRunning()) return false
 
     if (p.mode === 'rtl') {
       const lanes = this.scrollLaneFree
