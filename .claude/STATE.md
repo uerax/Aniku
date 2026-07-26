@@ -1,5 +1,13 @@
 # Animaku 项目状态
 
+## [2026-07-27] 参考 Kazumi 重设计 README
+
+- 状态：已完成
+- 优先级：P2
+- 描述：按 Kazumi README 的产品向结构重写 `README.md`：居中标题/徽章/简介、「这是什么」、支持环境、功能 checklist、快速开始、使用流程、生产/Docker、环境变量、贡献、折叠 Q&A、免责/隐私、致谢。保留自托管必需的 dev/prod 与 `PUBLIC_PROXY` 说明；开发者细节仍指向 `docs/CONTEXT.md`。API 全表从 README 挪走（避免喧宾夺主）。
+- 涉及文件：README.md
+- 备注：logo 暂用 `apps/web/public/android-chrome-512x512.png`；仓库根无 LICENSE，免责声明未写 GPL
+
 ## [2026-07-26] 倍速记忆 + 桌面音量静音图标
 
 - 状态：已完成
