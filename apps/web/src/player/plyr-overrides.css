@@ -60,10 +60,57 @@
 /* Mobile: full width stack, player uses normal stack max-width */
 .kz-watch-cinema--mobile {
   max-width: 100%;
+  /* Slightly less chrome than desktop cinema (no under-player page chrome) */
+  --kz-player-max-h: calc(100dvh - 8rem);
+  --kz-header-offset: 3.5rem; /* sticky top under site header */
 }
 
 .kz-watch-meta {
   width: 100%;
+}
+
+/*
+ * Mobile portrait: Bilibili-style sticky player under the site header.
+ * Landscape intentionally not sticky — short viewport needs page scroll.
+ */
+@media (max-width: 1023px) and (orientation: portrait) {
+  .kz-watch-cinema--mobile .kz-player-stack--sticky {
+    position: sticky;
+    top: var(--kz-header-offset, 3.5rem);
+    z-index: 30; /* below site header z-40 */
+    background: var(--kz-bg, #0a0a0a);
+    /* Soft separation when content scrolls underneath */
+    box-shadow: 0 1px 0 var(--kz-border, rgba(255, 255, 255, 0.08));
+  }
+}
+
+/*
+ * Mobile landscape: short axis is height. Force width from max height so
+ * 16:9 never claims full landscape width (was ~portrait-ratio / clipped).
+ * Prefer explicit stack width — more reliable than aspect-ratio + max-height
+ * alone on WebKit when height binds first.
+ */
+@media (max-width: 1023px) and (orientation: landscape) {
+  .kz-watch-cinema--mobile {
+    /* Header only — landscape has little vertical chrome to spare */
+    --kz-player-max-h: calc(100dvh - 4.5rem);
+  }
+
+  .kz-watch-cinema--mobile .kz-player-stack {
+    width: min(100%, calc(var(--kz-player-max-h) * 16 / 9));
+    max-width: min(100%, calc(var(--kz-player-max-h) * 16 / 9));
+    margin-inline: auto;
+  }
+
+  .kz-watch-cinema--mobile .kz-player-frame,
+  .kz-watch-cinema--mobile .kz-player-placeholder {
+    width: 100%;
+    max-width: none;
+    height: var(--kz-player-max-h);
+    max-height: var(--kz-player-max-h);
+    /* Width already 16:9 of height via stack; drop aspect so max-h can't squash */
+    aspect-ratio: auto;
+  }
 }
 
 /*
@@ -88,16 +135,21 @@
   overscroll-behavior: contain;
 }
 
-.kz-watch-cinema--desktop .kz-watch-eps {
+/* Shared Bilibili-style 选集 (MobileEpsSection) on desktop rail */
+.kz-watch-cinema--desktop .kz-watch-eps,
+.kz-watch-cinema--desktop .kz-watch-eps--mobile {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .kz-watch-cinema--desktop .kz-watch-eps-body {
   max-height: var(--kz-watch-eps-max-h);
   overflow-y: auto;
   overscroll-behavior: contain;
+  min-height: 0;
 }
 
 .kz-watch-cinema--mobile .kz-watch-sources,
@@ -108,17 +160,73 @@
   overflow: visible;
 }
 
-/* Mobile: denser ep grid — more columns, tighter chips */
-.kz-watch-cinema--mobile .kz-watch-ep-grid {
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 0.35rem;
+/*
+ * Bilibili-style 选集 cards (desktop rail + mobile):
+ * horizontal strip by default; "全N话" expands to wrapping grid.
+ */
+.kz-watch-eps--mobile {
+  width: 100%;
+  box-sizing: border-box;
 }
 
-.kz-watch-cinema--mobile .kz-watch-ep-btn {
-  border-radius: 0.5rem;
-  padding: 0.35rem 0.2rem;
-  font-size: 0.72rem;
-  line-height: 1.2;
+.kz-watch-ep-strip {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  /* allow selected ring (with p-[3px] in markup) to stay visible */
+  scroll-padding-inline: 3px;
+}
+
+.kz-watch-ep-card {
+  min-height: 3.25rem;
+  box-sizing: border-box;
+}
+
+/*
+ * 关键词下拉：视觉约减半（native <select> 易忽略 Tailwind text-*）
+ * 搜索结果条目标题：约再缩 1/3
+ */
+.kz-kw-select {
+  height: 1.3rem; /* ~18px */
+  max-height: 1.3rem;
+  font-size: 12px !important;
+  line-height: 1.125rem !important;
+  box-shadow: none;
+}
+.kz-kw-select:focus {
+  outline: none;
+  box-shadow: none;
+}
+.kz-kw-select option {
+  font-size: 18px; /* 展开列表可读 */
+}
+.kz-kw-input {
+  height: 1.3rem;
+  max-height: 1.3rem;
+  font-size: 13px !important;
+  line-height: 1.3rem !important;
+  outline: none;
+  box-shadow: none;
+}
+.kz-kw-input:focus {
+  outline: none;
+  box-shadow: none;
+}
+.kz-kw-search-btn {
+  height: 1.3rem;
+  font-size: 12px !important;
+  line-height: 1 !important;
+}
+/* 结果条目标题 ≈ 原 10–12px 的 2/3 */
+.kz-source-hit {
+  font-size: 12px !important;
+  line-height: 2 !important;
+}
+.kz-source-hit-title {
+  font-size: 11px !important;
+  font-weight: 400 !important;
+}
+.kz-source-hit-meta {
+  font-size: 11px !important;
 }
 
 /* Light theme: violet road chips stay readable */

@@ -1,0 +1,219 @@
+import { useEffect, useRef } from 'react'
+import clsx from 'clsx'
+
+export type MobileEpsRoad = {
+  name?: string
+  identifier: string[]
+  data: string[]
+}
+
+/**
+ * Bilibili web-mobile style 选集:
+ *  选集                    全 N 话 >
+ *  [线路 tabs as text]
+ *  [horizontal episode cards]
+ *
+ * Card chrome matches 视频源 / 简介 width (rounded elevated panel).
+ * "全 N 话" expands to a wrapping grid of the same cards.
+ */
+export function MobileEpsSection({
+  roads,
+  activeRoadIndex,
+  playingRoad,
+  playingEpisode,
+  epCount,
+  listExpanded,
+  roadLoading,
+  roadError,
+  pendingPluginName,
+  hasSelection,
+  onToggleList,
+  onSelectRoad,
+  onPickEpisode,
+}: {
+  roads: MobileEpsRoad[]
+  activeRoadIndex: number
+  playingRoad?: number | null
+  /** 1-based episode number currently playing on playingRoad */
+  playingEpisode?: number | null
+  epCount: number
+  listExpanded: boolean
+  roadLoading?: boolean
+  roadError?: string | null
+  pendingPluginName?: string | null
+  hasSelection: boolean
+  onToggleList: () => void
+  onSelectRoad: (index: number) => void
+  onPickEpisode: (epIndex: number, roadIndex: number) => void
+}) {
+  const activeRoad = roads[activeRoadIndex]
+  const showRoads = roads.length > 0
+  const stripRef = useRef<HTMLDivElement>(null)
+
+  // Keep the playing card visible in the horizontal strip
+  useEffect(() => {
+    if (listExpanded) return
+    if (playingRoad !== activeRoadIndex) return
+    if (!playingEpisode || playingEpisode < 1) return
+    const root = stripRef.current
+    if (!root) return
+    const card = root.querySelector<HTMLElement>(
+      `[data-ep-index="${playingEpisode - 1}"]`,
+    )
+    card?.scrollIntoView({
+      behavior: 'smooth',
+      inline: 'center',
+      block: 'nearest',
+    })
+  }, [listExpanded, playingRoad, playingEpisode, activeRoadIndex, activeRoad])
+
+  return (
+    <section className="kz-watch-eps kz-watch-eps--mobile min-w-0 overflow-hidden rounded-xl border border-[var(--kz-border)] bg-[var(--kz-bg-elevated)] px-3 py-2 text-xs">
+      <div className="flex items-center gap-2 leading-none">
+        <h2 className="min-w-0 flex-1 text-xs font-normal text-[var(--kz-fg-muted)]">
+          选集
+        </h2>
+        <button
+          type="button"
+          onClick={onToggleList}
+          className="shrink-0 text-xs font-normal text-[var(--kz-fg-muted)] transition hover:text-[var(--kz-fg)]"
+          aria-expanded={listExpanded}
+        >
+          {epCount > 0 ? `全${epCount}话` : '全部'}
+          <span className="ml-0.5 inline-block translate-y-px text-[10px] opacity-70">
+            {listExpanded ? '∨' : '>'}
+          </span>
+        </button>
+      </div>
+
+      {showRoads && (
+        <div
+          className="kz-watch-roads mt-1.5 flex gap-2.5 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          role="tablist"
+          aria-label="播放线路"
+        >
+          {roads.map((road, ri) => {
+            const active = ri === activeRoadIndex
+            const playingHere = playingRoad === ri
+            const label = road.name?.trim() || `线路 ${ri + 1}`
+            return (
+              <button
+                key={`${label}-${ri}`}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => onSelectRoad(ri)}
+                className={clsx(
+                  'kz-watch-road-tab shrink-0 border-b-2 pb-0.5 text-xs font-normal leading-none transition',
+                  active
+                    ? 'border-[var(--kz-accent)] text-[var(--kz-accent)]'
+                    : 'border-transparent text-[var(--kz-fg-muted)] hover:text-[var(--kz-fg)]',
+                )}
+                title={label}
+              >
+                {label}
+                {playingHere && !active ? (
+                  <span className="ml-1 text-[10px] text-[var(--kz-accent)]">
+                    ·播
+                  </span>
+                ) : null}
+              </button>
+            )
+          })}
+        </div>
+      )}
+
+      <div className="kz-watch-eps-body mt-2">
+        {roadLoading && (
+          <p className="py-5 text-center text-xs text-[var(--kz-fg-muted)]">
+            加载分集
+            {pendingPluginName ? `（${pendingPluginName}）` : ''}
+            …
+          </p>
+        )}
+        {roadError && (
+          <p className="px-1 py-2 text-xs text-red-400">{roadError}</p>
+        )}
+        {!hasSelection && !roadLoading && (
+          <p className="py-5 text-center text-xs leading-relaxed text-[var(--kz-fg-muted)]">
+            ① 在「视频源」点规则搜索
+            <br />
+            ② 再点搜出的番剧条目加载分集
+          </p>
+        )}
+        {hasSelection && !roadLoading && activeRoad && (
+          <div
+            ref={stripRef}
+            className={clsx(
+              'kz-watch-ep-strip',
+              /* p-[3px]: room for selected ring so overflow-x doesn't clip it */
+              listExpanded
+                ? /* desktop rail ~320px → 2 cols; wider mobile full grid → 3 */
+                  'grid grid-cols-2 gap-2 p-[3px] lg:grid-cols-2 sm:grid-cols-3'
+                : 'flex gap-2 overflow-x-auto p-[3px] pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
+            )}
+          >
+            {activeRoad.identifier.map((name, epIndex) => {
+              const playing =
+                playingRoad === activeRoadIndex &&
+                playingEpisode === epIndex + 1
+              const epLabel = `第 ${epIndex + 1} 话`
+              return (
+                <button
+                  key={activeRoad.data[epIndex] + name + epIndex}
+                  type="button"
+                  data-ep-index={epIndex}
+                  onClick={() => onPickEpisode(epIndex, activeRoadIndex)}
+                  title={name}
+                  className={clsx(
+                    'kz-watch-ep-card rounded-lg px-2 py-1.5 text-center transition',
+                    listExpanded ? 'min-w-0' : 'w-[7.25rem] shrink-0',
+                    playing
+                      ? 'bg-[var(--kz-bg-soft)] ring-1 ring-inset ring-[var(--kz-accent)]/50'
+                      : 'bg-[var(--kz-bg-soft)] hover:bg-[var(--kz-bg-hover)]',
+                  )}
+                >
+                  <div
+                    className={clsx(
+                      'flex items-center justify-center gap-1 text-xs font-normal leading-snug',
+                      playing
+                        ? 'font-medium text-[var(--kz-accent)]'
+                        : 'text-[var(--kz-fg)]',
+                    )}
+                  >
+                    {playing ? (
+                      <span
+                        className="inline-flex h-3.5 w-3 shrink-0 items-end justify-center gap-px"
+                        aria-hidden
+                      >
+                        <span className="h-1.5 w-0.5 animate-pulse rounded-sm bg-current" />
+                        <span className="h-2.5 w-0.5 animate-pulse rounded-sm bg-current [animation-delay:120ms]" />
+                        <span className="h-2 w-0.5 animate-pulse rounded-sm bg-current [animation-delay:240ms]" />
+                      </span>
+                    ) : null}
+                    <span className="min-w-0 truncate">{epLabel}</span>
+                  </div>
+                  <div
+                    className={clsx(
+                      'mt-0.5 line-clamp-2 text-[11px] leading-snug',
+                      playing
+                        ? 'text-[var(--kz-accent)]/85'
+                        : 'text-[var(--kz-fg-muted)]',
+                    )}
+                  >
+                    {name?.trim() || epLabel}
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+        )}
+        {hasSelection && !roadLoading && !activeRoad && roads.length > 0 && (
+          <p className="py-5 text-center text-xs text-[var(--kz-fg-muted)]">
+            请选择上方线路查看集数
+          </p>
+        )}
+      </div>
+    </section>
+  )
+}

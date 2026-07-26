@@ -1,5 +1,39 @@
 # Aniku 项目状态
 
+## [2026-07-26] 桌面同步视频源/选集设计
+
+- 状态：已完成
+- 优先级：P2
+- 描述：桌面 rail 与移动端共用：
+  1. 视频源折叠头 = 弹幕/简介条（text-xs · 展开/收起）
+  2. 选集 = MobileEpsSection（线路 tab + 横向卡 / 全N话网格）
+  移除桌面旧折叠 chevron + 数字网格 + epsOpen
+- 涉及文件：WatchPage.tsx、MobileEpsSection.tsx、plyr-overrides.css
+- 备注：typecheck 通过；桌面 body 仍有 max-height 独立滚动
+
+## [2026-07-26] 移动端 B 站式选集
+
+- 状态：已完成
+- 优先级：P2
+- 描述：MobileEpsSection — 「选集 / 全N话」标题行、文字线路 tab、横向集数卡
+- 涉及文件：MobileEpsSection.tsx、WatchPage.tsx、plyr-overrides.css
+
+## [2026-07-26] 移动端观看页重制 + 横屏比例
+
+- 状态：已完成
+- 优先级：P1
+- 描述：
+  1. 横屏：短轴高度反推宽度，16:9 自适应（不再竖屏比例卡死）
+  2. 竖屏：播放器 sticky 顶栏下；栈序 player → meta → 视频源 → 选集
+  3. meta 默认对齐弹幕条；展开后紧凑封面/标签/简介/收藏
+  4. 横屏不 sticky；桌面 DesktopWatchLayout 不动
+- 涉及文件：
+  - apps/web/src/player/plyr-overrides.css
+  - apps/web/src/pages/watch/MobileWatchLayout.tsx
+  - apps/web/src/pages/watch/WatchMeta.tsx
+  - apps/web/src/pages/WatchPage.tsx
+- 备注：focus scroll 改为 block:nearest；--kz-header-offset 3.5rem
+
 ## [2026-07-26] 移动/桌面弹幕字号分轨 + 全屏压小
 
 - 状态：已完成
