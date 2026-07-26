@@ -195,7 +195,7 @@
   box-shadow: none;
 }
 .kz-kw-select option {
-  font-size: 18px; /* 展开列表可读 */
+  font-size: 12px; /* 展开列表可读 */
 }
 .kz-kw-input {
   height: 1.3rem;
