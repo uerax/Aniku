@@ -1,5 +1,21 @@
 # Animaku 项目状态
 
+## [2026-07-28] 插件 search/chapters/resolve 结果缓存
+
+- 状态：已完成
+- 优先级：P1
+- 描述：TODO 3 — 服务端 TTL（search 4h / chapters 12h / resolve 按 URL 分类）；single-flight；客户端 search memory+session、roads-cache 补 TTL；播放失败与鉴权过期 refresh 重解析；smoke 强制 refresh。
+- 涉及文件：
+  - apps/server/src/lib/ttl-cache.ts
+  - apps/server/src/routes/plugin.ts
+  - apps/web/src/lib/plugin-api.ts
+  - apps/web/src/lib/plugin-result-cache.ts（新）
+  - apps/web/src/lib/roads-cache.ts
+  - apps/web/src/lib/use-watch-session.ts
+  - apps/web/src/lib/plugin-smoke.ts
+  - docs/TODO.md、docs/CONTEXT.md
+- 备注：typecheck 通过
+
 ## [2026-07-28] Bangumi 公开列表双层缓存
 
 - 状态：已完成

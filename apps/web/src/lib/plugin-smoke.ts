@@ -72,7 +72,7 @@ export async function runPluginSmoke(
     let hitCount = 0
     for (const kw of SMOKE_KEYWORDS) {
       if (aborted()) throw new Error('已取消')
-      const res = await pluginApi.search(rule, kw)
+      const res = await pluginApi.search(rule, kw, { refresh: true })
       lastDiag = res.data.diagnostics || []
       const items = res.data.items || []
       hitCount = items.length
@@ -157,7 +157,7 @@ export async function runPluginSmoke(
   let chapterDiag: string[] = []
   try {
     if (aborted()) throw new Error('已取消')
-    const ch = await pluginApi.chapters(rule, firstSrc)
+    const ch = await pluginApi.chapters(rule, firstSrc, { refresh: true })
     chapterDiag = ch.data.diagnostics || []
     const roads = ch.data.roads || []
     const totalEps = roads.reduce(
@@ -233,7 +233,7 @@ export async function runPluginSmoke(
         ...chapterDiag,
       ])
     }
-    const r = await pluginApi.resolve(rule, epUrl)
+    const r = await pluginApi.resolve(rule, epUrl, { refresh: true })
     const play = r.data.playUrl || ''
     const proxy = r.data.proxyUrl || ''
     const kind = /\.m3u8($|[?#])/i.test(play)

@@ -10,7 +10,17 @@ import type {
   PluginCatalogItem,
 } from '@animaku/shared'
 
-type SignalOpt = { signal?: AbortSignal }
+type SignalOpt = { signal?: AbortSignal; /** Bypass server plugin result cache */ refresh?: boolean }
+
+function withRefreshHeaders(
+  init: RequestInit & { signal?: AbortSignal },
+  refresh?: boolean,
+): RequestInit & { signal?: AbortSignal } {
+  if (!refresh) return init
+  const headers = new Headers(init.headers)
+  headers.set('Cache-Control', 'no-cache')
+  return { ...init, headers }
+}
 
 export const danmakuApi = {
   status: (opts?: SignalOpt) =>
@@ -63,23 +73,41 @@ export const pluginApi = {
       { method: 'POST', body: JSON.stringify(rule), signal: opts?.signal },
     ),
   search: (rule: PluginRule, keyword: string, opts?: SignalOpt) =>
-    api<{ data: PluginSearchResult }>('/api/plugin/search', {
-      method: 'POST',
-      body: JSON.stringify({ rule, keyword }),
-      signal: opts?.signal,
-    }),
+    api<{ data: PluginSearchResult }>(
+      `/api/plugin/search${opts?.refresh ? '?refresh=1' : ''}`,
+      withRefreshHeaders(
+        {
+          method: 'POST',
+          body: JSON.stringify({ rule, keyword }),
+          signal: opts?.signal,
+        },
+        opts?.refresh,
+      ),
+    ),
   chapters: (rule: PluginRule, source: string, opts?: SignalOpt) =>
-    api<{ data: PluginChapterResult }>('/api/plugin/chapters', {
-      method: 'POST',
-      body: JSON.stringify({ rule, source }),
-      signal: opts?.signal,
-    }),
+    api<{ data: PluginChapterResult }>(
+      `/api/plugin/chapters${opts?.refresh ? '?refresh=1' : ''}`,
+      withRefreshHeaders(
+        {
+          method: 'POST',
+          body: JSON.stringify({ rule, source }),
+          signal: opts?.signal,
+        },
+        opts?.refresh,
+      ),
+    ),
   resolve: (rule: PluginRule, pageUrl: string, opts?: SignalOpt) =>
-    api<{ data: ResolvePlayResult }>('/api/plugin/resolve', {
-      method: 'POST',
-      body: JSON.stringify({ rule, pageUrl }),
-      signal: opts?.signal,
-    }),
+    api<{ data: ResolvePlayResult }>(
+      `/api/plugin/resolve${opts?.refresh ? '?refresh=1' : ''}`,
+      withRefreshHeaders(
+        {
+          method: 'POST',
+          body: JSON.stringify({ rule, pageUrl }),
+          signal: opts?.signal,
+        },
+        opts?.refresh,
+      ),
+    ),
   /** KazumiRules index.json via server proxy */
   catalog: (mirror = false, opts?: SignalOpt) =>
     api<{ data: PluginCatalogItem[]; source: string }>(

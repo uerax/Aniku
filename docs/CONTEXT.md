@@ -104,6 +104,21 @@ Browser (WEB_DEV_PORT，默认 5173)
 
 **封面图不走本机代理。** 卡片 `<img src>` 直连 `lain.bgm.tv`（`coverOf`）。CDN 已带长 `Cache-Control`（约 8–30 天，部分 `immutable`）+ Cloudflare HIT；浏览器 HTTP 缓存即可。列表 JSON 缓存命中后 URL 不变，刷新通常 **disk/memory cache**，无需 Service Worker / 图片代理。若 DevTools 里像「每次都请求」，先看是否 Disable cache 或仅 304/from disk。
 
+### 插件执行结果缓存（search / chapters / resolve）
+
+与 Bangumi 列表共用 `ttl-cache.ts`（进程内 Map + single-flight）。**key = 规则身份（name@version + 解析相关字段 hash）+ 输入**；不把整份 rule JSON 当 key。只缓存成功响应；502/超时不写。
+
+| 操作 | 服务端 TTL | 客户端 | 备注 |
+|------|------------|--------|------|
+| `POST /api/plugin/search` | 4h | memory 30m + sessionStorage 2h | 换词 / `clearSelection` 重搜 / smoke 走 refresh |
+| `POST /api/plugin/chapters` | 12h | `roads-cache` session + **12h savedAt** | 旧无 TTL 条目视为过期 |
+| `POST /api/plugin/resolve` | 分类：m3u8 **30m**；普通 mp4 **2m**；签名/`cookie=`/**0** | RQ stale 60s；失败/鉴权过期 `refresh=1` 重解析 | 不把 playUrl 长持久化到 localStorage |
+
+- `X-Cache: HIT|MISS`；`?refresh=1` 或 `Cache-Control: no-cache` 绕过  
+- 规则冒烟测试强制 `refresh: true`，避免假绿  
+- 播放：直连失败 → 改走 proxy；仍失败 → 强制 re-resolve 一次（每集预算）  
+- `maxEntries` 插件侧约 400；进程重启清空  
+
 ---
 
 ## 5. 环境变量

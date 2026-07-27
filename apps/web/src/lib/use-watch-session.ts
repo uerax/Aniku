@@ -23,6 +23,10 @@ import { bangumiApi } from './bangumi'
 import { pluginApi } from './plugin-api'
 import { pickPlaybackSrc, type PlaybackTransit } from './playback-src'
 import {
+  getCachedPluginSearch,
+  setCachedPluginSearch,
+} from './plugin-result-cache'
+import {
   findRoadsForPlay,
   writeRoadsForSource,
 } from './roads-cache'
@@ -260,6 +264,10 @@ export function useWatchSession(bangumiId: number): WatchSession {
   const pluginSearchAbort = useRef<Record<string, AbortController>>({})
   const chaptersGen = useRef(0)
   const chaptersAbort = useRef<AbortController | null>(null)
+  /** Next resolve queryFn uses refresh=1 once (auth expiry / hard media fail). */
+  const resolveRefreshOnce = useRef(false)
+  /** pageUrl we already forced a fresh resolve for after media fail — avoid loops. */
+  const resolveFailBudgetFor = useRef<string | null>(null)
   /** Auto-start default source once per subject (skip resume deep-links). */
   const defaultSearchDoneFor = useRef<number | null>(null)
   /** Avoid auto-picking first hit when user already has a selection / resume. */
@@ -470,7 +478,12 @@ export function useWatchSession(bangumiId: number): WatchSession {
     async (
       plugin: PluginMeta,
       keyword: string,
-      opts?: { clearSelection?: boolean; autoPickFirst?: boolean },
+      opts?: {
+        clearSelection?: boolean
+        autoPickFirst?: boolean
+        /** Skip client search cache (and ask server refresh when true). */
+        refresh?: boolean
+      },
     ) => {
       const gen = (pluginSearchGen.current[plugin.name] || 0) + 1
       pluginSearchGen.current[plugin.name] = gen
@@ -527,9 +540,17 @@ export function useWatchSession(bangumiId: number): WatchSession {
       let items: SearchItem[] = []
       let error: string | undefined
       try {
-        const res = await pluginApi.search(plugin, keyword, {
-          signal: searchAc.signal,
-        })
+        const bypassClient = Boolean(opts?.refresh || opts?.clearSelection)
+        const cached = bypassClient
+          ? undefined
+          : getCachedPluginSearch(plugin, keyword)
+        const res = cached
+          ? { data: cached }
+          : await pluginApi.search(plugin, keyword, {
+              signal: searchAc.signal,
+              refresh: Boolean(opts?.refresh),
+            })
+        if (!cached) setCachedPluginSearch(plugin, keyword, res.data)
         if (pluginSearchGen.current[plugin.name] !== gen) return
 
         const seen = new Set<string>()
@@ -798,16 +819,23 @@ export function useWatchSession(bangumiId: number): WatchSession {
       'resolve',
       bangumiId,
       selection?.plugin.name,
+      selection?.plugin.version,
       episode?.pageUrl,
     ],
     queryFn: ({ signal }) => {
       if (!selection || !episode) throw new Error('未选择分集')
-      return pluginApi.resolve(selection.plugin, episode.pageUrl, { signal })
+      const refresh = resolveRefreshOnce.current
+      resolveRefreshOnce.current = false
+      return pluginApi.resolve(selection.plugin, episode.pageUrl, {
+        signal,
+        refresh,
+      })
     },
     enabled: Boolean(selection?.plugin && episode?.pageUrl),
     retry: 1,
-    // Signed CDN URLs go stale quickly — don't treat 60s cache as fresh
-    staleTime: 15_000,
+    // Server classifies resolve TTL; client keeps short freshness for UI
+    staleTime: 60_000,
+    gcTime: 10 * 60_000,
   })
 
   // Keep resumePosition in sync when selection/episode changes without pickEpisode
@@ -830,6 +858,7 @@ export function useWatchSession(bangumiId: number): WatchSession {
 
   useEffect(() => {
     setForceProxy(false)
+    resolveFailBudgetFor.current = null
   }, [episode?.pageUrl, selection?.plugin.name])
 
   function pickEpisode(epIndex: number, roadIndex = visibleRoad) {
@@ -891,13 +920,18 @@ export function useWatchSession(bangumiId: number): WatchSession {
     })
   }
 
+  async function reResolveFresh() {
+    resolveRefreshOnce.current = true
+    await resolve.refetch()
+    setPlayerRemount((n) => n + 1)
+  }
+
   async function onMediaAuthExpired(position: number) {
     if (position > 5) {
       resumeOverrideRef.current = position
       setResumePosition(position)
     }
-    await resolve.refetch()
-    setPlayerRemount((n) => n + 1)
+    await reResolveFresh()
   }
 
   const proxyUrl = episode ? resolve.data?.data.proxyUrl : undefined
@@ -930,9 +964,16 @@ export function useWatchSession(bangumiId: number): WatchSession {
       setResumePosition(position)
     }
     if (playback.mode === 'direct' && proxyUrl) {
+      // First failure on direct CDN → retry via media proxy (same playUrl)
       setForceProxy(true)
       setPlayerRemount((n) => n + 1)
+      return
     }
+    // Already proxying (or no direct) — playUrl may be stale; force re-resolve once
+    const id = episode?.pageUrl || ''
+    if (!id || resolveFailBudgetFor.current === id) return
+    resolveFailBudgetFor.current = id
+    void reResolveFresh()
   }
 
   async function reSearchCurrentSource(keyword: string) {
@@ -944,6 +985,7 @@ export function useWatchSession(bangumiId: number): WatchSession {
     await searchOnePlugin(plugin, kw, {
       clearSelection: true,
       autoPickFirst: true,
+      refresh: true,
     })
   }
 
@@ -999,7 +1041,10 @@ export function useWatchSession(bangumiId: number): WatchSession {
     onProgress,
     onMediaAuthExpired,
     onMediaLoadFailed,
-    refetchResolve: () => void resolve.refetch(),
+    refetchResolve: () => {
+      resolveRefreshOnce.current = true
+      void resolve.refetch()
+    },
     pageUrl: episode?.pageUrl || qPageUrl,
     pluginName: selection?.plugin.name || qPlugin,
   }
