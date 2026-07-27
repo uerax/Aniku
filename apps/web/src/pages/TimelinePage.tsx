@@ -19,7 +19,9 @@ export function TimelinePage() {
   const q = useQuery({
     queryKey: ['calendar'],
     queryFn: ({ signal }) => bangumiApi.calendar({ signal }),
-    staleTime: 5 * 60_000,
+    // Align with server calendar TTL (24h)
+    staleTime: 12 * 60 * 60_000,
+    gcTime: 7 * 24 * 60 * 60_000,
   })
 
   const days = q.data?.data

@@ -198,7 +198,9 @@ export function AnimePage() {
       page,
     ],
     queryFn: ({ signal }) => bangumiApi.search('', { ...searchOpts, signal }),
-    staleTime: 3 * 60_000,
+    // Align with server browse TTL (2h); client shorter for filter-heavy UX
+    staleTime: 30 * 60_000,
+    gcTime: 2 * 60 * 60_000,
     placeholderData: (prev) => prev,
   })
 

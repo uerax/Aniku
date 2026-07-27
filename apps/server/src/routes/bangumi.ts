@@ -11,6 +11,13 @@ import {
 } from '@animaku/shared'
 import { config } from '../config'
 import { bangumiFetch, getBearerToken } from '../lib/http'
+import {
+  BANGUMI_CACHE_TTL,
+  cacheDelete,
+  cacheGet,
+  cacheSet,
+  wantsCacheBypass,
+} from '../lib/ttl-cache'
 
 export const bangumiRoutes = new Hono()
 
@@ -28,7 +35,19 @@ function slimItem(item: BangumiItem): BangumiItem {
   }
 }
 
+function cacheHeaders(hit: boolean): Record<string, string> {
+  return { 'X-Cache': hit ? 'HIT' : 'MISS' }
+}
+
 bangumiRoutes.get('/calendar', async (c) => {
+  const key = 'bangumi:calendar'
+  const bypass = wantsCacheBypass(c)
+  if (bypass) cacheDelete(key)
+  else {
+    const hit = cacheGet<{ data: BangumiItem[][] }>(key)
+    if (hit) return c.json(hit, 200, cacheHeaders(true))
+  }
+
   const res = await bangumiFetch(`${config.bangumiNextApi}/p1/calendar`)
   if (!res.ok) {
     return c.json({ error: 'upstream', message: await res.text() }, 502)
@@ -50,13 +69,23 @@ bangumiRoutes.get('/calendar', async (c) => {
     }
     days.push(items)
   }
-  return c.json({ data: days })
+  const payload = { data: days }
+  cacheSet(key, payload, BANGUMI_CACHE_TTL.calendar)
+  return c.json(payload, 200, cacheHeaders(false))
 })
 
 bangumiRoutes.get('/trending', async (c) => {
   const limit = c.req.query('limit') || '24'
   const offset = c.req.query('offset') || '0'
   const type = c.req.query('type') || '2'
+  const key = `bangumi:trending:${type}:${limit}:${offset}`
+  const bypass = wantsCacheBypass(c)
+  if (bypass) cacheDelete(key)
+  else {
+    const hit = cacheGet<{ data: BangumiItem[] }>(key)
+    if (hit) return c.json(hit, 200, cacheHeaders(true))
+  }
+
   const url = new URL(`${config.bangumiNextApi}/p1/trending/subjects`)
   url.searchParams.set('type', type)
   url.searchParams.set('limit', limit)
@@ -76,7 +105,9 @@ bangumiRoutes.get('/trending', async (c) => {
       /* skip */
     }
   }
-  return c.json({ data: items })
+  const payload = { data: items }
+  cacheSet(key, payload, BANGUMI_CACHE_TTL.trending)
+  return c.json(payload, 200, cacheHeaders(false))
 })
 
 /** Bangumi /v0/search/subjects sort values we expose. */
@@ -92,6 +123,28 @@ const AIR_DATE_EXPR = /^(>=|<=|>|<)?\d{4}-\d{2}-\d{2}$/
  * filter, then order the page by airDate (desc) for 放送时间 UX.
  * NSFW is always filtered out (`nsfw: false`); no client override.
  */
+type SearchPayload = {
+  data: BangumiItem[]
+  total?: number
+  limit: number
+  offset: number
+  sort: string
+}
+
+/** Stable cache key from normalized search inputs (public lists only). */
+function browseCacheKey(parts: {
+  keyword: string
+  sort: string
+  tags: string[]
+  airDate: string[]
+  limit: number
+  offset: number
+}): string {
+  const tags = [...parts.tags].sort().join(',')
+  const air = [...parts.airDate].sort().join(',')
+  return `bangumi:browse:${parts.keyword}\0${parts.sort}\0${tags}\0${air}\0${parts.limit}\0${parts.offset}`
+}
+
 bangumiRoutes.post('/search', async (c) => {
   const body = await c.req.json<{
     keyword?: string
@@ -133,6 +186,23 @@ bangumiRoutes.post('/search', async (c) => {
     airDate.push(`>=${year}-01-01`, `<${year + 1}-01-01`)
   }
 
+  const keyword = body.keyword || ''
+  const resultSort = sortByDate ? 'date' : upstreamSort
+  const key = browseCacheKey({
+    keyword,
+    sort: resultSort,
+    tags,
+    airDate,
+    limit,
+    offset,
+  })
+  const bypass = wantsCacheBypass(c)
+  if (bypass) cacheDelete(key)
+  else {
+    const hit = cacheGet<SearchPayload>(key)
+    if (hit) return c.json(hit, 200, cacheHeaders(true))
+  }
+
   const filter: Record<string, unknown> = {
     type: [2],
     // Always exclude NSFW — not client-configurable
@@ -148,7 +218,7 @@ bangumiRoutes.post('/search', async (c) => {
   }
 
   const params = {
-    keyword: body.keyword || '',
+    keyword,
     sort: upstreamSort,
     filter,
   }
@@ -181,13 +251,15 @@ bangumiRoutes.post('/search', async (c) => {
       return db.localeCompare(da)
     })
   }
-  return c.json({
+  const payload: SearchPayload = {
     data: items,
     total: json.total,
     limit,
     offset,
-    sort: sortByDate ? 'date' : upstreamSort,
-  })
+    sort: resultSort,
+  }
+  cacheSet(key, payload, BANGUMI_CACHE_TTL.browse)
+  return c.json(payload, 200, cacheHeaders(false))
 })
 
 bangumiRoutes.get('/subjects/:id', async (c) => {

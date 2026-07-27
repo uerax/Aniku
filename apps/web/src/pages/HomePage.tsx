@@ -10,7 +10,9 @@ export function HomePage() {
   const trending = useQuery({
     queryKey: ['trending'],
     queryFn: ({ signal }) => bangumiApi.trending(28, 0, { signal }),
-    staleTime: 5 * 60_000,
+    // Align with server bangumi trending TTL (12h); keep client shorter to revalidate via /api HIT
+    staleTime: 2 * 60 * 60_000,
+    gcTime: 12 * 60 * 60_000,
   })
   const items = useHistoryStore((s) =>
     Array.isArray(s.items) ? s.items : EMPTY_ARRAY,

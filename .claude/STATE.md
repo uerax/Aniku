@@ -1,5 +1,19 @@
 # Animaku 项目状态
 
+## [2026-07-28] Bangumi 公开列表双层缓存
+
+- 状态：已完成
+- 优先级：P1
+- 描述：任务 1 — 首页/番剧/时间表列表缓存。服务端进程内 TTL Map（calendar 24h / trending 12h / browse 2h）；客户端 RQ staleTime（12h / 2h / 30m）。`?refresh=1` 或 Cache-Control: no-cache 绕过。封面直连 lain.bgm.tv，CDN 已有长 max-age，不做图片代理。
+- 涉及文件：
+  - apps/server/src/lib/ttl-cache.ts（新）
+  - apps/server/src/routes/bangumi.ts
+  - apps/web/src/pages/HomePage.tsx
+  - apps/web/src/pages/TimelinePage.tsx
+  - apps/web/src/pages/AnimePage.tsx
+  - docs/TODO.md、docs/CONTEXT.md
+- 备注：typecheck 通过；未做 UI 刷新按钮（可后续）
+
 ## [2026-07-27] 参考 Kazumi 重设计 README
 
 - 状态：已完成
