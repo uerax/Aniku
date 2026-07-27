@@ -148,26 +148,27 @@ export function MobileEpsSection({
               'kz-watch-ep-strip',
               /* p-[3px]: room for selected ring so overflow-x doesn't clip it */
               listExpanded
-                ? /* desktop rail ~320px → 2 cols; wider mobile full grid → 3 */
-                  'grid grid-cols-2 gap-2 p-[3px] lg:grid-cols-2 sm:grid-cols-3'
-                : 'flex gap-2 overflow-x-auto p-[3px] pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
+                ? /* mobile 4 cols; desktop rail ~320px → 3 */
+                  'grid grid-cols-4 gap-1.5 p-[3px] lg:grid-cols-3'
+                : 'flex gap-1.5 overflow-x-auto p-[3px] pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
             )}
           >
             {activeRoad.identifier.map((name, epIndex) => {
               const playing =
                 playingRoad === activeRoadIndex &&
                 playingEpisode === epIndex + 1
-              const epLabel = `第 ${epIndex + 1} 话`
+              // Source-provided title only (no synthetic「第 N 话」); bare index if empty
+              const label = name?.trim() || String(epIndex + 1)
               return (
                 <button
                   key={activeRoad.data[epIndex] + name + epIndex}
                   type="button"
                   data-ep-index={epIndex}
                   onClick={() => onPickEpisode(epIndex, activeRoadIndex)}
-                  title={name}
+                  title={label}
                   className={clsx(
-                    'kz-watch-ep-card rounded-lg px-2 py-1.5 text-center transition',
-                    listExpanded ? 'min-w-0' : 'w-[7.25rem] shrink-0',
+                    'kz-watch-ep-card flex items-center justify-center rounded-md px-1.5 py-2 text-center transition',
+                    listExpanded ? 'min-w-0' : 'w-[4.75rem] shrink-0',
                     playing
                       ? 'bg-[var(--kz-bg-soft)] ring-1 ring-inset ring-[var(--kz-accent)]/50'
                       : 'bg-[var(--kz-bg-soft)] hover:bg-[var(--kz-bg-hover)]',
@@ -175,7 +176,7 @@ export function MobileEpsSection({
                 >
                   <div
                     className={clsx(
-                      'flex items-center justify-center gap-1 text-xs font-normal leading-snug',
+                      'flex items-center justify-center gap-0.5 text-[11px] font-normal leading-snug',
                       playing
                         ? 'font-medium text-[var(--kz-accent)]'
                         : 'text-[var(--kz-fg)]',
@@ -183,25 +184,15 @@ export function MobileEpsSection({
                   >
                     {playing ? (
                       <span
-                        className="inline-flex h-3.5 w-3 shrink-0 items-end justify-center gap-px"
+                        className="inline-flex h-3 w-2.5 shrink-0 items-end justify-center gap-px"
                         aria-hidden
                       >
-                        <span className="h-1.5 w-0.5 animate-pulse rounded-sm bg-current" />
-                        <span className="h-2.5 w-0.5 animate-pulse rounded-sm bg-current [animation-delay:120ms]" />
-                        <span className="h-2 w-0.5 animate-pulse rounded-sm bg-current [animation-delay:240ms]" />
+                        <span className="h-1 w-0.5 animate-pulse rounded-sm bg-current" />
+                        <span className="h-2 w-0.5 animate-pulse rounded-sm bg-current [animation-delay:120ms]" />
+                        <span className="h-1.5 w-0.5 animate-pulse rounded-sm bg-current [animation-delay:240ms]" />
                       </span>
                     ) : null}
-                    <span className="min-w-0 truncate">{epLabel}</span>
-                  </div>
-                  <div
-                    className={clsx(
-                      'mt-0.5 line-clamp-2 text-[11px] leading-snug',
-                      playing
-                        ? 'text-[var(--kz-accent)]/85'
-                        : 'text-[var(--kz-fg-muted)]',
-                    )}
-                  >
-                    {name?.trim() || epLabel}
+                    <span className="min-w-0 truncate">{label}</span>
                   </div>
                 </button>
               )

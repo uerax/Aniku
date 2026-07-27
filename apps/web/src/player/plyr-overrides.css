@@ -175,7 +175,8 @@
 }
 
 .kz-watch-ep-card {
-  min-height: 3.25rem;
+  /* Single-line source title; taller than 1.75 so 3–4-col cells don’t look flat */
+  min-height: 2.5rem;
   box-sizing: border-box;
 }
 

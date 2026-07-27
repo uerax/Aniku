@@ -42,17 +42,26 @@ export function WatchPage() {
   const [epsListExpanded, setEpsListExpanded] = useState(false)
   /** Last selection key we auto-focused (collapse sources / mobile scroll) */
   const focusedSelectionKey = useRef<string | null>(null)
+  /**
+   * Selection key we already auto-expanded.
+   * Avoids re-forcing grid after the user collapses「全 N 话」.
+   */
+  const autoExpandedEpsKey = useRef<string | null>(null)
 
   const [kwInput, setKwInput] = useState('')
 
-  /** Collapse 视频源 + ensure 选集 open; on mobile scroll cinema into view. */
+  /** Collapse 视频源; default 选集 to full grid; on mobile scroll cinema into view. */
   const focusAfterSelection = useCallback(
     (key: string, opts?: { forceScroll?: boolean }) => {
       if (!key) return
       const already = focusedSelectionKey.current === key
       focusedSelectionKey.current = key
       setSourcesOpen(false)
-      // Keep 选集 strip usable after pick (expand grid on long lists is optional)
+      // 选源后默认「全 N 话」网格（每源只自动展开一次，用户可再收起）
+      if (autoExpandedEpsKey.current !== key) {
+        autoExpandedEpsKey.current = key
+        setEpsListExpanded(true)
+      }
       if (layoutMode !== 'mobile') return
       if (already && !opts?.forceScroll) return
       // Wait layout paint after collapse before scrolling.
@@ -121,7 +130,7 @@ export function WatchPage() {
   const activeRoad = w.selection?.roads[activeRoadIndex]
   const epCount = activeRoad?.identifier?.length ?? 0
 
-  // Chapters ready (auto-pick or resume): fold 视频源, open 选集; mobile → scroll to cinema
+  // Chapters ready (auto-pick or resume): fold 视频源; 选集默认网格; mobile scroll
   useEffect(() => {
     const sel = w.selection
     if (!sel?.roads?.length) return

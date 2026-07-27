@@ -1,5 +1,21 @@
 # Animaku 项目状态
 
+## [2026-07-28] 选集卡片缩小 + 只显示源站集名
+
+- 状态：已完成
+- 优先级：P1
+- 描述：去掉「第 N 话」双行；卡片只显示 identifier 源站名（空则序号）。网格移动 4 列 / 桌面 rail 3 列；min-height 与 padding 压紧。
+- 涉及文件：MobileEpsSection.tsx、plyr-overrides.css
+- 备注：typecheck 通过；与「选源默认展开」一并体验
+
+## [2026-07-28] 选源后选集默认「全 N 话」展开
+
+- 状态：已完成
+- 优先级：P1
+- 描述：选中视频源后折叠视频源、选集默认网格展开（任意集数）；每源只自动展开一次，用户可再点「全N话」收起。避免长列表横滑条过长。
+- 涉及文件：apps/web/src/pages/WatchPage.tsx
+- 备注：typecheck 通过
+
 ## [2026-07-28] 设置面板 + MEDIA_FULL_PROXY 部署安全
 
 - 状态：已完成
