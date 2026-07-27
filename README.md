@@ -23,7 +23,7 @@
 
 ## 这是什么
 
-**Animaku** 是 **React SPA + 本地 Hono API** 的自托管 Web 客户端，不是 [Kazumi](https://github.com/Predidit/Kazumi) 的官方 Web 移植。
+**Animaku** 是 **React SPA + 本地 Hono API** 的自托管 Web 客户端。
 
 | 能力 | 说明 |
 |------|------|
