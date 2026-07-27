@@ -96,6 +96,13 @@ app.get('/api/health', (c) =>
     danmakuUsingFallback: !(
       config.dandanAppId?.trim() && config.dandanAppSecret?.trim()
     ),
+    /** Who may call media/plugin open-proxy APIs */
+    publicProxy: config.publicProxy,
+    /**
+     * MEDIA_FULL_PROXY: false = m3u8 list only (default);
+     * true = may tunnel ts/mp4/full segments (Anime1 etc.)
+     */
+    mediaFullProxy: config.mediaFullProxy,
   }),
 )
 

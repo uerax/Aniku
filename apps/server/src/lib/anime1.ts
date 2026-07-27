@@ -409,6 +409,11 @@ export async function resolveAnime1(
   rule: PluginRule,
   pageUrl: string,
 ): Promise<ResolvePlayResult> {
+  if (!config.mediaFullProxy) {
+    throw new Error(
+      'Anime1 需要代拉整段 mp4（Cookie），当前服务器 MEDIA_FULL_PROXY=0 已禁用。请部署方开启 MEDIA_FULL_PROXY=1，或改用 HLS 规则源。',
+    )
+  }
   const diagnostics: string[] = []
   const abs = absUrl(pageUrl, rule.baseURL || SITE)
   diagnostics.push(`集页 ${abs}`)

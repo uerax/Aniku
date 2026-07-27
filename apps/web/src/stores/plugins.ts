@@ -13,7 +13,8 @@ migrateLocalStorageKey('animaku-plugins', [
 /** Bump when built-in rule set changes so empty/legacy stores re-seed */
 /** v8: default adBlocker only on MXdm; Anime1/otage/xifan off */
 /** v9: add omofun (211dm/omofuns) built-in */
-export const PLUGIN_DEFAULTS_VERSION = 9
+/** v10: Anime1 last (needs MEDIA_FULL_PROXY); HLS sources first */
+export const PLUGIN_DEFAULTS_VERSION = 10
 
 interface PluginState {
   plugins: PluginMeta[]
@@ -64,7 +65,7 @@ export function seedFromDefaults(): PluginMeta[] {
   if (!list.length) {
     console.warn('[plugins] DEFAULT_PLUGIN_RULES produced empty list')
   }
-  return preferAnime1First(list)
+  return preferAnime1Last(list)
 }
 
 function normalizePlugins(raw: unknown): PluginMeta[] {
@@ -75,8 +76,8 @@ function normalizePlugins(raw: unknown): PluginMeta[] {
   )
 }
 
-/** Keep Anime1 at front of the list (search fan-out / settings order). */
-function preferAnime1First(list: PluginMeta[]): PluginMeta[] {
+/** Anime1 last — cookie mp4 needs MEDIA_FULL_PROXY; prefer HLS sources first. */
+function preferAnime1Last(list: PluginMeta[]): PluginMeta[] {
   const anime1: PluginMeta[] = []
   const rest: PluginMeta[] = []
   for (const p of list) {
@@ -84,7 +85,7 @@ function preferAnime1First(list: PluginMeta[]): PluginMeta[] {
     else rest.push(p)
   }
   if (!anime1.length) return list
-  return [...anime1, ...rest]
+  return [...rest, ...anime1]
 }
 
 export const usePluginStore = create<PluginState>()(
@@ -134,7 +135,7 @@ export const usePluginStore = create<PluginState>()(
           ),
         })),
       getEnabled: () =>
-        preferAnime1First(
+        preferAnime1Last(
           normalizePlugins(get().plugins).filter((p) => p.enabled !== false),
         ),
       getByName: (name) => {
@@ -156,7 +157,7 @@ export const usePluginStore = create<PluginState>()(
           return
         }
         // Already on current defaults version: still merge any *new* built-ins
-        // (e.g. xifan) without touching user/catalog rules; keep Anime1 first.
+        // without touching user/catalog rules; keep Anime1 last.
         if (ver >= PLUGIN_DEFAULTS_VERSION) {
           const have = new Set(plugins.map((p) => p.name.toLowerCase()))
           const missing = seedFromDefaults().filter(
@@ -164,15 +165,22 @@ export const usePluginStore = create<PluginState>()(
           )
           let next = plugins
           if (missing.length) next = [...next, ...missing]
-          next = preferAnime1First(next)
+          next = preferAnime1Last(next)
           if (
             missing.length ||
-            (next.length && next[0] !== plugins[0])
+            next[next.length - 1] !== plugins[plugins.length - 1] ||
+            next.length !== plugins.length
           ) {
-            set({
-              plugins: next,
-              defaultsVersion: PLUGIN_DEFAULTS_VERSION,
-            })
+            // Only write if order/content actually changed
+            const same =
+              next.length === plugins.length &&
+              next.every((p, i) => p.id === plugins[i]?.id)
+            if (!same || missing.length) {
+              set({
+                plugins: next,
+                defaultsVersion: PLUGIN_DEFAULTS_VERSION,
+              })
+            }
           }
           return
         }
@@ -182,6 +190,7 @@ export const usePluginStore = create<PluginState>()(
         // v7: add xifan (稀饭 MacCMS; suggest API search + player_aaaa).
         // v8: adBlocker defaults — only MXdm on among built-ins.
         // v9: add omofun (211dm / omofuns).
+        // v10: Anime1 last (MEDIA_FULL_PROXY).
         const legacyBuiltinNames = new Set(
           [
             '7sefun',
@@ -233,7 +242,7 @@ export const usePluginStore = create<PluginState>()(
           return { ...p, adBlocker: Boolean(seed.adBlocker) }
         })
         if (missing.length) next = [...next, ...missing]
-        next = preferAnime1First(next)
+        next = preferAnime1Last(next)
         set({
           plugins: next,
           defaultsVersion: PLUGIN_DEFAULTS_VERSION,

@@ -73,6 +73,13 @@ export const config = {
    * `X-Animaku-Proxy-Token: <token>` even from public IPs.
    */
   proxyToken: (process.env.PROXY_TOKEN || '').trim(),
+  /**
+   * When false (default): /api/media/proxy only allows HLS playlists (.m3u8)
+   * and forces hybrid rewrite (segments stay on CDN). fullProxy / cookie mp4
+   * are rejected. Set MEDIA_FULL_PROXY=1 to allow ts/mp4/full segment tunnel
+   * (needed for Anime1 and similar cookie progressive sources).
+   */
+  mediaFullProxy: envBool(process.env.MEDIA_FULL_PROXY, false),
   dandanAppId: process.env.DANDAN_APP_ID || '',
   dandanAppSecret: process.env.DANDAN_APP_SECRET || '',
   bangumiUserAgent:

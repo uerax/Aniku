@@ -138,14 +138,36 @@ Browser (WEB_DEV_PORT，默认 5173)
 | `CORS_ORIGINS` | 额外浏览器 Origin（逗号分隔）；默认仅 localhost/127.0.0.1。`*` 开放 CORS（不推荐） |
 | `PUBLIC_PROXY` | 默认关：媒体代理 + 规则 search/chapters/resolve 仅本机/局域网。公网部署设 `1` |
 | `PROXY_TOKEN` | 可选；请求头 `X-Animaku-Proxy-Token` 或 query `proxyToken` 可绕过局域网限制 |
+| `MEDIA_FULL_PROXY` | 默认 **关 (0)**：`/api/media/proxy` **只允许 m3u8**（分片 CDN 直连；`fullProxy`/cookie mp4 拒绝）。`1` = 允许 ts/mp4 全量代拉（Anime1 等）。与 `PUBLIC_PROXY` 正交 |
 
 **不要**再引入已死的公共 DPlayer 弹幕池 / `DPLAYER_API`。
+
+### 配置边界与部署安全
+
+| 闸 | 变量 | 作用 |
+|----|------|------|
+| 谁可调 | `PUBLIC_PROXY` / `PROXY_TOKEN` | 开放代理 API 的客户端范围 |
+| 代拉什么 | `MEDIA_FULL_PROXY` | 仅 m3u8 vs 全量媒体 |
+
+**设置页不能提权。** `forceMediaProxy`、规则启用等只存 localStorage；服务器 `MEDIA_FULL_PROXY=0` 时忽略 fullProxy，并禁用 Anime1 类源。
+
+| 配置 | 存储 | 出浏览器？ |
+|------|------|------------|
+| 主题 / 弹幕 / 倍速 / 超分 / 跳 OP·ED | localStorage | 否 |
+| Bangumi Token | localStorage | 仅请求头转发，服务端不落库 |
+| 规则 JSON | localStorage | 导入/校验**仅本地** `parsePluginRule`；search/chapters/resolve 时 POST 全文，不落库 |
+| `forceMediaProxy` | localStorage | 试图 fullProxy；**被 `MEDIA_FULL_PROXY=0` 否决** |
+| `forceAdBlocker` / 规则 adBlocker | localStorage | 只影响是否代理 **m3u8 列表** 做广告过滤 |
+
+`GET /api/health` 返回 `mediaFullProxy` / `publicProxy` 供设置页只读展示。
+
+公网推荐：`PUBLIC_PROXY=1`（或 + `PROXY_TOKEN`）+ **`MEDIA_FULL_PROXY` 保持 0**。
 
 ---
 
 ## 6. 规则引擎（关键路径）
 
-1. **默认 / 导入 / 商店** — `DEFAULT_PLUGIN_RULES`（`Anime1`、`otage`、`xifan`、`MXdm`）；设置页导入或 `GET /api/plugin/catalog`。规则旁「测试」= 内置关键词自动 **search→chapters→resolve** 冒烟（`apps/web/src/lib/plugin-smoke.ts`），无需用户输入  
+1. **默认 / 导入 / 商店** — `DEFAULT_PLUGIN_RULES`（`otage`、`xifan`、`MXdm`、`omofun`、**`Anime1` 最后**）；设置页导入本地校验，或 `GET /api/plugin/catalog`。规则旁「测试」= 内置关键词自动 **search→chapters→resolve** 冒烟（`apps/web/src/lib/plugin-smoke.ts`），无需用户输入。`MEDIA_FULL_PROXY=0` 时客户端隐藏/禁用 Anime1。  
 2. **搜索** — `POST /api/plugin/search` → `searchWithRule`  
    - XPath：cheerio → xml → xmldom + xpath，失败有 cheerio 卡片回退  
    - API：`searchMode: 'api'` + `searchApiConfig`（如 **sorani**、**TvTFun**）→ `rule-engine/api.ts`  

@@ -26,10 +26,15 @@ import {
   getCachedPluginSearch,
   setCachedPluginSearch,
 } from './plugin-result-cache'
+import { pluginNeedsFullMediaProxy } from './plugin-capabilities'
 import {
   findRoadsForPlay,
   writeRoadsForSource,
 } from './roads-cache'
+import {
+  fetchServerHealth,
+  mediaFullProxyEnabled,
+} from './server-capabilities'
 import { useDanmakuSession, type DanmakuSession } from './use-danmaku-session'
 import { usePluginStore } from '../stores/plugins'
 import { useHistoryStore } from '../stores/history'
@@ -216,9 +221,20 @@ export function useWatchSession(bangumiId: number): WatchSession {
   const allPlugins = usePluginStore((s) =>
     Array.isArray(s.plugins) ? s.plugins : EMPTY_ARRAY,
   )
+  const serverCaps = useQuery({
+    queryKey: ['health'],
+    queryFn: ({ signal }) => fetchServerHealth(signal),
+    staleTime: 60_000,
+  })
+  const mediaFullProxy = mediaFullProxyEnabled(serverCaps.data)
   const plugins = useMemo(
-    () => allPlugins.filter((p) => p && p.enabled !== false),
-    [allPlugins],
+    () =>
+      allPlugins.filter((p) => {
+        if (!p || p.enabled === false) return false
+        if (!mediaFullProxy && pluginNeedsFullMediaProxy(p)) return false
+        return true
+      }),
+    [allPlugins, mediaFullProxy],
   )
   const upsertHistory = useHistoryStore((s) => s.upsert)
   const danmakuSettings = useSettingsStore((s) => s.danmaku ?? FALLBACK_DANMAKU)
@@ -937,16 +953,19 @@ export function useWatchSession(bangumiId: number): WatchSession {
   const proxyUrl = episode ? resolve.data?.data.proxyUrl : undefined
   const playUrl = episode ? resolve.data?.data.playUrl : undefined
   const forceAdFilter = Boolean(playerSettings.forceAdBlocker)
-  const preferMediaProxy = Boolean(playerSettings.forceMediaProxy)
+  // Client forceMediaProxy cannot escalate past MEDIA_FULL_PROXY=0
+  const preferMediaProxy =
+    mediaFullProxy && Boolean(playerSettings.forceMediaProxy)
+  const sessionForceProxy = mediaFullProxy && forceProxy
   const playback = useMemo(
     () =>
       pickPlaybackSrc({
         playUrl,
         proxyUrl,
-        forceProxy: preferMediaProxy || forceProxy,
+        forceProxy: preferMediaProxy || sessionForceProxy,
         forceAdFilter,
       }),
-    [playUrl, proxyUrl, preferMediaProxy, forceProxy, forceAdFilter],
+    [playUrl, proxyUrl, preferMediaProxy, sessionForceProxy, forceAdFilter],
   )
   const mediaSrc = episode ? playback.src : ''
   const effectiveResume =

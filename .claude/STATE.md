@@ -1,5 +1,17 @@
 # Animaku 项目状态
 
+## [2026-07-28] 设置面板 + MEDIA_FULL_PROXY 部署安全
+
+- 状态：已完成
+- 优先级：P0–P1
+- 描述：TODO 2 — 规则本地校验；MEDIA_FULL_PROXY 默认 0（仅 m3u8）；fullProxy/cookie mp4 否决；Anime1 内置最后且 mediaFullProxy=0 时禁用；health/设置页只读展示；设置不可提权。
+- 涉及文件：
+  - apps/server/src/config.ts、index.ts、routes/media.ts、lib/anime1.ts
+  - apps/web：SettingsPage、use-watch-session、plugins store、default-plugins
+  - plugin-validate.ts、plugin-capabilities.ts、server-capabilities.ts（新）
+  - .env.example、docs/TODO.md、docs/CONTEXT.md
+- 备注：typecheck 通过
+
 ## [2026-07-28] 插件 search/chapters/resolve 结果缓存
 
 - 状态：已完成

@@ -8,6 +8,13 @@ import {
   runPluginSmoke,
   type SmokeReport,
 } from '../lib/plugin-smoke'
+import { validatePluginLocal } from '../lib/plugin-validate'
+import { pluginNeedsFullMediaProxy } from '../lib/plugin-capabilities'
+import {
+  fetchServerHealth,
+  mediaFullProxyEnabled,
+  type ServerHealth,
+} from '../lib/server-capabilities'
 import { useSettingsStore } from '../stores/settings'
 import { usePluginStore } from '../stores/plugins'
 import { PageHeader } from '../components/ui'
@@ -61,11 +68,10 @@ export function SettingsPage() {
 
   const health = useQuery({
     queryKey: ['health'],
-    queryFn: async ({ signal }) => {
-      const res = await fetch('/api/health', { signal })
-      return res.json() as Promise<{ ok: boolean; danmakuConfigured: boolean }>
-    },
+    queryFn: ({ signal }) => fetchServerHealth(signal),
+    staleTime: 60_000,
   })
+  const mediaFullProxy = mediaFullProxyEnabled(health.data as ServerHealth | undefined)
 
   const me = useQuery({
     queryKey: ['me-settings', bangumiToken],
@@ -121,14 +127,15 @@ export function SettingsPage() {
       const list = Array.isArray(json) ? json : [json]
       let n = 0
       for (const item of list) {
-        const validated = await pluginApi.validate(item)
+        // Local parse only — rule JSON never uploaded for validation
+        const validated = validatePluginLocal(item)
         if (!validated.ok || !validated.rule) {
           throw new Error(validated.message || '规则无效')
         }
         importRule(validated.rule, { source: 'import' })
         n++
       }
-      setPluginMsg(`成功导入 ${n} 条规则`)
+      setPluginMsg(`成功导入 ${n} 条规则（仅保存在本机）`)
     } catch (e) {
       setPluginMsg(e instanceof Error ? e.message : '导入失败')
     }
@@ -139,7 +146,7 @@ export function SettingsPage() {
     setPluginMsg('')
     try {
       const res = await pluginApi.download(item.name, useMirror)
-      const validated = await pluginApi.validate(res.data)
+      const validated = validatePluginLocal(res.data)
       if (!validated.ok || !validated.rule) {
         throw new Error(validated.message || '规则校验失败')
       }
@@ -167,7 +174,12 @@ export function SettingsPage() {
         if (status !== 'update') continue
         try {
           const res = await pluginApi.download(item.name, useMirror)
-          importRule(res.data, { source: 'catalog' })
+          const validated = validatePluginLocal(res.data)
+          if (!validated.ok || !validated.rule) {
+            failed++
+            continue
+          }
+          importRule(validated.rule, { source: 'catalog' })
           updated++
         } catch {
           failed++
@@ -230,12 +242,33 @@ export function SettingsPage() {
           <br />
           弹幕：
           {health.data?.danmakuConfigured
-            ? (health.data as { danmakuUsingFallback?: boolean })
-                .danmakuUsingFallback
+            ? (health.data as ServerHealth).danmakuUsingFallback
               ? '可用（内置密钥，与 agefans-enhance 相同）'
               : '已配置开放平台密钥'
             : '不可用'}
+          <br />
+          媒体代理：
+          {health.isLoading
+            ? '检测中…'
+            : health.data?.ok
+              ? mediaFullProxy
+                ? '允许全量（m3u8 + 分片/整段，MEDIA_FULL_PROXY=1）'
+                : '仅 m3u8 列表（默认 MEDIA_FULL_PROXY=0；分片直连 CDN）'
+              : '未知'}
+          {!health.isLoading && health.data?.ok && (
+            <>
+              <br />
+              开放代理访问：
+              {(health.data as ServerHealth).publicProxy
+                ? '公网可调（PUBLIC_PROXY=1）'
+                : '仅本机/局域网（PUBLIC_PROXY 未开）'}
+            </>
+          )}
         </div>
+        <p className="text-xs text-[var(--kz-fg-dim)]">
+          以上两项由服务器 <code className="text-[var(--kz-fg-muted)]">.env</code>{' '}
+          决定，设置页无法改写。公网部署建议保持仅 m3u8，避免被当作出站带宽跳板。
+        </p>
       </section>
 
       <section className="space-y-3 rounded-2xl border border-[var(--kz-border)] bg-[var(--kz-bg-elevated)] p-5">
@@ -284,7 +317,8 @@ export function SettingsPage() {
       <section className="space-y-3 rounded-2xl border border-[var(--kz-border)] bg-[var(--kz-bg-elevated)] p-5">
         <h2 className="text-lg font-bold tracking-tight text-[var(--kz-fg)]">已安装规则</h2>
         <p className="text-sm text-[var(--kz-fg-muted)]">
-          默认内置可用规则（Anime1 / otage / xifan / MXdm）。可本地导入 JSON，或从下方规则仓库安装。仓库：{' '}
+          默认内置 HLS 源优先（otage / xifan / MXdm / omofun），Anime1 排最后且依赖服务器全量媒体代理。
+          导入 JSON 仅在本机校验与保存，不会上传到服务器。也可从下方规则仓库安装。仓库：{' '}
           <a
             href="https://github.com/Predidit/KazumiRules"
             className="kz-link"
@@ -319,7 +353,7 @@ export function SettingsPage() {
             onClick={() => {
               if (
                 window.confirm(
-                  '将清空当前规则并恢复为内置默认（Anime1 / otage / xifan / MXdm），确定？',
+                  '将清空当前规则并恢复为内置默认（otage / xifan / MXdm / omofun / Anime1），确定？',
                 )
               ) {
                 resetToDefaults()
@@ -344,10 +378,15 @@ export function SettingsPage() {
             const running = smoke && 'running' in smoke && smoke.running
             const report =
               smoke && !('running' in smoke) ? (smoke as SmokeReport) : null
+            const needsFull = pluginNeedsFullMediaProxy(p)
+            const blockedByServer = needsFull && !mediaFullProxy
+            const effectivelyOn = p.enabled !== false && !blockedByServer
             return (
               <li
                 key={p.id}
-                className="space-y-2 rounded-xl border border-[var(--kz-border)] px-3 py-2"
+                className={`space-y-2 rounded-xl border border-[var(--kz-border)] px-3 py-2 ${
+                  blockedByServer ? 'opacity-70' : ''
+                }`}
               >
                 <div className="flex flex-wrap items-center gap-2">
                   <div className="min-w-0 flex-1">
@@ -365,15 +404,34 @@ export function SettingsPage() {
                               : '导入'}
                         </span>
                       )}
+                      {blockedByServer && (
+                        <span
+                          className="ml-2 text-xs text-amber-400"
+                          title="需要 MEDIA_FULL_PROXY=1 代拉 Cookie mp4"
+                        >
+                          需全量代理
+                        </span>
+                      )}
                     </div>
                     <div className="truncate text-xs text-[var(--kz-fg-muted)]">
                       {p.baseURL}
                     </div>
+                    {blockedByServer && (
+                      <div className="mt-0.5 text-xs text-amber-400/90">
+                        服务器仅代理 m3u8，已禁用此源（部署方设置 MEDIA_FULL_PROXY=1
+                        后可用）
+                      </div>
+                    )}
                   </div>
-                  <label className="flex items-center gap-1 text-xs text-[var(--kz-fg-muted)]">
+                  <label
+                    className={`flex items-center gap-1 text-xs text-[var(--kz-fg-muted)] ${
+                      blockedByServer ? 'cursor-not-allowed' : ''
+                    }`}
+                  >
                     <input
                       type="checkbox"
-                      checked={p.enabled}
+                      checked={effectivelyOn}
+                      disabled={blockedByServer}
                       onChange={() => togglePlugin(p.id)}
                     />
                     启用
@@ -393,10 +451,14 @@ export function SettingsPage() {
                   </label>
                   <button
                     type="button"
-                    disabled={Boolean(running)}
+                    disabled={Boolean(running) || blockedByServer}
                     onClick={() => void testPlugin(p)}
                     className="rounded-lg border border-[var(--kz-border)] bg-[var(--kz-bg)] px-2 py-1 text-xs text-[var(--kz-fg)] hover:bg-[var(--kz-bg-hover)] disabled:opacity-50"
-                    title="自动搜索→分集→解析（内置关键词）"
+                    title={
+                      blockedByServer
+                        ? '需 MEDIA_FULL_PROXY=1'
+                        : '自动搜索→分集→解析（内置关键词）'
+                    }
                   >
                     {running ? '测试中…' : '测试'}
                   </button>
@@ -590,14 +652,24 @@ export function SettingsPage() {
         </p>
         <Toggle
           label="媒体走服务器代理"
-          checked={Boolean(player.forceMediaProxy)}
+          checked={mediaFullProxy && Boolean(player.forceMediaProxy)}
+          disabled={!mediaFullProxy}
           onChange={(forceMediaProxy) => setPlayer({ forceMediaProxy })}
         />
         <p className="text-xs text-[var(--kz-fg-dim)]">
-          默认优先浏览器直连 CDN（省服务器流量）。弱网、跨网或源站对浏览器限流时，勾选后
-          m3u8/mp4 一律经本机 API
-          <code className="mx-0.5 text-[var(--kz-fg-muted)]">/api/media/proxy</code>
-          拉取。搜索/分集/解析本身已走服务器，此项只影响播放媒体。开启会明显增加服务器出站流量。
+          {mediaFullProxy ? (
+            <>
+              默认优先浏览器直连 CDN（省服务器流量）。弱网或源站限流时，勾选后 m3u8/分片经本机
+              <code className="mx-0.5 text-[var(--kz-fg-muted)]">/api/media/proxy</code>
+              。只影响播放媒体，会增加服务器出站。此项仅存本机，不能改服务器 env。
+            </>
+          ) : (
+            <>
+              服务器 <code className="text-[var(--kz-fg-muted)]">MEDIA_FULL_PROXY=0</code>
+              （默认）：最多代理 m3u8 列表，分片由浏览器直连 CDN。设置无法开启全量代拉；需要
+              Anime1 等源时由部署方在 .env 设 MEDIA_FULL_PROXY=1。
+            </>
+          )}
         </p>
         <Toggle
           label="强制广告过滤"
@@ -902,15 +974,26 @@ function Toggle({
   label,
   checked,
   onChange,
+  disabled,
 }: {
   label: string
   checked: boolean
   onChange: (v: boolean) => void
+  disabled?: boolean
 }) {
   return (
-    <label className="flex items-center justify-between text-sm">
+    <label
+      className={`flex items-center justify-between text-sm ${
+        disabled ? 'cursor-not-allowed opacity-60' : ''
+      }`}
+    >
       <span>{label}</span>
-      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+      <input
+        type="checkbox"
+        checked={checked}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.checked)}
+      />
     </label>
   )
 }

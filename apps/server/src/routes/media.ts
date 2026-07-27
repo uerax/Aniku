@@ -196,10 +196,12 @@ mediaRoutes.get('/proxy', async (c) => {
   /**
    * fullProxy=1 → rewrite every segment through us (forceMediaProxy / fallback).
    * Cookie alone also disables hybrid segment direct (browser can't send it).
+   * Honored only when MEDIA_FULL_PROXY=1 (config.mediaFullProxy).
    */
-  const fullProxy =
+  const fullProxyRequested =
     c.req.query('fullProxy') === '1' ||
     c.req.query('fullProxy') === 'true'
+  const fullProxy = fullProxyRequested && config.mediaFullProxy
   if (!url) return c.json({ error: 'bad_request', message: '缺少 url' }, 400)
 
   let target: URL
@@ -213,6 +215,34 @@ mediaRoutes.get('/proxy', async (c) => {
   }
   if (isPrivateHost(target.hostname)) {
     return c.json({ error: 'forbidden', message: '禁止代理内网地址' }, 403)
+  }
+
+  // MEDIA_FULL_PROXY=0 (default): only HLS playlists — no ts/mp4 bandwidth tunnel
+  if (!config.mediaFullProxy) {
+    if (cookie && !isM3u8Path(target)) {
+      return c.json(
+        {
+          error: 'forbidden',
+          message:
+            '当前服务器未开启全量媒体代理（MEDIA_FULL_PROXY=0），无法代拉需 Cookie 的整段视频',
+          hint: '部署方设置 MEDIA_FULL_PROXY=1 后可用于 Anime1 等源；或改用 HLS 规则',
+          mediaFullProxy: false,
+        },
+        403,
+      )
+    }
+    if (!isM3u8Path(target)) {
+      return c.json(
+        {
+          error: 'forbidden',
+          message:
+            '当前服务器仅允许代理 m3u8 播放列表（MEDIA_FULL_PROXY=0）',
+          hint: '分片请由浏览器直连 CDN；需要代拉 ts/mp4 时设置 MEDIA_FULL_PROXY=1',
+          mediaFullProxy: false,
+        },
+        403,
+      )
+    }
   }
 
   const origin = originFromReferer(referer)
@@ -364,9 +394,11 @@ mediaRoutes.get('/proxy', async (c) => {
         // Keep original playlist if filter fails
       }
     }
+    // When full media proxy is off, never rewrite segments through us even if
+    // client sent fullProxy/cookie (cookie on m3u8 master is rare; still hybrid).
     const rewriteOpts: RewriteOpts = {
       referer,
-      cookie,
+      cookie: config.mediaFullProxy ? cookie : '',
       adFilter,
       fullProxy,
     }
@@ -389,6 +421,7 @@ mediaRoutes.get('/proxy', async (c) => {
       'Content-Type': 'application/vnd.apple.mpegurl',
       // Short client cache cuts playlist re-fetch storms; URLs stay short-lived
       'Cache-Control': 'private, max-age=5',
+      'X-Media-Full-Proxy': config.mediaFullProxy ? '1' : '0',
     })
   }
 
@@ -408,6 +441,7 @@ mediaRoutes.get('/proxy', async (c) => {
     if (v) resHeaders[h] = v
   }
 
+  resHeaders['X-Media-Full-Proxy'] = config.mediaFullProxy ? '1' : '0'
   return new Response(upstream.body, {
     status: upstream.status,
     headers: resHeaders,

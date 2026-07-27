@@ -7,10 +7,14 @@
 - [x] 明确缓存失效策略（TTL 为主 + `?refresh=1` / Cache-Control: no-cache 为辅；见 `docs/CONTEXT.md`）
 - 备注：封面直连 Bangumi CDN，已有长 max-age，**不做**本机图片代理/SW
 
-## 2. 设置面板功能优化
-- [ ] 规则文件上传逻辑调整：仅保存在用户本地，不上传到服务器
-- [ ] 排查设置面板中其他选项，确认哪些应仅本地生效、不应同步到服务器
-- [ ] 梳理并文档化"本地生效 vs 服务器生效"的配置项边界
+## 2. 设置面板与部署安全
+- [x] 规则导入：仅本地 `parsePluginRule` 校验与保存，不经 `/api/plugin/validate`
+- [x] 梳理「本地生效 vs 服务器生效」；设置项不可提权（见 CONTEXT）
+- [x] env：`MEDIA_FULL_PROXY` 默认 **0**（最多代理 m3u8；1=允许分片/整段）
+- [x] `MEDIA_FULL_PROXY=0` 时 media proxy 拒绝非 m3u8 / 忽略 fullProxy / 拒 cookie mp4
+- [x] health 暴露 `mediaFullProxy`；设置页展示并禁用「媒体走服务器代理」
+- [x] 内置规则 Anime1 排最后；`MEDIA_FULL_PROXY=0` 时禁用 Anime1
+- [x] `.env.example` + CONTEXT：`PUBLIC_PROXY` 与 `MEDIA_FULL_PROXY` 两道闸
 
 ## 3. 搜索/分集/解析结果缓存
 - 主要应用于视频源相关功能（如视频源搜索、获取分集列表、解析播放地址等环节）
