@@ -347,25 +347,26 @@ textarea:focus-visible {
   color: var(--kz-fg-dim);
 }
 
-/* —— Watch page panels (meta / sources / eps) — reuses surface tokens —— */
+/* —— Watch panels: bilibili bangumi rail (ss44777-inspired) —— */
 .kz-watch-panel {
   background: var(--kz-bg-elevated);
   border: 1px solid var(--kz-border);
-  border-radius: var(--kz-radius-surface);
-  box-shadow: var(--kz-shadow-sm);
+  border-radius: 8px;
+  box-shadow: none;
 }
 
+/* Keep legacy header hooks for meta collapse bars */
 .kz-watch-panel-header {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 0.5rem;
   width: 100%;
-  padding: 0.5rem 0.75rem;
+  padding: 0.625rem 0.75rem;
   text-align: left;
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   font-weight: 400;
-  line-height: 1;
+  line-height: 1.2;
   color: var(--kz-fg-muted);
   transition: background 0.15s ease;
 }
@@ -376,10 +377,9 @@ textarea:focus-visible {
 
 .kz-watch-panel-title {
   flex-shrink: 0;
-  font-size: 0.75rem;
+  font-size: 0.875rem;
   font-weight: 600;
-  letter-spacing: -0.01em;
-  color: var(--kz-fg-muted);
+  color: var(--kz-fg);
 }
 
 .kz-watch-panel-summary {
@@ -389,8 +389,7 @@ textarea:focus-visible {
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 0.75rem;
-  font-weight: 400;
-  color: var(--kz-fg);
+  color: var(--kz-fg-muted);
 }
 
 .kz-watch-panel-action {
@@ -404,9 +403,9 @@ textarea:focus-visible {
   display: inline-flex;
   align-items: center;
   max-width: 100%;
-  border-radius: 0.375rem;
-  padding: 0.125rem 0.4rem;
-  font-size: 0.6875rem;
+  border-radius: 0.25rem;
+  padding: 0.1rem 0.35rem;
+  font-size: 0.625rem;
   font-weight: 500;
   line-height: 1.25;
   background: var(--kz-bg-soft);
@@ -447,28 +446,648 @@ textarea:focus-visible {
   color: var(--kz-fg-muted);
 }
 
-/* Source plugin row — left accent bar (avoid fragile Tailwind arbitrary shadows) */
-.kz-watch-source-card {
+/* —— bilibili section chrome (sources + eps share) —— */
+.kz-bili-sec-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  min-height: 2.5rem;
+  padding: 0.5rem 0.75rem;
+  box-sizing: border-box;
+}
+
+.kz-bili-sec-head--btn {
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.kz-bili-sec-head--btn:hover {
+  background: var(--kz-bg-hover);
+}
+
+.kz-bili-sec-title {
+  flex-shrink: 0;
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--kz-fg);
+}
+
+.kz-bili-sec-count {
+  margin-left: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--kz-fg-muted);
+}
+
+.kz-bili-sec-summary {
+  min-width: 0;
+  flex: 1 1 auto;
   overflow: hidden;
-  border-radius: 0.5rem;
-  border: 1px solid var(--kz-border);
-  background: var(--kz-bg);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.75rem;
+  color: var(--kz-fg-muted);
+}
+
+.kz-bili-sec-more {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  margin-left: auto;
+  padding: 0.15rem 0.2rem;
+  border: none;
+  background: transparent;
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--kz-fg-muted);
+  cursor: pointer;
+  border-radius: 4px;
+  transition:
+    color 0.12s ease,
+    background 0.12s ease;
+}
+
+.kz-bili-sec-more:hover {
+  color: var(--kz-fg);
+  background: var(--kz-bg-soft);
+}
+
+.kz-bili-chevron {
+  width: 0.7rem;
+  height: 0.7rem;
+  opacity: 0.75;
+  transition: transform 0.15s ease;
+}
+
+.kz-bili-chevron[data-open='true'] {
+  transform: rotate(180deg);
+}
+
+/* Keyword block */
+.kz-bili-kw {
+  padding: 0.55rem 0.75rem 0.45rem;
+  border-top: 1px solid var(--kz-border);
+  background: color-mix(in srgb, var(--kz-bg) 40%, var(--kz-bg-elevated));
+}
+
+.kz-bili-kw-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.kz-bili-kw-row {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.kz-bili-kw-select,
+.kz-bili-kw-input {
+  border: 1px solid color-mix(in srgb, var(--kz-border) 85%, transparent);
+  border-radius: 8px;
+  background: var(--kz-bg-elevated);
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--kz-fg) 3%, transparent);
+}
+
+.kz-bili-kw-select:focus,
+.kz-bili-kw-input:focus {
+  border-color: color-mix(in srgb, var(--kz-accent) 50%, var(--kz-border));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--kz-accent) 14%, transparent);
+}
+
+.kz-bili-kw-btn {
+  border: none;
+  border-radius: 8px;
+  background: var(--kz-accent);
+  padding-inline: 0.7rem;
+  font-size: 12px !important;
+  font-weight: 600;
+  color: #fff;
+  letter-spacing: 0.01em;
+  transition:
+    filter 0.12s ease,
+    opacity 0.12s ease,
+    transform 0.12s ease;
+}
+
+.kz-bili-kw-btn:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
+
+.kz-bili-kw-btn:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+/*
+ * Source list — elevated mini-cards (not washed accent slabs).
+ * Active: hairline border + faint tint + thin left rail.
+ */
+.kz-bili-source-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 0.35rem 0.65rem 0.75rem;
+}
+
+.kz-bili-source {
+  overflow: hidden;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--kz-border) 90%, transparent);
+  background: var(--kz-bg-elevated);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--kz-fg) 4%, transparent);
   transition:
     border-color 0.15s ease,
     background 0.15s ease,
     box-shadow 0.15s ease;
 }
 
-.kz-watch-source-card--active {
-  border-color: color-mix(in srgb, var(--kz-accent) 30%, var(--kz-border));
-  background: color-mix(in srgb, var(--kz-accent) 8%, var(--kz-bg));
-  box-shadow: inset 3px 0 0 0 color-mix(in srgb, var(--kz-accent) 55%, transparent);
+.kz-bili-source:hover {
+  border-color: color-mix(in srgb, var(--kz-fg) 14%, var(--kz-border));
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--kz-fg) 6%, transparent);
 }
 
-.kz-watch-source-card--needs-pick {
-  border-color: color-mix(in srgb, var(--kz-accent) 45%, var(--kz-border));
-  background: color-mix(in srgb, var(--kz-accent) 12%, var(--kz-bg));
-  box-shadow: inset 3px 0 0 0 var(--kz-accent);
+.kz-bili-source--active {
+  border-color: color-mix(in srgb, var(--kz-accent) 28%, var(--kz-border));
+  background: color-mix(in srgb, var(--kz-accent) 5%, var(--kz-bg-elevated));
+  box-shadow:
+    inset 2px 0 0 0 var(--kz-accent),
+    0 1px 3px color-mix(in srgb, var(--kz-accent) 10%, transparent);
+}
+
+.kz-bili-source--pick {
+  border-color: color-mix(in srgb, var(--kz-accent) 36%, var(--kz-border));
+  background: color-mix(in srgb, var(--kz-accent) 6%, var(--kz-bg-elevated));
+  box-shadow:
+    inset 2px 0 0 0 var(--kz-accent),
+    0 1px 3px color-mix(in srgb, var(--kz-accent) 12%, transparent);
+}
+
+.kz-bili-source-row {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.6rem 0.7rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.kz-bili-source-avatar {
+  display: inline-flex;
+  height: 1.75rem;
+  width: 1.75rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--kz-fg) 6%, var(--kz-bg-soft));
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--kz-fg-muted);
+  text-transform: uppercase;
+}
+
+.kz-bili-source--active .kz-bili-source-avatar,
+.kz-bili-source--pick .kz-bili-source-avatar {
+  background: color-mix(in srgb, var(--kz-accent) 14%, var(--kz-bg-soft));
+  color: var(--kz-accent);
+}
+
+.kz-bili-source-name-row {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.kz-bili-source-name {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  color: var(--kz-fg);
+}
+
+.kz-bili-source-sub {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.6875rem;
+  line-height: 1.3;
+  color: var(--kz-fg-muted);
+}
+
+.kz-bili-tag {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 9999px;
+  border: 1px solid color-mix(in srgb, var(--kz-border) 90%, transparent);
+  padding: 0.05rem 0.4rem;
+  font-size: 0.6rem;
+  font-weight: 500;
+  line-height: 1.25;
+  color: var(--kz-fg-muted);
+  background: transparent;
+}
+
+.kz-bili-tag--accent {
+  border-color: color-mix(in srgb, var(--kz-accent) 35%, transparent);
+  color: var(--kz-accent);
+  background: color-mix(in srgb, var(--kz-accent) 10%, transparent);
+}
+
+.kz-bili-source-action {
+  flex-shrink: 0;
+  border-radius: 9999px;
+  border: 1px solid transparent;
+  padding: 0.22rem 0.55rem;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  line-height: 1;
+  color: var(--kz-fg-muted);
+  background: var(--kz-bg-soft);
+  transition:
+    color 0.12s ease,
+    background 0.12s ease,
+    border-color 0.12s ease;
+}
+
+.kz-bili-source:hover .kz-bili-source-action:not(.kz-bili-source-action--pick):not(.kz-bili-source-action--done):not(.kz-bili-source-action--pending) {
+  color: var(--kz-fg);
+  border-color: var(--kz-border);
+  background: var(--kz-bg-elevated);
+}
+
+.kz-bili-source-action--pending {
+  color: var(--kz-accent);
+  background: color-mix(in srgb, var(--kz-accent) 10%, transparent);
+}
+
+.kz-bili-source-action--pick {
+  color: #fff;
+  background: var(--kz-accent);
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--kz-accent) 35%, transparent);
+}
+
+.kz-bili-source-action--done {
+  color: var(--kz-accent);
+  border-color: color-mix(in srgb, var(--kz-accent) 22%, transparent);
+  background: color-mix(in srgb, var(--kz-accent) 8%, transparent);
+}
+
+.kz-bili-source-error {
+  margin: 0 0.65rem 0.5rem;
+  border-radius: 6px;
+  padding: 0.35rem 0.5rem;
+  font-size: 0.625rem;
+  line-height: 1.35;
+  color: #d97706;
+  background: color-mix(in srgb, #f59e0b 10%, transparent);
+}
+
+.kz-bili-hits {
+  max-height: 9rem;
+  margin: 0;
+  list-style: none;
+  overflow-y: auto;
+  border-top: 1px solid color-mix(in srgb, var(--kz-border) 70%, transparent);
+  padding: 0.3rem 0.4rem 0.45rem;
+  background: color-mix(in srgb, var(--kz-bg) 65%, var(--kz-bg-elevated));
+}
+
+.kz-bili-hits--emphasis {
+  background: color-mix(in srgb, var(--kz-accent) 3.5%, var(--kz-bg));
+}
+
+.kz-bili-hits-tip {
+  padding: 0.2rem 0.5rem 0.25rem;
+  font-size: 0.625rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: var(--kz-fg-muted);
+}
+
+.kz-bili-hit {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.4rem;
+  border-radius: 7px;
+  padding: 0.4rem 0.5rem;
+  text-align: left;
+  font-size: 0.75rem;
+  line-height: 1.3;
+  color: var(--kz-fg-muted);
+  transition:
+    background 0.12s ease,
+    color 0.12s ease;
+}
+
+.kz-bili-hit:hover {
+  background: color-mix(in srgb, var(--kz-fg) 4%, transparent);
+  color: var(--kz-fg);
+}
+
+.kz-bili-hit--on {
+  background: color-mix(in srgb, var(--kz-accent) 9%, transparent);
+  color: var(--kz-fg);
+  font-weight: 500;
+}
+
+.kz-bili-hit--pending {
+  color: var(--kz-accent);
+}
+
+.kz-bili-hit-title {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: inherit;
+}
+
+.kz-bili-hit--on .kz-bili-hit-title {
+  color: var(--kz-fg);
+}
+
+.kz-bili-hit-meta {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.625rem;
+  font-weight: 500;
+  color: var(--kz-fg-dim);
+}
+
+.kz-bili-hit--on .kz-bili-hit-meta {
+  color: var(--kz-accent);
+}
+
+.kz-bili-hit-live {
+  display: inline-block;
+  height: 0.35rem;
+  width: 0.35rem;
+  border-radius: 9999px;
+  background: var(--kz-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--kz-accent) 22%, transparent);
+}
+
+/*
+ * Roads — soft pill tabs. Same flex min-content trap as ep strip:
+ * without min-width:0 + width bound, overflow-x never engages and
+ * later roads are clipped by .kz-watch-panel overflow-hidden.
+ */
+.kz-bili-roads {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.4rem;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 0 0.75rem 0.35rem;
+  box-sizing: border-box;
+  scrollbar-width: thin;
+}
+
+.kz-bili-roads::-webkit-scrollbar {
+  height: 4px;
+}
+
+.kz-bili-roads::-webkit-scrollbar-thumb {
+  border-radius: 9999px;
+  background: var(--kz-scroll-thumb, color-mix(in srgb, var(--kz-fg) 22%, transparent));
+}
+
+.kz-bili-road {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border-radius: 9999px;
+  border: none;
+  padding: 0.3rem 0.7rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.2;
+  color: var(--kz-fg-muted);
+  background: var(--kz-bg-soft);
+  cursor: pointer;
+  transition:
+    color 0.12s ease,
+    background 0.12s ease;
+}
+
+.kz-bili-road:hover {
+  color: var(--kz-fg);
+}
+
+.kz-bili-road--active {
+  color: var(--kz-accent);
+  background: var(--kz-accent-soft);
+  font-weight: 600;
+}
+
+.kz-bili-road-label {
+  max-width: 7rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kz-bili-road-live {
+  font-size: 0.625rem;
+  font-weight: 500;
+  color: var(--kz-accent);
+}
+
+/* Episode body */
+.kz-bili-eps-body {
+  /* min-width:0 so nested horizontal strip can shrink + scroll in flex rail */
+  min-width: 0;
+  max-width: 100%;
+  padding: 0.45rem 0.65rem 0.65rem;
+}
+
+/*
+ * Collapsed strip: must be width-bounded (min-width:0 + width 100%) or flex
+ * min-content sizing grows to fit every card, parent overflow-hidden clips
+ * the rest — no scrollbar, later eps unreachable (the reported bug).
+ * Card basis ≈ 1/4 of row so ~4 cards visible for density test.
+ */
+.kz-bili-ep-strip {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.4rem;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 2px;
+  box-sizing: border-box;
+  scrollbar-width: thin;
+}
+
+.kz-bili-ep-strip::-webkit-scrollbar {
+  height: 4px;
+}
+
+.kz-bili-ep-strip::-webkit-scrollbar-thumb {
+  border-radius: 9999px;
+  background: var(--kz-scroll-thumb, color-mix(in srgb, var(--kz-fg) 22%, transparent));
+}
+
+/* Expanded grid: same ~4-across density as collapsed strip */
+.kz-bili-ep-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.4rem;
+  width: 100%;
+  min-width: 0;
+  padding: 2px;
+  box-sizing: border-box;
+}
+
+/* Horizontal rounded ep cards (readable titles — not bilibili number squares) */
+.kz-bili-ep {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  box-sizing: border-box;
+  min-height: 2.35rem;
+  min-width: 0;
+  border: none;
+  border-radius: 6px;
+  padding: 0.4rem 0.45rem;
+  background: var(--kz-bg-soft);
+  color: var(--kz-fg);
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+/* ~4 cards visible: (100% - 3 gaps) / 4 ; gap = 0.4rem */
+.kz-bili-ep-strip .kz-bili-ep {
+  flex: 0 0 calc((100% - 1.2rem) / 4);
+  width: calc((100% - 1.2rem) / 4);
+  max-width: none;
+}
+
+.kz-bili-ep:hover {
+  background: var(--kz-bg-hover);
+}
+
+.kz-bili-ep--playing {
+  background: var(--kz-accent-soft);
+  color: var(--kz-accent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--kz-accent) 40%, transparent);
+}
+
+.kz-bili-ep-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+.kz-bili-ep--playing .kz-bili-ep-text {
+  font-weight: 600;
+}
+
+.kz-bili-ep-bars {
+  display: inline-flex;
+  height: 0.7rem;
+  width: 0.55rem;
+  flex-shrink: 0;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 1px;
+}
+
+.kz-bili-ep-bars i {
+  display: block;
+  width: 1.5px;
+  border-radius: 1px;
+  background: currentColor;
+  animation: kz-bili-bar 0.9s ease-in-out infinite;
+}
+
+.kz-bili-ep-bars i:nth-child(1) {
+  height: 35%;
+}
+
+.kz-bili-ep-bars i:nth-child(2) {
+  height: 70%;
+  animation-delay: 0.15s;
+}
+
+.kz-bili-ep-bars i:nth-child(3) {
+  height: 50%;
+  animation-delay: 0.3s;
+}
+
+@keyframes kz-bili-bar {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scaleY(0.75);
+  }
+  50% {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+}
+
+.kz-bili-empty,
+.kz-bili-error {
+  margin: 0;
+  padding: 1.25rem 0.5rem;
+  text-align: center;
+  font-size: 0.75rem;
+  color: var(--kz-fg-muted);
+}
+
+.kz-bili-error {
+  color: var(--kz-danger);
+  text-align: left;
+  padding: 0.5rem;
+}
+
+.kz-bili-hint {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 1.1rem 0.5rem;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: var(--kz-fg-muted);
+}
+
+.kz-bili-hint p {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0;
 }
 
 /* Ghost / secondary button */

@@ -294,33 +294,58 @@ export function WatchPage() {
     <section
       className={clsx(
         /* Keep kz-watch-sources / -panel class hooks for desktop scroll CSS */
-        'kz-watch-sources-panel kz-watch-panel shrink-0 overflow-hidden',
+        'kz-watch-sources-panel kz-watch-panel kz-bili-panel shrink-0 overflow-hidden',
         sourcesOpen && 'kz-watch-sources',
       )}
     >
-      {/* Header — slightly stronger title; py-2 keeps bar height stable */}
+      {/* bilibili 侧栏头：标题 + 摘要 + chevron */}
       <button
         type="button"
         onClick={() => setSourcesOpen((v) => !v)}
-        className="kz-watch-panel-header"
+        className="kz-bili-sec-head kz-bili-sec-head--btn"
         aria-expanded={sourcesOpen}
       >
-        <span className="kz-watch-panel-title">视频源</span>
-        <span className="kz-watch-panel-summary">{sourcesSummary}</span>
-        <span className="kz-watch-panel-action">
-          {sourcesOpen ? '收起' : '展开'}
+        <span className="kz-bili-sec-title">
+          视频源
+          {sourcesTotal > 0 ? (
+            <span className="kz-bili-sec-count">
+              ({sourcesSearched}/{sourcesTotal})
+            </span>
+          ) : null}
+        </span>
+        <span className="kz-bili-sec-summary" title={sourcesSummary}>
+          {w.selection
+            ? `${w.pluginName || w.selection.plugin.name}${
+                w.episode ? ` · 第${w.episode.episode}集` : ''
+              }`
+            : sourcesTotal
+              ? '点源搜索后选条目'
+              : '点源搜索'}
+        </span>
+        <span className="kz-bili-sec-more" aria-hidden>
+          <svg
+            className="kz-bili-chevron"
+            data-open={sourcesOpen ? 'true' : 'false'}
+            viewBox="0 0 16 16"
+            fill="none"
+          >
+            <path
+              d="M4 6.2L8 10.2L12 6.2"
+              stroke="currentColor"
+              strokeWidth="1.6"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
         </span>
       </button>
 
       {sourcesOpen && (
-        <div className="kz-watch-sources-body border-t border-[var(--kz-border)]">
-          <div className="space-y-1.5 px-3 py-2">
-            <form onSubmit={onKeywordSubmit} className="space-y-1">
-              {/* 关键词：高度仍由 .kz-kw-* 锁定，仅圆角/边框色微调 */}
-              <div className="flex min-w-0 items-center gap-1.5">
-                <span className="shrink-0 text-[9px] font-normal leading-none text-[var(--kz-fg-muted)]">
-                  关键词：
-                </span>
+        <div className="kz-watch-sources-body">
+          <div className="kz-bili-kw">
+            <form onSubmit={onKeywordSubmit} className="kz-bili-kw-form">
+              {/* 关键词高度仍由 .kz-kw-* 锁定 */}
+              <div className="kz-bili-kw-row">
                 <div className="relative min-w-0 flex-1">
                   <select
                     value={
@@ -335,7 +360,7 @@ export function WatchPage() {
                       setKwInput(v)
                       void w.reSearchCurrentSource(v)
                     }}
-                    className="kz-kw-select w-full appearance-none truncate rounded-md border border-[var(--kz-border)] bg-[var(--kz-bg-soft)] py-0 pl-1.5 pr-4 text-[var(--kz-fg)] outline-none focus:border-[var(--kz-accent)]/50 disabled:opacity-40"
+                    className="kz-kw-select kz-bili-kw-select w-full appearance-none truncate py-0 pl-2 pr-5 text-[var(--kz-fg)] outline-none disabled:opacity-40"
                     title={
                       keywordOptions.includes(w.searchKeyword)
                         ? w.searchKeyword
@@ -358,7 +383,7 @@ export function WatchPage() {
                     ))}
                   </select>
                   <span
-                    className="pointer-events-none absolute inset-y-0 right-1 flex items-center text-[var(--kz-fg-muted)]"
+                    className="pointer-events-none absolute inset-y-0 right-1.5 flex items-center text-[var(--kz-fg-muted)]"
                     aria-hidden
                   >
                     <svg width="8" height="8" viewBox="0 0 16 16" fill="none">
@@ -373,7 +398,7 @@ export function WatchPage() {
                   </span>
                 </div>
               </div>
-              <div className="flex min-w-0 items-center gap-1">
+              <div className="kz-bili-kw-row">
                 <input
                   value={kwInput}
                   onChange={(e) => setKwInput(e.target.value)}
@@ -381,12 +406,12 @@ export function WatchPage() {
                   placeholder={
                     hasKeywordTarget ? '自定义关键词' : '点规则源后再搜'
                   }
-                  className="kz-kw-input min-w-0 flex-1 rounded-md border border-[var(--kz-border)] bg-[var(--kz-bg)] px-1.5 py-0 text-[var(--kz-fg)] outline-none placeholder:text-[var(--kz-fg-dim)] focus:border-[var(--kz-accent)]/60 disabled:opacity-40"
+                  className="kz-kw-input kz-bili-kw-input min-w-0 flex-1 px-2 py-0 text-[var(--kz-fg)] outline-none placeholder:text-[var(--kz-fg-dim)] disabled:opacity-40"
                 />
                 <button
                   type="submit"
                   disabled={!hasKeywordTarget || !kwInput.trim()}
-                  className="kz-kw-search-btn shrink-0 rounded-md border border-[var(--kz-accent)]/40 bg-[var(--kz-accent-soft)] px-1.5 py-0 font-medium text-[var(--kz-accent)] transition hover:border-[var(--kz-accent)] disabled:opacity-40"
+                  className="kz-kw-search-btn kz-bili-kw-btn shrink-0 disabled:opacity-40"
                 >
                   搜索
                 </button>
@@ -394,13 +419,13 @@ export function WatchPage() {
             </form>
           </div>
 
-          <div className="space-y-1.5 px-3 pb-2.5">
+          <div className="kz-bili-source-list">
             {!w.searchResults.length && (
-              <div className="flex flex-col items-center gap-2 px-1 py-5 text-center text-[11px] text-[var(--kz-fg-muted)]">
+              <div className="kz-bili-empty">
                 <p>没有启用的规则。请到设置中启用或导入。</p>
                 <Link
                   to="/settings"
-                  className="font-medium text-[var(--kz-accent)] hover:underline"
+                  className="mt-1 font-medium text-[var(--kz-accent)] hover:underline"
                 >
                   打开设置
                 </Link>
@@ -418,7 +443,6 @@ export function WatchPage() {
                   .includes(w.defaultSourceName.toLowerCase())
               const hasItems = r.searched && !r.pending && r.items.length > 0
               const selectedInThis = w.selection?.plugin.name === r.plugin.name
-              /** Search done with hits but user hasn't picked a title yet */
               const needsPick = hasItems && !selectedInThis
               const statusLabel = r.pending
                 ? '搜索中'
@@ -430,22 +454,19 @@ export function WatchPage() {
                         ? '已选'
                         : `${r.items.length}条`
                       : '无结果'
-                    : isDefault
-                      ? '点搜'
-                      : '点搜'
+                    : '点搜'
               return (
                 <div
                   key={r.plugin.id}
                   className={clsx(
-                    'kz-watch-source-card',
-                    needsPick
-                      ? 'kz-watch-source-card--needs-pick'
-                      : isTarget && 'kz-watch-source-card--active',
+                    'kz-bili-source',
+                    needsPick && 'kz-bili-source--pick',
+                    isTarget && !needsPick && 'kz-bili-source--active',
                   )}
                 >
                   <button
                     type="button"
-                    className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left"
+                    className="kz-bili-source-row"
                     onClick={() => {
                       w.setKeywordTargetPlugin(r.plugin)
                       if (!r.pending) {
@@ -460,43 +481,39 @@ export function WatchPage() {
                           : '点击搜索此源'
                     }
                   >
-                    <span className="min-w-0 flex-1">
-                      <span className="flex flex-wrap items-center gap-1">
-                        <span className="truncate text-[11px] font-medium text-[var(--kz-fg)]">
+                    <span className="kz-bili-source-avatar" aria-hidden>
+                      {(r.plugin.name.trim().charAt(0) || '?').toUpperCase()}
+                    </span>
+                    <span className="kz-bili-source-main min-w-0 flex-1">
+                      <span className="kz-bili-source-name-row">
+                        <span className="kz-bili-source-name">
                           {r.plugin.name}
                         </span>
                         {isDefault ? (
-                          <span className="kz-watch-chip shrink-0 !px-1 !py-px text-[9px] text-[var(--kz-accent)]">
-                            默认
-                          </span>
+                          <span className="kz-bili-tag">默认</span>
                         ) : null}
                         {isTarget ? (
-                          <span className="shrink-0 rounded-md bg-[var(--kz-accent)] px-1 py-px text-[9px] font-medium leading-none text-white">
+                          <span className="kz-bili-tag kz-bili-tag--accent">
                             当前
                           </span>
                         ) : null}
                       </span>
-                      {r.keyword ? (
-                        <span className="mt-0.5 block truncate text-[10px] text-[var(--kz-fg-muted)]">
-                          「{r.keyword}」
-                          {needsPick ? ' · 点下方条目' : ''}
-                        </span>
-                      ) : (
-                        <span className="mt-0.5 block text-[10px] text-[var(--kz-fg-dim)]">
-                          {isDefault ? '自动搜此源' : '点此搜索'}
-                        </span>
-                      )}
+                      <span className="kz-bili-source-sub">
+                        {r.keyword
+                          ? `「${r.keyword}」${needsPick ? ' · 点选条目' : ''}`
+                          : isDefault
+                            ? '自动搜此源'
+                            : '点此搜索'}
+                      </span>
                     </span>
                     <span
                       className={clsx(
-                        'shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium tabular-nums leading-none',
-                        r.pending
-                          ? 'bg-[var(--kz-bg-soft)] text-[var(--kz-accent)]'
-                          : needsPick
-                            ? 'bg-[var(--kz-accent)] text-white'
-                            : selectedInThis
-                              ? 'bg-[var(--kz-accent-soft)] text-[var(--kz-accent)]'
-                              : 'bg-[var(--kz-bg-soft)] text-[var(--kz-fg-muted)]',
+                        'kz-bili-source-action',
+                        r.pending && 'kz-bili-source-action--pending',
+                        needsPick && 'kz-bili-source-action--pick',
+                        selectedInThis &&
+                          !needsPick &&
+                          'kz-bili-source-action--done',
                       )}
                     >
                       {statusLabel}
@@ -504,96 +521,71 @@ export function WatchPage() {
                   </button>
 
                   {!r.pending && r.searched && r.error && (
-                    <div className="mx-2 mb-1.5 line-clamp-2 rounded-md bg-amber-500/10 px-1.5 py-1 text-[10px] text-amber-300/90">
-                      {r.error}
-                    </div>
+                    <div className="kz-bili-source-error">{r.error}</div>
                   )}
 
                   {hasItems && (
-                    <div className="border-t border-[var(--kz-border)]">
-                      {needsPick && (
-                        <div className="px-2 pt-1 text-[10px] font-medium text-[var(--kz-accent)]">
-                          ↓ 点选条目加载分集
-                        </div>
+                    <ul
+                      className={clsx(
+                        'kz-bili-hits',
+                        needsPick && 'kz-bili-hits--emphasis',
                       )}
-                      <ul
-                        className={clsx(
-                          'max-h-36 space-y-0.5 overflow-y-auto px-1.5',
-                          needsPick ? 'pb-1.5 pt-0.5' : 'py-1',
-                        )}
-                        aria-label={`${r.plugin.name} 搜索结果，点击条目加载选集`}
-                      >
-                        {r.items.map((it, idx) => {
-                          const selected =
-                            w.selection?.plugin.name === r.plugin.name &&
-                            w.selection?.source.src === it.src
-                          const pending =
-                            w.pendingSource?.pluginName === r.plugin.name &&
-                            w.pendingSource?.src === it.src
-                          const score = bestTitleSimilarity(
-                            it.name,
-                            w.titleRefs,
-                          )
-                          return (
-                            <li key={`${r.plugin.name}:${it.src}:${idx}`}>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  w.setKeywordTargetPlugin(r.plugin)
-                                  void w.pickSource(r.plugin, it)
-                                  focusAfterSelection(
-                                    `${r.plugin.name}::${it.src}`,
-                                    { forceScroll: true },
-                                  )
-                                }}
-                                className={clsx(
-                                  'kz-source-hit flex w-full items-center gap-1 rounded-md px-1.5 py-0.5 text-left font-normal leading-snug transition',
-                                  selected
-                                    ? 'bg-[var(--kz-accent-soft)] text-[var(--kz-accent)] ring-1 ring-inset ring-[var(--kz-accent)]/35'
-                                    : pending
-                                      ? 'bg-[var(--kz-bg-soft)] text-[var(--kz-accent)]'
-                                      : 'text-[var(--kz-fg-muted)] hover:bg-[var(--kz-bg-soft)] hover:text-[var(--kz-fg)]',
-                                )}
-                              >
-                                <span className="kz-source-hit-title min-w-0 flex-1 truncate">
-                                  {it.name}
-                                </span>
+                      aria-label={`${r.plugin.name} 搜索结果，点击条目加载选集`}
+                    >
+                      {needsPick && (
+                        <li className="kz-bili-hits-tip">点选条目加载分集</li>
+                      )}
+                      {r.items.map((it, idx) => {
+                        const selected =
+                          w.selection?.plugin.name === r.plugin.name &&
+                          w.selection?.source.src === it.src
+                        const pending =
+                          w.pendingSource?.pluginName === r.plugin.name &&
+                          w.pendingSource?.src === it.src
+                        const score = bestTitleSimilarity(it.name, w.titleRefs)
+                        return (
+                          <li key={`${r.plugin.name}:${it.src}:${idx}`}>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                w.setKeywordTargetPlugin(r.plugin)
+                                void w.pickSource(r.plugin, it)
+                                focusAfterSelection(
+                                  `${r.plugin.name}::${it.src}`,
+                                  { forceScroll: true },
+                                )
+                              }}
+                              className={clsx(
+                                'kz-bili-hit',
+                                selected && 'kz-bili-hit--on',
+                                pending && !selected && 'kz-bili-hit--pending',
+                              )}
+                            >
+                              <span className="kz-bili-hit-title">{it.name}</span>
+                              <span className="kz-bili-hit-meta">
                                 {selected ? (
-                                  <span className="kz-source-hit-meta shrink-0 inline-flex items-center gap-1 text-[var(--kz-accent)]">
+                                  <>
                                     <span
-                                      className="inline-block h-1 w-1 rounded-full bg-current"
+                                      className="kz-bili-hit-live"
                                       aria-hidden
                                     />
                                     播放中
-                                  </span>
+                                  </>
                                 ) : pending ? (
-                                  <span className="kz-source-hit-meta shrink-0 text-[var(--kz-accent)]">
-                                    加载中
-                                  </span>
+                                  '加载中'
+                                ) : needsPick ? (
+                                  '选用'
+                                ) : score >= 0.85 ? (
+                                  '相近'
                                 ) : (
-                                  <span
-                                    className={clsx(
-                                      'kz-source-hit-meta shrink-0',
-                                      needsPick
-                                        ? 'text-[var(--kz-accent)]'
-                                        : score >= 0.85
-                                          ? 'text-[var(--kz-air-finished)]'
-                                          : 'text-[var(--kz-fg-dim)]',
-                                    )}
-                                  >
-                                    {needsPick
-                                      ? '选用'
-                                      : score >= 0.85
-                                        ? '相近'
-                                        : '选用'}
-                                  </span>
+                                  '选用'
                                 )}
-                              </button>
-                            </li>
-                          )
-                        })}
-                      </ul>
-                    </div>
+                              </span>
+                            </button>
+                          </li>
+                        )
+                      })}
+                    </ul>
                   )}
                 </div>
               )

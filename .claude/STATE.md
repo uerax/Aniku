@@ -1,5 +1,45 @@
 # Animaku 项目状态
 
+## [2026-07-28] 线路 tab 横滑修复
+
+- 状态：已完成
+- 优先级：P0
+- 描述：>5 条线路时同 ep strip：flex min-content 撑开 + panel overflow-hidden 裁切，无法点后排。`.kz-bili-roads` 加 min-width:0 / width:100% / overflow-x:auto + 细滚动条；active 路 `scrollIntoView`。
+- 涉及文件：index.css、MobileEpsSection.tsx
+- 备注：与选集折叠横滑同根因
+
+## [2026-07-28] 视频源卡现代化
+
+- 状态：已完成
+- 优先级：P2
+- 描述：去掉大片浅蓝底。源行改为 elevated 小卡（细边框+轻阴影）；当前/待选仅 5–6% accent 淡底 + 2px 左边条；标签改 outline pill（当前非实心蓝块）；首字母 avatar；搜索钮实心 accent；命中行中性字色 + 播放中绿点式 live dot。逻辑未改。
+- 涉及文件：index.css、WatchPage.tsx
+- 备注：行为钩子不变
+
+## [2026-07-28] 选集展开网格统一 4 列
+
+- 状态：已完成
+- 优先级：P2
+- 描述：折叠横条约 4 卡观感确认合适；展开网格去掉桌面 3 列，统一 `repeat(4, minmax(0,1fr))`，与折叠密度一致。
+- 涉及文件：index.css、MobileEpsSection.tsx
+- 备注：行为钩子未改
+
+## [2026-07-28] 选集折叠横滑修复 + 约 4 卡可视
+
+- 状态：已完成
+- 优先级：P0
+- 描述：折叠条 flex min-content 撑满所有集卡，父 overflow-hidden 裁切 → 无法 overflow-x 滚动、后集不可达。修：strip/body `min-width:0`+`width:100%`+`overflow-x:auto`；卡 `flex-basis: calc((100% - 1.2rem)/4)`；细横滚动条可见。
+- 涉及文件：index.css、MobileEpsSection.tsx、plyr-overrides.css
+- 备注：展开已统一 4 列
+
+## [2026-07-28] 视频源/选集 bilibili 正片侧栏重设计
+
+- 状态：已完成
+- 优先级：P2
+- 描述：对照 bangumi play（ss44777）侧栏。共享 `.kz-bili-sec-*` 头栏；源为圆角 soft 行+左边条；关键词输入条。选集 soft pill 线路；横向圆角集卡；在播 accent-soft + 音浪。**未改** focusAfterSelection / sourcesOpen / epsListExpanded / 滚动 class / 4·3 列 / kz-kw 高度 / pick。
+- 涉及文件：WatchPage.tsx、MobileEpsSection.tsx、index.css、plyr-overrides.css
+- 备注：web tsc 通过；方格版已否决
+
 ## [2026-07-28] 首页滚动图片卡顿
 
 - 状态：已完成

@@ -8,12 +8,13 @@ export type MobileEpsRoad = {
 }
 
 /**
- * Bilibili-style 选集 (shared mobile + desktop rail):
- *  选集                    全 N 话
- *  [线路 pill tabs]
- *  [horizontal episode cards | full grid]
+ * Bilibili 正片侧栏风格选集（桌面 rail + 移动共用）:
+ *  选集 (n/N)                 全 N 话 ⌄
+ *  [线路 soft pills]
+ *  [横向圆角集卡 | 全量网格]
  *
- * Behavior hooks preserved: listExpanded, data-ep-index scroll, 4/3-col grid.
+ * 集卡形状：横向圆角矩形（非 bilibili 数字方格），保证「第01集」可读。
+ * 行为钩子保留：listExpanded / data-ep-index；展开与折叠横条均为约 4 列。
  */
 export function MobileEpsSection({
   roads,
@@ -48,8 +49,8 @@ export function MobileEpsSection({
   const activeRoad = roads[activeRoadIndex]
   const showRoads = roads.length > 0
   const stripRef = useRef<HTMLDivElement>(null)
+  const roadsRef = useRef<HTMLDivElement>(null)
 
-  // Keep the playing card visible in the horizontal strip
   useEffect(() => {
     if (listExpanded) return
     if (playingRoad !== activeRoadIndex) return
@@ -66,26 +67,65 @@ export function MobileEpsSection({
     })
   }, [listExpanded, playingRoad, playingEpisode, activeRoadIndex, activeRoad])
 
+  // Keep active road pill in view when many lines overflow horizontally
+  useEffect(() => {
+    const root = roadsRef.current
+    if (!root) return
+    const tab = root.querySelector<HTMLElement>(
+      `[data-road-index="${activeRoadIndex}"]`,
+    )
+    tab?.scrollIntoView({
+      behavior: 'smooth',
+      inline: 'center',
+      block: 'nearest',
+    })
+  }, [activeRoadIndex, roads.length])
+
+  const countLabel =
+    epCount > 0
+      ? playingEpisode && playingEpisode > 0
+        ? `(${playingEpisode}/${epCount})`
+        : `(${epCount})`
+      : ''
+
   return (
-    <section className="kz-watch-eps kz-watch-eps--mobile kz-watch-panel min-w-0 overflow-hidden px-3 py-2 text-xs">
-      <div className="flex items-center gap-2 leading-none">
-        <h2 className="kz-watch-panel-title min-w-0 flex-1">选集</h2>
+    <section className="kz-watch-eps kz-watch-eps--mobile kz-watch-panel min-w-0 max-w-full overflow-hidden">
+      <div className="kz-bili-sec-head">
+        <h2 className="kz-bili-sec-title">
+          选集
+          {countLabel ? (
+            <span className="kz-bili-sec-count">{countLabel}</span>
+          ) : null}
+        </h2>
         <button
           type="button"
           onClick={onToggleList}
-          className="shrink-0 rounded-full bg-[var(--kz-bg-soft)] px-2 py-0.5 text-xs font-medium text-[var(--kz-fg-muted)] transition hover:bg-[var(--kz-bg-hover)] hover:text-[var(--kz-fg)]"
+          className="kz-bili-sec-more"
           aria-expanded={listExpanded}
         >
           {epCount > 0 ? `全${epCount}话` : '全部'}
-          <span className="ml-0.5 inline-block translate-y-px text-[10px] opacity-70">
-            {listExpanded ? '∨' : '>'}
-          </span>
+          <svg
+            className="kz-bili-chevron"
+            data-open={listExpanded ? 'true' : 'false'}
+            viewBox="0 0 16 16"
+            fill="none"
+            aria-hidden
+          >
+            <path
+              d="M4 6.2L8 10.2L12 6.2"
+              stroke="currentColor"
+              strokeWidth="1.6"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
         </button>
       </div>
 
       {showRoads && (
         <div
-          className="kz-watch-roads mt-2 flex gap-1.5 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          ref={roadsRef}
+          className="kz-bili-roads"
           role="tablist"
           aria-label="播放线路"
         >
@@ -98,25 +138,18 @@ export function MobileEpsSection({
                 key={`${label}-${ri}`}
                 type="button"
                 role="tab"
+                data-road-index={ri}
                 aria-selected={active}
                 onClick={() => onSelectRoad(ri)}
                 className={clsx(
-                  'kz-watch-road-tab shrink-0 rounded-full px-2.5 py-1 text-xs font-medium leading-none transition',
-                  active
-                    ? 'bg-[var(--kz-accent-soft)] text-[var(--kz-accent)]'
-                    : 'bg-[var(--kz-bg-soft)] text-[var(--kz-fg-muted)] hover:text-[var(--kz-fg)]',
+                  'kz-bili-road',
+                  active && 'kz-bili-road--active',
                 )}
                 title={label}
               >
-                {label}
+                <span className="kz-bili-road-label">{label}</span>
                 {playingHere && !active ? (
-                  <span className="ml-1 inline-flex items-center gap-0.5 text-[10px] text-[var(--kz-accent)]">
-                    <span
-                      className="inline-block h-1 w-1 rounded-full bg-current"
-                      aria-hidden
-                    />
-                    在播
-                  </span>
+                  <span className="kz-bili-road-live">在播</span>
                 ) : null}
               </button>
             )
@@ -124,24 +157,22 @@ export function MobileEpsSection({
         </div>
       )}
 
-      <div className="kz-watch-eps-body mt-2">
+      <div className="kz-watch-eps-body kz-bili-eps-body">
         {roadLoading && (
-          <p className="py-5 text-center text-xs text-[var(--kz-fg-muted)]">
+          <p className="kz-bili-empty">
             加载分集
             {pendingPluginName ? `（${pendingPluginName}）` : ''}
             …
           </p>
         )}
-        {roadError && (
-          <p className="px-1 py-2 text-xs text-[var(--kz-danger)]">{roadError}</p>
-        )}
+        {roadError && <p className="kz-bili-error">{roadError}</p>}
         {!hasSelection && !roadLoading && (
-          <div className="flex flex-col items-center gap-2 py-5 text-xs leading-relaxed text-[var(--kz-fg-muted)]">
-            <p className="flex items-center gap-2">
+          <div className="kz-bili-hint">
+            <p>
               <span className="kz-watch-step">1</span>
               在「视频源」点规则搜索
             </p>
-            <p className="flex items-center gap-2">
+            <p>
               <span className="kz-watch-step">2</span>
               再点搜出的番剧条目加载分集
             </p>
@@ -152,18 +183,15 @@ export function MobileEpsSection({
             ref={stripRef}
             className={clsx(
               'kz-watch-ep-strip',
-              /* p-[3px]: room for selected ring so overflow-x doesn't clip it */
               listExpanded
-                ? /* mobile 4 cols; desktop rail ~320px → 3 — density preserved */
-                  'grid grid-cols-4 gap-1.5 p-[3px] lg:grid-cols-3'
-                : 'flex gap-1.5 overflow-x-auto p-[3px] pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
+                ? 'kz-bili-ep-grid'
+                : 'kz-bili-ep-strip',
             )}
           >
             {activeRoad.identifier.map((name, epIndex) => {
               const playing =
                 playingRoad === activeRoadIndex &&
                 playingEpisode === epIndex + 1
-              // Source-provided title only (no synthetic「第 N 话」); bare index if empty
               const label = name?.trim() || String(epIndex + 1)
               return (
                 <button
@@ -173,42 +201,25 @@ export function MobileEpsSection({
                   onClick={() => onPickEpisode(epIndex, activeRoadIndex)}
                   title={label}
                   className={clsx(
-                    'kz-watch-ep-card flex items-center justify-center rounded-lg px-1.5 py-2 text-center transition',
-                    listExpanded ? 'min-w-0' : 'w-[4.75rem] shrink-0',
-                    playing
-                      ? 'kz-watch-ep-card--playing bg-[var(--kz-accent-soft)] ring-1 ring-inset ring-[var(--kz-accent)]/45'
-                      : 'bg-[var(--kz-bg-soft)] hover:bg-[var(--kz-bg-hover)]',
+                    'kz-watch-ep-card kz-bili-ep',
+                    playing && 'kz-bili-ep--playing',
                   )}
                 >
-                  <div
-                    className={clsx(
-                      'flex items-center justify-center gap-0.5 text-[11px] leading-snug',
-                      playing
-                        ? 'font-semibold text-[var(--kz-accent)]'
-                        : 'font-normal text-[var(--kz-fg)]',
-                    )}
-                  >
-                    {playing ? (
-                      <span
-                        className="inline-flex h-3 w-2.5 shrink-0 items-end justify-center gap-px"
-                        aria-hidden
-                      >
-                        <span className="h-1 w-0.5 animate-pulse rounded-sm bg-current" />
-                        <span className="h-2 w-0.5 animate-pulse rounded-sm bg-current [animation-delay:120ms]" />
-                        <span className="h-1.5 w-0.5 animate-pulse rounded-sm bg-current [animation-delay:240ms]" />
-                      </span>
-                    ) : null}
-                    <span className="min-w-0 truncate">{label}</span>
-                  </div>
+                  {playing ? (
+                    <span className="kz-bili-ep-bars" aria-hidden>
+                      <i />
+                      <i />
+                      <i />
+                    </span>
+                  ) : null}
+                  <span className="kz-bili-ep-text">{label}</span>
                 </button>
               )
             })}
           </div>
         )}
         {hasSelection && !roadLoading && !activeRoad && roads.length > 0 && (
-          <p className="py-5 text-center text-xs text-[var(--kz-fg-muted)]">
-            请选择上方线路查看集数
-          </p>
+          <p className="kz-bili-empty">请选择上方线路查看集数</p>
         )}
       </div>
     </section>

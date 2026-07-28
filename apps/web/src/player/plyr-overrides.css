@@ -145,9 +145,12 @@
 
 .kz-watch-cinema--desktop .kz-watch-eps-body {
   max-height: var(--kz-watch-eps-max-h);
+  overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
   min-height: 0;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .kz-watch-cinema--mobile .kz-watch-sources,
@@ -159,8 +162,9 @@
 }
 
 /*
- * Bilibili-style 选集 cards (desktop rail + mobile):
- * horizontal strip by default; "全N话" expands to wrapping grid.
+ * 选集 cards (desktop rail + mobile):
+ * horizontal rounded pills — full source title readable.
+ * Visual tokens live on .kz-bili-ep* in index.css.
  */
 .kz-watch-eps--mobile {
   width: 100%;
@@ -170,23 +174,21 @@
 .kz-watch-ep-strip {
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-x: contain;
-  /* allow selected ring (with p-[3px] in markup) to stay visible */
-  scroll-padding-inline: 3px;
+  scroll-padding-inline: 2px;
 }
 
 .kz-watch-ep-card {
-  /* Single-line source title; denser grid — do not inflate much (W polish) */
-  min-height: 2.55rem;
   box-sizing: border-box;
 }
 
-.kz-watch-ep-card--playing {
-  /* accent-soft fill already in markup; keep ring room from strip padding */
+.kz-watch-ep-card--playing,
+.kz-bili-ep--playing {
+  /* accent-soft + inset ring from .kz-bili-ep--playing */
   box-shadow: none;
 }
 
-/* Pill road tabs replace underline tabs — light theme uses same accent soft */
-.kz-watch-road-tab[aria-selected='true'] {
+.kz-watch-road-tab[aria-selected='true'],
+.kz-bili-road--active {
   font-weight: 600;
 }
 
