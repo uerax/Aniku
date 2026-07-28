@@ -19,6 +19,14 @@
     本地历史 / 追番，Anime4K 超分。绝赞开发中 (～￣▽￣)～
   </p>
 
+  <p>
+    <img
+      src="docs/screenshots/watch-player.png"
+      alt="Animaku 播放页：弹幕、多线路选集与播放器控制栏"
+      width="900"
+    />
+  </p>
+
 </div>
 
 ## 这是什么

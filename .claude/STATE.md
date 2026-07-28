@@ -1,5 +1,13 @@
 # Animaku 项目状态
 
+## [2026-07-28] README 播放页截图
+
+- 状态：已完成
+- 优先级：P3
+- 描述：将用户提供的播放页截图放入 `docs/screenshots/watch-player.png`，并在 README 居中头图区 logo/徽章/简介之后展示（width=900）。
+- 涉及文件：docs/screenshots/watch-player.png、README.md
+- 备注：命名 watch-player，与后续可能的 home/timeline 截图统一前缀风格
+
 ## [2026-07-28] 线路 tab 横滑修复
 
 - 状态：已完成
