@@ -177,6 +177,19 @@ docker run --rm -p 8787:8787 --env-file .env -e PORT=8787 -e PUBLIC_PROXY=1 anim
 | `DANDAN_APP_ID` / `DANDAN_APP_SECRET` | 空 | 空则用内置 legacy 客户端密钥，开箱可弹幕 |
 | `BANGUMI_USER_AGENT` / `PRODUCT_USER_AGENT` | `animaku/0.1` | 上游 UA |
 
+### 页脚 / 项目宣传（可选，Vite `VITE_*`）
+
+非观看页底部展示 GitHub 与可选维护者信息；改后需重新 `pnpm build` / 重启 `pnpm dev`。
+
+| 变量 | 说明 |
+|------|------|
+| `VITE_GITHUB_URL` | 源码地址（默认 `https://github.com/uerax/Animaku`）；也可写 `owner/repo` |
+| `VITE_MAINTAINER_NAME` / `VITE_MAINTAINER_URL` | 维护者显示名与主页链接 |
+| `VITE_HOMEPAGE_URL` / `VITE_CONTACT_EMAIL` | 额外主页、联系邮箱 |
+| `VITE_SITE_TAGLINE` / `VITE_FOOTER_NOTE` | 标语与附加说明 |
+
+完整列表见 [.env.example](.env.example)。
+
 ### 公网部署（重要）
 
 | 变量 | 说明 |

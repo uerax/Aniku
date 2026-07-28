@@ -8,6 +8,7 @@ import {
 } from 'react-router-dom'
 import clsx from 'clsx'
 import { useSettingsStore } from '../stores/settings'
+import { SiteFooter } from './SiteFooter'
 
 /** Always visible in the top strip (mobile + desktop). */
 const primaryLinks = [
@@ -254,7 +255,7 @@ export function Layout() {
                 Animaku
               </span>
               <span className="text-[10px] font-normal text-[var(--kz-fg-muted)]">
-                本地番剧 · 规则选源
+                在线弹幕播放
               </span>
             </span>
           </NavLink>
@@ -427,14 +428,8 @@ export function Layout() {
         <Outlet />
       </main>
 
-      {!isWatch && (
-        <footer className="border-t border-[var(--kz-border)] py-5 text-center text-[12px] leading-relaxed text-[var(--kz-fg-muted)]">
-          Animaku · 仅供学习研究 · 请遵守当地法律法规
-          <br className="sm:hidden" />
-          <span className="hidden sm:inline"> · </span>
-          数据来自 Bangumi / 弹弹play · 规则由用户自行导入
-        </footer>
-      )}
+      {/* Watch: no footer — cinema chrome; elsewhere promote repo + optional maintainer */}
+      {!isWatch && <SiteFooter />}
     </div>
   )
 }

@@ -1,5 +1,13 @@
 # Animaku 项目状态
 
+## [2026-07-28] 页脚 GitHub + 可配置维护者信息
+
+- 状态：已完成
+- 优先级：P2
+- 描述：非观看页 SiteFooter — 参考 48.club 单行（产品·©·维护者 | 图标链），去掉免责/数据来源描述；VITE_*；默认 uerax/Animaku。观看页隐藏。
+- 涉及文件：SiteFooter.tsx、site-branding.ts、Layout.tsx、vite-env.d.ts、.env.example、README、CONTEXT
+- 备注：web typecheck
+
 ## [2026-07-28] 缓存小补丁 1+2+3
 
 - 状态：已完成

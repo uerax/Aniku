@@ -140,8 +140,15 @@ Browser (WEB_DEV_PORT，默认 5173)
 | `PUBLIC_PROXY` | 默认关：媒体代理 + 规则 search/chapters/resolve 仅本机/局域网。公网部署设 `1` |
 | `PROXY_TOKEN` | 可选；请求头 `X-Animaku-Proxy-Token` 或 query `proxyToken` 可绕过局域网限制 |
 | `MEDIA_FULL_PROXY` | 默认 **关 (0)**：`/api/media/proxy` **只允许 m3u8**（分片 CDN 直连；`fullProxy`/cookie mp4 拒绝）。`1` = 允许 ts/mp4 全量代拉（Anime1 等）。与 `PUBLIC_PROXY` 正交 |
+| `VITE_GITHUB_URL` 等 | 前端页脚 branding（见 `.env.example`）；构建时打进 SPA，**非**运行时 API 配置 |
 
 **不要**再引入已死的公共 DPlayer 弹幕池 / `DPLAYER_API`。
+
+### 页脚 branding（`SiteFooter`）
+
+- 组件：`apps/web/src/components/SiteFooter.tsx`；配置：`apps/web/src/lib/site-branding.ts`
+- 风格：单行（产品 · ©年 · 可选维护者 | 图标链 GitHub/主页/邮箱），无免责/数据来源长文案
+- 观看页不展示；`VITE_*` 配置维护者与外链
 
 ### 配置边界与部署安全
 
