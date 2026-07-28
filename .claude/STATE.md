@@ -1,5 +1,50 @@
 # Animaku 项目状态
 
+## [2026-07-28] 弹幕改为 CDN 头、撤销源站内存缓存
+
+- 状态：已完成
+- 优先级：P1
+- 描述：撤销 danmaku 进程内 cacheGetOrSet；成功响应设
+  `Cache-Control: public, max-age=0, s-maxage=1800` +
+  `CDN-Cache-Control` / `Cloudflare-CDN-Cache-Control: max-age=1800`（30min 边缘）。
+  `?refresh=1` → no-store。浏览器 max-age=0 不囤大 body。
+  **仅改头不够**：CF 默认不缓存 /api，需 Cache Rule 允许这些路径。
+- 涉及文件：cdn-cache-headers.ts（新）、routes/danmaku.ts、bilibili-danmaku.ts、ttl-cache 去掉 DANMAKU_*
+- 备注：server typecheck 通过；/status 仍无缓存头
+
+## [2026-07-28] 弹幕/Anime4K 延后初始化（A+B）
+
+- 状态：已完成
+- 优先级：P1
+- 描述：仅 VideoPlayer 热路径时序，不改选源/接口。
+  - A：`danmakuMediaReadyRef`；无引擎时需 canplay / HAVE_CURRENT_DATA / noteDanmakuMediaReady 才 `new CanvasDanmaku`；src 切换重置；settings 仍走 ref，就绪后一次 apply
+  - B：超分在 metadata 之后若仍 paused，等 `playing`（或 cancel）再 `startAnime4K`；off 不加载；提示「将在开始播放后启动」
+- 涉及文件：apps/web/src/player/VideoPlayer.tsx
+- 备注：web typecheck 通过；建议手测：开播弹幕出现、开播前改弹幕设置、续播/seek、换集、超分开着暂停首帧再播
+
+## [2026-07-28] P1 CLS 骨架 + 播放器 chunk 预取
+
+- 状态：已完成
+- 优先级：P1
+- 描述：对照 CWV 报告 CLS/INP；不碰选源/播放业务逻辑。
+  1. `BangumiGridSkeleton` + `.kz-skeleton`：与网格同列距/3:4 占位；Home/Anime/Timeline/Search/Collect 加载态替换 LoadingState
+  2. Watch 条目加载中：用 `kz-player-placeholder`（已有 16:9）+ meta 骨架，避免 main 从空文案暴涨
+  3. `preloadVideoPlayer`：仅 dynamic import，卡片 hover/focus + Watch mount 预拉；不 new Hls/弹幕
+- 涉及文件：ui.tsx、index.css、lazy.tsx、HomePage/AnimePage/TimelinePage/SearchPage/CollectPage、WatchPage
+- 备注：web typecheck 通过；未改 focusAfterSelection / sourcesOpen / eps 行为
+
+## [2026-07-28] P0 LCP 封面优化（Cloudflare CWV）
+
+- 状态：已完成
+- 优先级：P0
+- 描述：对照 Cloudflare Web Analytics 报告，LCP Poor 主因是 `img.h-full.object-cover` + `lain.bgm.tv` 封面晚到/过大。
+  1. `index.html` preconnect + dns-prefetch `lain.bgm.tv`
+  2. `BangumiGrid` 前 12 张 eager，第 1 张 `fetchPriority=high`，其余 lazy 用 low
+  3. `coverOf` 经 `preferResizedCover`：无 `/r/N/` 的 bgm `/pic/` 补 `/r/400`（thumb）或 `/r/800`（large）
+  4. WatchMeta 桌面/移动简介图改 thumb，不再 large
+- 涉及文件：apps/web/index.html、components/ui.tsx、pages/watch/WatchMeta.tsx、packages/shared/src/bangumi.ts
+- 备注：shared/web tsc 通过；未做 CLS 骨架 / 播放器 INP（P1）
+
 ## [2026-07-28] SEO 实用层优化（无 SSR）
 
 - 状态：已完成
