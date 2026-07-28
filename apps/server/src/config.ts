@@ -105,4 +105,11 @@ export const config = {
   pluginShopMirror:
     process.env.PLUGIN_SHOP_MIRROR ||
     'https://raw.gitcode.com/gh_mirrors/ka/KazumiRules/raw/main/',
+  /**
+   * Public site origin for sitemap / robots (no trailing slash).
+   * e.g. https://anime.example.com — when empty, robots/sitemap use request Host.
+   */
+  siteUrl: (process.env.SITE_URL || process.env.PUBLIC_SITE_URL || '')
+    .trim()
+    .replace(/\/+$/, ''),
 }

@@ -204,6 +204,18 @@ pnpm typecheck     # 全仓 tsc
 
 完整列表见 [.env.example](.env.example)。
 
+### SEO（可选）
+
+SPA 默认带 `index.html` meta、客户端按路由改 title/description/OG、以及 `/robots.txt` + `/sitemap.xml`。
+
+| 变量 | 说明 |
+|------|------|
+| `SITE_URL` | 运行时公网 origin（无尾斜杠），写入 sitemap / robots 的 `Sitemap:` |
+| `VITE_SITE_URL` | 构建期写入客户端，供 canonical / `og:url`（Docker 需 rebuild） |
+
+未设置时：服务端用请求 `Host`（含 `X-Forwarded-*`）；客户端用 `window.location.origin`。  
+私有页（设置 / 历史 / 追番 / 搜索 / `/play/*`）`noindex`；番剧详情索引在 `/subject/:id`。
+
 ### 公网 / 代理访问（重要）
 
 | 变量 | 说明 |

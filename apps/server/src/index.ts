@@ -13,6 +13,7 @@ import { bilibiliDanmakuRoutes } from './routes/bilibili-danmaku'
 import { pluginRoutes } from './routes/plugin'
 import { pluginCatalogRoutes } from './routes/plugin-catalog'
 import { mediaRoutes } from './routes/media'
+import { buildRobotsTxt, buildSitemapXml, resolvePublicOrigin } from './lib/seo-static'
 
 /**
  * Resolve SPA build output. @hono/node-server serveStatic only accepts
@@ -113,16 +114,45 @@ app.route('/api/plugin', pluginRoutes)
 app.route('/api/plugin', pluginCatalogRoutes)
 app.route('/api/media', mediaRoutes)
 
+// Host-aware SEO files (before SPA static so they are not shadowed by public/)
+app.get('/robots.txt', (c) => {
+  const origin = resolvePublicOrigin(config.siteUrl, c.req)
+  return new Response(buildRobotsTxt(origin), {
+    status: 200,
+    headers: {
+      'Content-Type': 'text/plain; charset=utf-8',
+      'Cache-Control': 'public, max-age=3600',
+    },
+  })
+})
+app.get('/sitemap.xml', (c) => {
+  const origin = resolvePublicOrigin(config.siteUrl, c.req)
+  return new Response(buildSitemapXml(origin), {
+    status: 200,
+    headers: {
+      'Content-Type': 'application/xml; charset=utf-8',
+      'Cache-Control': 'public, max-age=3600',
+    },
+  })
+})
+
 // Production: one process serves API + Vite build (same origin → no /api proxy needed)
 const webRoot = resolveWebRootRel()
 if (webRoot) {
   app.use('*', async (c, next) => {
     if (c.req.path.startsWith('/api')) return next()
+    // Dynamic robots/sitemap already handled above
+    if (c.req.path === '/robots.txt' || c.req.path === '/sitemap.xml') {
+      return next()
+    }
     return serveStatic({ root: webRoot })(c, next)
   })
   // SPA fallback (client routes like /subject/123)
   app.get('*', async (c, next) => {
     if (c.req.path.startsWith('/api')) return next()
+    if (c.req.path === '/robots.txt' || c.req.path === '/sitemap.xml') {
+      return next()
+    }
     return serveStatic({ root: webRoot, path: 'index.html' })(c, next)
   })
   console.log(`serving web SPA from ${webRoot}/ (cwd=${process.cwd()})`)

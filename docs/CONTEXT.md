@@ -71,6 +71,19 @@ pnpm --filter @animaku/server typecheck
 
 当前**没有**单元/集成测试 runner；校验靠 `tsc` + 手动 `pnpm dev`。
 
+### SEO（SPA 实用层，无 SSR）
+
+| 层 | 位置 | 作用 |
+|----|------|------|
+| 静态默认 | `apps/web/index.html`、`public/robots.txt`、`public/sitemap.xml`、`site.webmanifest` | 无 JS 爬虫 / 首屏 |
+| 客户端 | `DocumentSeo` + `lib/seo.ts` | 按路由改 title / description / robots / OG / Twitter / canonical / JSON-LD |
+| 服务端 | `GET /robots.txt`、`GET /sitemap.xml`（`lib/seo-static.ts`） | Host 或 `SITE_URL` 生成绝对 URL |
+
+- 公开索引：`/`、`/anime`、`/timeline`、`/subject/:id`（详情用 Bangumi 标题/简介/封面）
+- `noindex`：`/search`、`/collect`、`/history`、`/settings`、`/play/:id`（canonical 仍指向 `/subject/:id`）
+- 绝对 URL：`SITE_URL`（运行时）+ `VITE_SITE_URL`（构建期客户端）；都空则 Host / `location.origin`
+- **未做 SSR/预渲染**：百度等不执行 JS 的引擎对详情页仍只见壳 HTML；Google 等可执行 JS 能看到客户端 meta
+
 ---
 
 ## 4. 请求流

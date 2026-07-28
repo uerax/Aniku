@@ -8,6 +8,7 @@ import {
 } from 'react-router-dom'
 import clsx from 'clsx'
 import { useSettingsStore } from '../stores/settings'
+import { DocumentSeo } from './DocumentSeo'
 import { SiteFooter } from './SiteFooter'
 
 /** Always visible in the top strip (mobile + desktop). */
@@ -235,6 +236,7 @@ export function Layout() {
 
   return (
     <div className="flex min-h-screen flex-col bg-[var(--kz-bg)] text-[var(--kz-fg)]">
+      <DocumentSeo />
       <header className="sticky top-0 z-40 border-b border-[var(--kz-border)] bg-[var(--kz-header-bg)] backdrop-blur-xl">
         <div className="relative mx-auto flex max-w-[1760px] items-center gap-2 px-3 py-2 sm:gap-3 sm:px-5 lg:px-6">
           <NavLink

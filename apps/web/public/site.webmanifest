@@ -1,19 +1,27 @@
 {
   "name": "Animaku",
   "short_name": "Animaku",
+  "description": "浏览器端番剧客户端：Bangumi 元数据、规则选源、弹幕与本地追番",
+  "lang": "zh-CN",
+  "start_url": "/",
+  "scope": "/",
   "icons": [
     {
       "src": "/android-chrome-192x192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
       "src": "/android-chrome-512x512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     }
   ],
   "theme_color": "#09090b",
   "background_color": "#09090b",
-  "display": "standalone"
+  "display": "standalone",
+  "orientation": "any",
+  "categories": ["entertainment", "video"]
 }

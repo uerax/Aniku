@@ -24,6 +24,11 @@ interface ImportMetaEnv {
   readonly VITE_CONTACT_EMAIL?: string
   /** Optional free-form note under tagline */
   readonly VITE_FOOTER_NOTE?: string
+  /**
+   * Public site origin for absolute canonical / og:url / JSON-LD
+   * (no trailing slash), e.g. https://anime.example.com
+   */
+  readonly VITE_SITE_URL?: string
 }
 
 interface ImportMeta {

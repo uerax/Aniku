@@ -13,7 +13,8 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        # Build-time only (Vite). Runtime .env changes will not update the footer.
+        # Build-time only (Vite). Runtime .env changes will not update the footer / client SEO origin.
+        VITE_SITE_URL: ${VITE_SITE_URL:-}
         VITE_GITHUB_URL: ${VITE_GITHUB_URL:-}
         VITE_GITHUB_LABEL: ${VITE_GITHUB_LABEL:-}
         VITE_PRODUCT_NAME: ${VITE_PRODUCT_NAME:-}
@@ -40,6 +41,8 @@ services:
       MEDIA_FULL_PROXY: ${MEDIA_FULL_PROXY:-0}
       PROXY_TOKEN: ${PROXY_TOKEN:-}
       CORS_ORIGINS: ${CORS_ORIGINS:-}
+      # Public origin for /robots.txt Sitemap + /sitemap.xml (runtime)
+      SITE_URL: ${SITE_URL:-}
       # Optional overrides; empty → use server built-in defaults (proper Bangumi UA, etc.)
       DANDAN_APP_ID: ${DANDAN_APP_ID:-}
       DANDAN_APP_SECRET: ${DANDAN_APP_SECRET:-}

@@ -1,5 +1,20 @@
 # Animaku 项目状态
 
+## [2026-07-28] SEO 实用层优化（无 SSR）
+
+- 状态：已完成
+- 优先级：P2
+- 描述：
+  1. `index.html` 补 description / robots / theme-color / OG / Twitter 默认；`site.webmanifest` 补 description/lang/start_url
+  2. 客户端 `DocumentSeo` + `lib/seo.ts`：按路由 title/description/robots/canonical/OG/JSON-LD；`/subject/:id` 用 Bangumi 元数据；`/play` noindex 且 canonical 到 subject
+  3. 服务端 Host 感知 `/robots.txt` + `/sitemap.xml`（`SITE_URL` 或请求 Host）；public 静态副本作 fallback
+  4. `VITE_SITE_URL` / `SITE_URL` 写入 .env.example、Docker ARG/compose、README、CONTEXT
+- 涉及文件：
+  - apps/web：index.html、public/robots.txt、public/sitemap.xml、site.webmanifest、src/lib/seo.ts、components/DocumentSeo.tsx、Layout.tsx、vite-env.d.ts
+  - apps/server：index.ts、config.ts、lib/seo-static.ts
+  - Dockerfile、docker-compose.yml、.env.example、README.md、docs/CONTEXT.md
+- 备注：web/server typecheck 通过；未做 SSR/预渲染；详情页对不执行 JS 的爬虫仍只有壳
+
 ## [2026-07-28] PUBLIC_PROXY 默认改为 1
 
 - 状态：已完成

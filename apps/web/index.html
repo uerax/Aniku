@@ -3,22 +3,56 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#09090b" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#f4f4f5" media="(prefers-color-scheme: light)" />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="application-name" content="Animaku" />
+    <meta name="author" content="Animaku" />
+    <meta name="robots" content="index,follow" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+
     <link rel="icon" href="/favicon.ico" sizes="any" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/site.webmanifest" />
+
     <!-- Inter via Bunny (GF mirror); CJK still falls back to system in CSS -->
     <link rel="preconnect" href="https://fonts.bunny.net" crossorigin />
     <link
       rel="stylesheet"
       href="https://fonts.bunny.net/css?family=inter:400,500,600,700&display=swap"
     />
-    <title>Animaku</title>
+
+    <!--
+      Static defaults for non-JS crawlers / first paint.
+      Client DocumentSeo overwrites title/description/OG after route load.
+      Set VITE_SITE_URL at build for absolute og:url / sitemap; otherwise origin is used at runtime.
+    -->
+    <title>Animaku — 浏览器端番剧客户端</title>
     <meta
       name="description"
-      content="Animaku — 浏览器端番剧浏览、规则选源、弹幕与 Bangumi 追番"
+      content="Animaku — 浏览器端番剧客户端：Bangumi 元数据、规则选源播放、弹幕与本地追番历史。自托管，兼容 KazumiRules。"
     />
+    <meta name="keywords" content="Animaku,番剧,动画,Bangumi,弹幕,自托管,KazumiRules,在线播放" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Animaku" />
+    <meta property="og:locale" content="zh_CN" />
+    <meta property="og:title" content="Animaku — 浏览器端番剧客户端" />
+    <meta
+      property="og:description"
+      content="Bangumi 元数据、规则选源播放、弹幕与本地追番历史。自托管 Web 客户端。"
+    />
+    <meta property="og:image" content="/android-chrome-512x512.png" />
+
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="Animaku — 浏览器端番剧客户端" />
+    <meta
+      name="twitter:description"
+      content="Bangumi 元数据、规则选源播放、弹幕与本地追番历史。自托管 Web 客户端。"
+    />
+    <meta name="twitter:image" content="/android-chrome-512x512.png" />
   </head>
   <body>
     <div id="root"></div>
