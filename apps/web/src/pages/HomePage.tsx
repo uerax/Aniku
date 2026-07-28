@@ -53,6 +53,10 @@ export function HomePage() {
                   <img
                     src={h.cover}
                     alt=""
+                    loading="lazy"
+                    decoding="async"
+                    width={48}
+                    height={64}
                     className="h-16 w-12 shrink-0 rounded-lg object-cover shadow-md ring-1 ring-[var(--kz-border)]"
                   />
                 ) : (

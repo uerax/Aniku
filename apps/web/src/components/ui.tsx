@@ -30,8 +30,9 @@ export const BangumiCard = memo(function BangumiCard({
 }: {
   item: BangumiItem
 }) {
-  // Prefer larger cover when available — grid cells are wider now.
-  const cover = coverOf(item, 'large') || coverOf(item, 'thumb')
+  // List/grid: prefer common/medium (thumb). large decode cost janks scroll
+  // when many cards enter the viewport at once.
+  const cover = coverOf(item, 'thumb')
   const title = item.nameCn || item.name
   const score =
     item.ratingScore > 0 ? item.ratingScore.toFixed(1) : null
@@ -51,8 +52,9 @@ export const BangumiCard = memo(function BangumiCard({
             alt=""
             loading="lazy"
             decoding="async"
-            width={280}
-            height={374}
+            // Intrinsic hint for aspect ratio before CSS; common covers ~200px wide
+            width={200}
+            height={267}
             className="h-full w-full object-cover"
           />
         ) : (

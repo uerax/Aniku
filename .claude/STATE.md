@@ -1,5 +1,14 @@
 # Animaku 项目状态
 
+## [2026-07-28] 首页滚动图片卡顿
+
+- 状态：已完成
+- 优先级：P0
+- 描述：往下滚封面填充卡顿、往上滚上方图消失再加载。根因：`img { content-visibility: auto }` + `.bangumi-card` 的 content-visibility 滚出视口跳过绘制、滚回重绘；网格还用 `coverOf(..., 'large')` 加重解码。
+- 改动：去掉全局/卡片 content-visibility；BangumiCard 改用 thumb（common/medium）；续播小图补 lazy/decoding/尺寸。
+- 涉及文件：apps/web/src/index.css、components/ui.tsx、pages/HomePage.tsx
+- 备注：未上虚拟列表（24–50 条不必）
+
 ## [2026-07-28] 观看页 W1–W3 面板美化
 
 - 状态：已完成

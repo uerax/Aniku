@@ -221,23 +221,18 @@ textarea:focus-visible {
   overflow: hidden;
 }
 
-/* Skip off-screen card layout/paint while scrolling */
-.bangumi-card {
-  content-visibility: auto;
-  contain-intrinsic-size: auto 380px;
-}
-
-/* Cover card hover — scale image only, not shell */
+/*
+ * Cover card hover — scale image only, not shell.
+ * Do NOT use content-visibility on cards/imgs: Chrome skips paint for
+ * off-screen nodes and re-paints on scroll-back, which reads as covers
+ * vanishing then reloading (home grid jank). 24–50 cards is cheap enough.
+ */
 .bangumi-card .bangumi-card-cover img {
   transition: transform 0.35s ease;
 }
 
 .bangumi-card:hover .bangumi-card-cover img {
   transform: scale(1.04);
-}
-
-img {
-  content-visibility: auto;
 }
 
 /* Accent pill (filters / active chips) */
