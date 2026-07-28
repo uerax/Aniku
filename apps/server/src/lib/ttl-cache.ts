@@ -59,14 +59,40 @@ export function cacheSet<T>(
   value: T,
   ttlMs: number,
   maxEntries = DEFAULT_MAX_ENTRIES,
+  /**
+   * When set, only keys with this prefix count toward maxEntries / eviction.
+   * Used so danmaku's tighter cap does not wipe Bangumi/plugin entries in the
+   * shared Map (eviction otherwise is global on `store.size`).
+   */
+  keyPrefix?: string,
 ): void {
   if (ttlMs <= 0) return
   if (store.has(key)) store.delete(key)
   store.set(key, { value, exp: Date.now() + ttlMs })
-  while (store.size > maxEntries) {
-    const oldest = store.keys().next().value
-    if (oldest === undefined) break
-    store.delete(oldest)
+
+  const overLimit = (): boolean => {
+    if (!keyPrefix) return store.size > maxEntries
+    let n = 0
+    for (const k of store.keys()) {
+      if (k.startsWith(keyPrefix)) n++
+    }
+    return n > maxEntries
+  }
+
+  while (overLimit()) {
+    let victim: string | undefined
+    if (keyPrefix) {
+      for (const k of store.keys()) {
+        if (k.startsWith(keyPrefix)) {
+          victim = k
+          break
+        }
+      }
+    } else {
+      victim = store.keys().next().value
+    }
+    if (victim === undefined) break
+    store.delete(victim)
   }
 }
 
@@ -82,7 +108,12 @@ export async function cacheGetOrSet<T>(
   key: string,
   ttlMs: number,
   loader: () => Promise<T>,
-  opts?: { bypass?: boolean; maxEntries?: number },
+  opts?: {
+    bypass?: boolean
+    maxEntries?: number
+    /** Limit/evict only keys with this prefix (see cacheSet). */
+    keyPrefix?: string
+  },
 ): Promise<{ value: T; hit: boolean }> {
   if (opts?.bypass) {
     cacheDelete(key)
@@ -101,7 +132,13 @@ export async function cacheGetOrSet<T>(
     try {
       const value = await loader()
       if (ttlMs > 0) {
-        cacheSet(key, value, ttlMs, opts?.maxEntries ?? DEFAULT_MAX_ENTRIES)
+        cacheSet(
+          key,
+          value,
+          ttlMs,
+          opts?.maxEntries ?? DEFAULT_MAX_ENTRIES,
+          opts?.keyPrefix,
+        )
       }
       return value
     } finally {

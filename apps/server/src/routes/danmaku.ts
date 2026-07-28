@@ -1,6 +1,8 @@
 import { Hono } from 'hono'
 import { parseDanmakuComments } from '@animaku/shared'
 import { dandanGet, isDanmakuUsingFallback } from '../lib/dandan'
+import { setDanmakuCdnHeaders } from '../lib/cdn-cache-headers'
+import { wantsCacheBypass } from '../lib/ttl-cache'
 
 export const danmakuRoutes = new Hono()
 
@@ -13,8 +15,9 @@ danmakuRoutes.get('/status', (c) =>
 )
 
 danmakuRoutes.get('/search', async (c) => {
-  const keyword = c.req.query('keyword')
+  const keyword = (c.req.query('keyword') || '').trim()
   if (!keyword) return c.json({ error: 'bad_request', message: '缺少 keyword' }, 400)
+  const bypass = wantsCacheBypass(c)
   try {
     const json = (await dandanGet('/api/v2/search/anime', { keyword })) as {
       success?: boolean
@@ -33,6 +36,7 @@ danmakuRoutes.get('/search', async (c) => {
         o.typeDescription != null ? String(o.typeDescription) : undefined,
       imageUrl: o.imageUrl != null ? String(o.imageUrl) : undefined,
     }))
+    setDanmakuCdnHeaders(c, bypass)
     return c.json({ data: animes })
   } catch (e) {
     return c.json(
@@ -44,6 +48,7 @@ danmakuRoutes.get('/search', async (c) => {
 
 danmakuRoutes.get('/bangumi/bgmtv/:bgmId', async (c) => {
   const bgmId = c.req.param('bgmId')
+  const bypass = wantsCacheBypass(c)
   try {
     const json = (await dandanGet(`/api/v2/bangumi/bgmtv/${bgmId}`)) as {
       success?: boolean
@@ -61,6 +66,7 @@ danmakuRoutes.get('/bangumi/bgmtv/:bgmId', async (c) => {
       episodeId: Number(e.episodeId),
       episodeTitle: String(e.episodeTitle ?? ''),
     }))
+    setDanmakuCdnHeaders(c, bypass)
     return c.json({
       data: {
         bangumiId: Number(
@@ -81,6 +87,7 @@ danmakuRoutes.get('/bangumi/bgmtv/:bgmId', async (c) => {
 
 danmakuRoutes.get('/bangumi/:id', async (c) => {
   const id = c.req.param('id')
+  const bypass = wantsCacheBypass(c)
   try {
     const json = (await dandanGet(`/api/v2/bangumi/${id}`)) as {
       success?: boolean
@@ -94,6 +101,7 @@ danmakuRoutes.get('/bangumi/:id', async (c) => {
       episodeId: Number(e.episodeId),
       episodeTitle: String(e.episodeTitle ?? ''),
     }))
+    setDanmakuCdnHeaders(c, bypass)
     return c.json({
       data: {
         bangumiId: Number(json.bangumi?.animeId ?? id),
@@ -112,12 +120,14 @@ danmakuRoutes.get('/comment/:episodeId', async (c) => {
   const episodeId = c.req.param('episodeId')
   const withRelated = c.req.query('withRelated') ?? 'true'
   const chConvert = c.req.query('chConvert') ?? '1'
+  const bypass = wantsCacheBypass(c)
   try {
     const json = (await dandanGet(`/api/v2/comment/${episodeId}`, {
       withRelated,
       chConvert,
     })) as { comments?: { m: string; p: string }[]; count?: number }
     const comments = parseDanmakuComments(json.comments || [])
+    setDanmakuCdnHeaders(c, bypass)
     return c.json({ data: comments, count: json.count ?? comments.length })
   } catch (e) {
     return c.json(

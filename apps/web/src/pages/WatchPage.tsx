@@ -9,10 +9,11 @@ import {
 } from '../lib/use-watch-session'
 import { bangumiApi } from '../lib/bangumi'
 import { useSettingsStore } from '../stores/settings'
-import { ErrorState, LoadingState } from '../components/ui'
+import { ErrorState } from '../components/ui'
 import {
   EmbedPlayerSuspense,
   VideoPlayerSuspense,
+  preloadVideoPlayer,
 } from '../player/lazy'
 import { useWatchLayoutMode } from './watch/useWatchLayoutMode'
 import { DesktopWatchLayout } from './watch/DesktopWatchLayout'
@@ -138,6 +139,12 @@ export function WatchPage() {
     focusAfterSelection(key)
   }, [w.selection, focusAfterSelection])
 
+  // Warm player JS as soon as watch route is active (import only).
+  // Must run before any conditional return — Rules of Hooks.
+  useEffect(() => {
+    preloadVideoPlayer()
+  }, [])
+
   function onKeywordSubmit(e: FormEvent) {
     e.preventDefault()
     const kw = kwInput.trim()
@@ -150,7 +157,24 @@ export function WatchPage() {
   }
 
   if (w.subjectLoading && !w.title) {
-    return <LoadingState text="加载条目…" />
+    // Keep cinema shell height stable while subject meta loads (CLS).
+    return (
+      <div className="kz-watch px-4 sm:px-0">
+        <div className="kz-player-stack mx-auto space-y-3">
+          <div className="kz-player-placeholder text-sm text-[var(--kz-fg-muted)]">
+            <div className="flex flex-col items-center gap-2">
+              <span className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-[var(--kz-border)] border-t-[var(--kz-accent)]" />
+              加载条目…
+            </div>
+          </div>
+          <div className="kz-watch-panel space-y-2 px-3 py-3">
+            <div className="kz-skeleton h-4 w-2/3 rounded-md" />
+            <div className="kz-skeleton h-3 w-1/2 rounded-md" />
+            <div className="kz-skeleton h-3 w-full rounded-md" />
+          </div>
+        </div>
+      </div>
+    )
   }
 
   const hasKeywordTarget = Boolean(

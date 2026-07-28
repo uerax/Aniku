@@ -196,11 +196,15 @@ export function WatchMeta({
     return (
       <div className="kz-watch-meta kz-watch-panel space-y-2.5 px-3 py-2.5 text-[var(--kz-fg-muted)]">
         <div className="flex items-start gap-2.5">
-          {item && coverOf(item, 'large') ? (
+          {item && coverOf(item, 'thumb') ? (
             <div className="h-16 w-12 shrink-0 overflow-hidden rounded-lg bg-[var(--kz-bg-soft)] shadow-sm ring-1 ring-[var(--kz-border)]">
               <img
-                src={coverOf(item, 'large') || coverOf(item, 'thumb')}
+                src={coverOf(item, 'thumb')}
                 alt=""
+                loading="lazy"
+                decoding="async"
+                width={48}
+                height={64}
                 className="h-full w-full object-cover"
               />
             </div>
@@ -274,11 +278,17 @@ export function WatchMeta({
   /* Desktop — elevated meta card */
   return (
     <div className="kz-watch-meta kz-watch-panel flex gap-3.5 p-3.5 sm:gap-4 sm:p-4">
-      {item && coverOf(item, 'large') ? (
+      {item && coverOf(item, 'thumb') ? (
         <div className="h-[7.75rem] w-[5.75rem] shrink-0 overflow-hidden rounded-xl bg-[var(--kz-bg-soft)] shadow-sm ring-1 ring-[var(--kz-border)] sm:h-36 sm:w-[6.75rem]">
+          {/* ~108px CSS wide — thumb/r400 is enough; large was a common LCP sink */}
           <img
-            src={coverOf(item, 'large') || coverOf(item, 'thumb')}
+            src={coverOf(item, 'thumb')}
             alt=""
+            loading="eager"
+            decoding="async"
+            fetchPriority="low"
+            width={108}
+            height={144}
             className="h-full w-full object-cover"
           />
         </div>

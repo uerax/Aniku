@@ -3,8 +3,8 @@ import { useQuery } from '@tanstack/react-query'
 import { bangumiApi } from '../lib/bangumi'
 import {
   BangumiGrid,
+  BangumiGridSkeleton,
   ErrorState,
-  LoadingState,
   PageHeader,
 } from '../components/ui'
 import { EMPTY_ARRAY } from '../lib/stable'
@@ -60,7 +60,7 @@ export function TimelinePage() {
           </button>
         ))}
       </div>
-      {q.isLoading && <LoadingState />}
+      {q.isLoading && <BangumiGridSkeleton count={12} />}
       {q.isError && (
         <ErrorState error={q.error} onRetry={() => q.refetch()} />
       )}

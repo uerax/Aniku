@@ -17,6 +17,10 @@
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/site.webmanifest" />
 
+    <!-- Bangumi covers are the usual LCP element — warm DNS/TLS before SPA sets <img src> -->
+    <link rel="preconnect" href="https://lain.bgm.tv" crossorigin />
+    <link rel="dns-prefetch" href="https://lain.bgm.tv" />
+
     <!-- Inter via Bunny (GF mirror); CJK still falls back to system in CSS -->
     <link rel="preconnect" href="https://fonts.bunny.net" crossorigin />
     <link

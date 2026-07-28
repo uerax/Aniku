@@ -87,6 +87,12 @@ export function VideoPlayer({
   const layerRef = useRef<HTMLDivElement>(null)
   const hlsRef = useRef<Hls | null>(null)
   const danmakuCoreRef = useRef<CanvasDanmaku | null>(null)
+  /**
+   * Gate first CanvasDanmaku construct until media can paint
+   * (canplay / HAVE_CURRENT_DATA). Avoids main-thread work during black buffer.
+   * Settings/comments still live in refs and apply on first ready applyDanmaku().
+   */
+  const danmakuMediaReadyRef = useRef(false)
   /** Last player width used for danmaku font scale (reload only on meaningful change). */
   const lastDanmakuWidthRef = useRef(0)
   const anime4kStopRef = useRef<Anime4KStop | null>(null)
@@ -230,11 +236,24 @@ export function VideoPlayer({
    * Visual-only (opacity/speed/area/enabled) → applyVisual, no list rebuild.
    * Content changes (comments, filters, modes, offset, fontSize) → full reload.
    * Never resize() on every apply — only when width/font bucket changes.
+   *
+   * First construct is deferred until danmakuMediaReadyRef / HAVE_CURRENT_DATA
+   * so open-buffer main thread is not competing with HLS attach + first paint.
    */
   function applyDanmaku(forceReload = false) {
     const video = videoRef.current
     const layer = layerRef.current
     if (!video || !layer) return
+
+    // No engine yet: wait until frames can paint (or explicit ready flag from canplay).
+    if (!danmakuCoreRef.current) {
+      const paintable =
+        danmakuMediaReadyRef.current ||
+        video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA
+      if (!paintable) return
+      danmakuMediaReadyRef.current = true
+    }
+
     const dm = danmakuRef.current
     const shell = shellRef.current
     const w =
@@ -306,6 +325,12 @@ export function VideoPlayer({
     }
   }
 
+  /** canplay / playing / paintable readyState → allow first engine construct. */
+  function noteDanmakuMediaReady() {
+    danmakuMediaReadyRef.current = true
+    if (!danmakuCoreRef.current) applyDanmaku()
+  }
+
   const {
     onShellClick,
     onShellDoubleClick,
@@ -367,6 +392,7 @@ export function VideoPlayer({
       /* ignore */
     }
     danmakuCoreRef.current = null
+    danmakuMediaReadyRef.current = false
 
     if (hlsRef.current) {
       try {
@@ -513,13 +539,16 @@ export function VideoPlayer({
           /* ignore */
         }
       }
-      // Wait for buffer gate then play; attach danmaku after a frame
-      // (early full-size GPU stage above video blacks out some Chrome builds)
+      // Wait for buffer gate then play; danmaku engine waits for paintable media
+      // (noteDanmakuMediaReady on canplay/playing) so open-buffer stays light.
       softPlay()
-      // One frame after layout so container has non-zero size for canvas
+      // One frame after layout: construct only if already HAVE_CURRENT_DATA
       requestAnimationFrame(() => {
         if (!alive()) return
-        applyDanmaku()
+        const v = videoRef.current
+        if (v && v.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+          noteDanmakuMediaReady()
+        }
       })
     }
 
@@ -961,6 +990,8 @@ export function VideoPlayer({
       setSeekingUi(false)
       isSeekingRef.current = false
       tryResumeFromBuffer()
+      // A: first paintable moment — safe to build danmaku engine
+      noteDanmakuMediaReady()
     }
     const onPlayingClear = () => {
       // Frames painting again → no stall chrome
@@ -969,6 +1000,8 @@ export function VideoPlayer({
       setSeekingUi(false)
       isSeekingRef.current = false
       clearResumePoll()
+      // Belt-and-suspenders if canplay was skipped on some MSE paths
+      noteDanmakuMediaReady()
     }
 
     video.addEventListener('timeupdate', onTime)
@@ -1143,6 +1176,7 @@ export function VideoPlayer({
         /* ignore */
       }
       danmakuCoreRef.current = null
+      danmakuMediaReadyRef.current = false
       try {
         anime4kStopRef.current?.()
       } catch {
@@ -1287,6 +1321,33 @@ export function VideoPlayer({
           setSrActive(false)
           return
         }
+
+        // B: defer GPU pipeline until playback actually starts (playing).
+        // Paused first-frame / pre-buffer stays on plain <video>; off path unchanged.
+        if (video.paused) {
+          flashSrHint('超分将在开始播放后启动…', 2200)
+          await new Promise<void>((resolve) => {
+            if (!video.paused || cancelled) {
+              resolve()
+              return
+            }
+            let done = false
+            const finish = () => {
+              if (done) return
+              done = true
+              video.removeEventListener('playing', onPlayingSr)
+              window.clearInterval(poll)
+              resolve()
+            }
+            const onPlayingSr = () => finish()
+            video.addEventListener('playing', onPlayingSr)
+            // Also resolve on cancel (src change / mode off) so we don't hang
+            const poll = window.setInterval(() => {
+              if (cancelled || !video.paused) finish()
+            }, 250)
+          })
+        }
+        if (cancelled) return
 
         try {
           anime4kStopRef.current?.()

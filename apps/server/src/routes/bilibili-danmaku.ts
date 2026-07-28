@@ -2,10 +2,13 @@ import { Hono } from 'hono'
 import { gunzipSync } from 'node:zlib'
 import { parseDanmakuXml, extractBvid } from '@animaku/shared'
 import { config } from '../config'
+import { setDanmakuCdnHeaders } from '../lib/cdn-cache-headers'
+import { wantsCacheBypass } from '../lib/ttl-cache'
 
 /**
  * Bilibili danmaku proxy (BV → cid → XML comments).
  * Browser cannot call api.bilibili.com directly (CORS); server fetches and parses.
+ * No origin memory cache — use CDN Cache-Control (30m) when behind Cloudflare.
  */
 export const bilibiliDanmakuRoutes = new Hono()
 
@@ -84,6 +87,7 @@ bilibiliDanmakuRoutes.get('/bilibili', async (c) => {
     )
   }
   const page = Math.max(1, Number(c.req.query('p') || c.req.query('page') || '1') || 1)
+  const bypass = wantsCacheBypass(c)
 
   try {
     const viewRes = await bilibiliFetch(
@@ -166,6 +170,7 @@ bilibiliDanmakuRoutes.get('/bilibili', async (c) => {
     }
 
     const comments = parseDanmakuXml(xml)
+    setDanmakuCdnHeaders(c, bypass)
     return c.json({
       data: comments,
       count: comments.length,

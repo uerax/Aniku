@@ -1,6 +1,11 @@
 import { useQuery } from '@tanstack/react-query'
 import { bangumiApi } from '../lib/bangumi'
-import { BangumiGrid, ErrorState, LoadingState, PageHeader } from '../components/ui'
+import {
+  BangumiGrid,
+  BangumiGridSkeleton,
+  ErrorState,
+  PageHeader,
+} from '../components/ui'
 import { useHistoryStore } from '../stores/history'
 import { Link } from 'react-router-dom'
 import { useMemo } from 'react'
@@ -93,7 +98,7 @@ export function HomePage() {
           <h2 className="kz-section-title">热门趋势</h2>
           <span className="kz-section-meta">BANGUMI</span>
         </div>
-        {trending.isLoading && <LoadingState />}
+        {trending.isLoading && <BangumiGridSkeleton count={12} />}
         {trending.isError && (
           <ErrorState error={trending.error} onRetry={() => trending.refetch()} />
         )}

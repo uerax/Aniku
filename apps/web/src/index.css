@@ -142,6 +142,34 @@ body {
   color: var(--kz-fg);
 }
 
+/* List/grid CLS placeholders — soft pulse, no layout thrash */
+.kz-skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--kz-bg-soft) 0%,
+    var(--kz-bg-hover) 45%,
+    var(--kz-bg-soft) 90%
+  );
+  background-size: 200% 100%;
+  animation: kz-skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kz-skeleton {
+    animation: none;
+    background: var(--kz-bg-soft);
+  }
+}
+
+@keyframes kz-skeleton-shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+
 /* Nav / buttons that happen to be <a> stay neutral */
 a {
   color: inherit;

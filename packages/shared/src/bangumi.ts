@@ -345,28 +345,49 @@ function dateToWeekday(dateStr: string): number {
   return day === 0 ? 7 : day
 }
 
-/** Prefer smaller sizes for list/grid cards (less decode cost). */
+/**
+ * Bangumi CDN full covers (`/pic/cover/l/...`) are heavy LCP candidates.
+ * Prefer their on-the-fly resize path `/r/{edge}/pic/...` when missing.
+ * Already-resized URLs and non-bgm hosts are left unchanged.
+ */
+export function preferResizedCover(
+  url: string,
+  maxEdge: 200 | 400 | 800 = 400,
+): string {
+  const src = (url || '').trim()
+  if (!src) return ''
+  if (/\/r\/\d+\//.test(src)) return src
+  // lain.bgm.tv / bgm.tv cover & person paths
+  return src.replace(
+    /^(https?:\/\/(?:lain\.)?bgm\.tv)\/pic\//i,
+    `$1/r/${maxEdge}/pic/`,
+  )
+}
+
+/** Prefer smaller sizes for list/grid cards (less decode / transfer). */
 export function coverOf(
   item: Pick<BangumiItem, 'images'>,
   size: 'thumb' | 'large' = 'thumb',
 ): string {
   const images = item.images || {}
+  let raw: string
   if (size === 'large') {
-    return (
+    raw =
       images.large ||
       images.common ||
       images.medium ||
       images.small ||
       images.grid ||
       ''
-    )
+    // Meta posters ~100–200px CSS; 800px edge is enough, avoid multi‑MB originals
+    return preferResizedCover(raw, 800)
   }
-  return (
+  raw =
     images.common ||
     images.medium ||
     images.small ||
     images.grid ||
     images.large ||
     ''
-  )
+  return preferResizedCover(raw, 400)
 }

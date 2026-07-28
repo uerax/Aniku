@@ -4,8 +4,8 @@ import { useQuery } from '@tanstack/react-query'
 import { bangumiApi } from '../lib/bangumi'
 import {
   BangumiGrid,
+  BangumiGridSkeleton,
   ErrorState,
-  LoadingState,
   PageHeader,
 } from '../components/ui'
 import clsx from 'clsx'
@@ -340,7 +340,7 @@ export function AnimePage() {
         </div>
       </section>
 
-      {q.isLoading && !q.data && <LoadingState />}
+      {q.isLoading && !q.data && <BangumiGridSkeleton count={12} />}
       {q.isError && (
         <ErrorState error={q.error} onRetry={() => q.refetch()} />
       )}

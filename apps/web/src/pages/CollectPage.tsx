@@ -9,9 +9,9 @@ import { bangumiApi } from '../lib/bangumi'
 import { useSettingsStore } from '../stores/settings'
 import {
   BangumiGrid,
+  BangumiGridSkeleton,
   EmptyState,
   ErrorState,
-  LoadingState,
   PageHeader,
 } from '../components/ui'
 import { useMemo, useState } from 'react'
@@ -103,7 +103,7 @@ export function CollectPage() {
           </button>
         ))}
       </div>
-      {collections.isLoading && <LoadingState />}
+      {collections.isLoading && <BangumiGridSkeleton count={12} />}
       {collections.isError && (
         <ErrorState error={collections.error} onRetry={() => collections.refetch()} />
       )}

@@ -1,7 +1,12 @@
 import { useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { bangumiApi } from '../lib/bangumi'
-import { BangumiGrid, ErrorState, LoadingState, PageHeader } from '../components/ui'
+import {
+  BangumiGrid,
+  BangumiGridSkeleton,
+  ErrorState,
+  PageHeader,
+} from '../components/ui'
 
 export function SearchPage() {
   const [params] = useSearchParams()
@@ -27,7 +32,7 @@ export function SearchPage() {
           在右上角输入关键词后回车或点「搜索」
         </div>
       )}
-      {keyword && q.isLoading && <LoadingState />}
+      {keyword && q.isLoading && <BangumiGridSkeleton count={12} />}
       {keyword && q.isError && (
         <ErrorState error={q.error} onRetry={() => q.refetch()} />
       )}
