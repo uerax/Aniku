@@ -1,13 +1,29 @@
 # Animaku — one-command deploy
-#   cp .env.example .env   # optional; set PORT (and WEB_DEV_PORT for local Vite only)
+#   cp .env.example .env   # set PORT / PUBLIC_PROXY / optional VITE_* branding
 #   docker compose up -d --build
 # Open http://localhost:${PORT:-8787}  (SPA + /api on same origin)
+#
+# PUBLIC_PROXY defaults to 1 (public clients can use media/plugin proxy APIs).
+# Set PUBLIC_PROXY=0 for LAN-only lock-down. Anime1 full tunnel: MEDIA_FULL_PROXY=1.
+# Footer branding (VITE_*): rebuild image after changing — baked at Vite build time.
 
 services:
   animaku:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        # Build-time only (Vite). Runtime .env changes will not update the footer.
+        VITE_GITHUB_URL: ${VITE_GITHUB_URL:-}
+        VITE_GITHUB_LABEL: ${VITE_GITHUB_LABEL:-}
+        VITE_PRODUCT_NAME: ${VITE_PRODUCT_NAME:-}
+        VITE_SITE_TAGLINE: ${VITE_SITE_TAGLINE:-}
+        VITE_MAINTAINER_NAME: ${VITE_MAINTAINER_NAME:-}
+        VITE_MAINTAINER_URL: ${VITE_MAINTAINER_URL:-}
+        VITE_HOMEPAGE_URL: ${VITE_HOMEPAGE_URL:-}
+        VITE_HOMEPAGE_LABEL: ${VITE_HOMEPAGE_LABEL:-}
+        VITE_CONTACT_EMAIL: ${VITE_CONTACT_EMAIL:-}
+        VITE_FOOTER_NOTE: ${VITE_FOOTER_NOTE:-}
     image: animaku:local
     container_name: animaku
     # Host PORT → container PORT (production single process; no Vite)
@@ -19,11 +35,17 @@ services:
       PORT: ${PORT:-8787}
       HOST: "0.0.0.0"
       WEB_DIST: "public"
+      # Access / media (see .env.example). PUBLIC_PROXY default 1; MEDIA_FULL_PROXY default 0.
+      PUBLIC_PROXY: ${PUBLIC_PROXY:-1}
+      MEDIA_FULL_PROXY: ${MEDIA_FULL_PROXY:-0}
+      PROXY_TOKEN: ${PROXY_TOKEN:-}
+      CORS_ORIGINS: ${CORS_ORIGINS:-}
+      # Optional overrides; empty → use server built-in defaults (proper Bangumi UA, etc.)
       DANDAN_APP_ID: ${DANDAN_APP_ID:-}
       DANDAN_APP_SECRET: ${DANDAN_APP_SECRET:-}
-      BANGUMI_USER_AGENT: ${BANGUMI_USER_AGENT:-animaku/0.1}
-      PRODUCT_USER_AGENT: ${PRODUCT_USER_AGENT:-animaku/0.1}
-      DEFAULT_USER_AGENT: ${DEFAULT_USER_AGENT:-Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36}
+      BANGUMI_USER_AGENT: ${BANGUMI_USER_AGENT:-}
+      PRODUCT_USER_AGENT: ${PRODUCT_USER_AGENT:-}
+      DEFAULT_USER_AGENT: ${DEFAULT_USER_AGENT:-}
       PLUGIN_SHOP: ${PLUGIN_SHOP:-}
       PLUGIN_SHOP_MIRROR: ${PLUGIN_SHOP_MIRROR:-}
     env_file:

@@ -63,11 +63,11 @@ export const config = {
   corsOrigins: parseCorsOrigins(process.env.CORS_ORIGINS),
   corsOpen: (process.env.CORS_ORIGINS || '').trim() === '*',
   /**
-   * When false (default): /api/media/proxy and plugin search/chapters/resolve
-   * only accept loopback / private-network clients (LAN Docker OK; public Internet blocked).
-   * Set PUBLIC_PROXY=1 for intentional public deploy (still has SSRF host checks).
+   * When true (default): any client may call /api/media/proxy and plugin
+   * search/chapters/resolve (typical VPS / public deploy). Still has SSRF host checks.
+   * Set PUBLIC_PROXY=0 to restrict to loopback / private LAN only.
    */
-  publicProxy: envBool(process.env.PUBLIC_PROXY, false),
+  publicProxy: envBool(process.env.PUBLIC_PROXY, true),
   /**
    * Optional shared secret. When set, media + plugin exec also accept
    * `X-Animaku-Proxy-Token: <token>` even from public IPs.

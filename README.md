@@ -45,8 +45,8 @@
 ## 支持环境
 
 - **浏览器**：现代 Chromium / Firefox / Safari（播放、HLS、可选 WebGPU 超分）
-- **运行时**：Node.js ≥ 20（建议 LTS）+ pnpm **9.15.0**
-- **部署**：本机 `pnpm start:prod`，或 Docker / Compose 单容器
+- **部署（推荐）**：Docker / Compose 单容器 — **只需 Docker，不必装 Node / pnpm**
+- **本机生产 / 开发**：Node.js ≥ 20（建议 LTS）+ pnpm **9.15.0**
 
 ## 功能
 
@@ -71,7 +71,53 @@
 
 ## 快速开始
 
-### 环境
+多数用户 **只装 Docker 即可**；下面的 pnpm 仅用于本机生产或二次开发。
+
+### Docker 一键部署（推荐）
+
+```bash
+git clone <remote> animaku
+cd animaku
+
+cp .env.example .env    # 按需改 PORT、PUBLIC_PROXY 等
+docker compose up -d --build
+```
+
+浏览器打开 **http://localhost:$PORT**（默认 `8787`）。  
+单容器同时提供 SPA 与 `/api/*`（同源）。
+
+```bash
+docker compose logs -f
+docker compose down
+```
+
+```bash
+# 不用 compose
+docker build -t animaku .
+docker run --rm -p 8787:8787 --env-file .env -e PORT=8787 -e PUBLIC_PROXY=1 animaku
+```
+
+- 健康检查：`GET /api/health`
+- 镜像内 `WEB_DIST=public`；进程以非 root（`node`）运行
+- `PUBLIC_PROXY` **默认开启**（公网可直接选源/代理）；仅内网可设 `0` 收紧
+- 页脚 `VITE_*` 为构建期变量：改完需 `docker compose up -d --build` 才生效
+
+### 本机 Node 生产（无 Docker）
+
+一个进程同时提供 `/api/*` 与 SPA（同源，无需 Vite 代理）：
+
+```bash
+# 需 Node ≥ 20 + pnpm 9.15.0，在仓库根目录
+pnpm install
+cp .env.example .env   # 按需修改
+pnpm start:prod
+# 等价：pnpm build && pnpm start
+```
+
+浏览器打开 **http://localhost:$PORT**（默认 `8787`）。  
+`WEB_DIST` 可指定静态目录（相对进程 cwd）；本机可省略，会探测 `public` / `apps/web/dist` 等。
+
+### 本地开发（pnpm）
 
 | 工具 | 版本 |
 |------|------|
@@ -86,12 +132,7 @@ npm install -g pnpm@9.15.0
 
 请在 **仓库根目录** 使用 pnpm，不要用 npm / yarn 直接装依赖。
 
-### 安装与启动
-
 ```bash
-git clone <remote> animaku
-cd animaku
-
 pnpm install
 cp .env.example .env   # 按需修改
 
@@ -109,11 +150,12 @@ pnpm dev:server    # 仅后端
 pnpm typecheck     # 全仓 tsc
 ```
 
-跳过 `pnpm install` 直接 `pnpm dev` 会报找不到 `tsx` / `node_modules missing`。
+跳过 `pnpm install` 直接 `pnpm dev` 会报找不到 `tsx` / `node_modules missing`。  
+日常改代码请用 `pnpm dev`，不要用生产 `start`。
 
 ## 使用流程
 
-1. 开发：打开 http://localhost:$WEB_DEV_PORT · 生产 / Docker：http://localhost:$PORT  
+1. Docker / 本机生产：http://localhost:$PORT · 开发：http://localhost:$WEB_DEV_PORT  
 2. **设置 → Bangumi Token**（可选，用于追番）  
 3. 规则：默认已内置（`Anime1` / `otage` / `xifan` / `MXdm`）；可导入 JSON 或从 **规则仓库** 安装  
 4. 详情页 → 选源 → 选集播放（能直链则浏览器直连 CDN，失败自动回退媒体代理）  
@@ -135,42 +177,6 @@ pnpm typecheck     # 全仓 tsc
 
 控制栏另有 **网页全屏**（CSS 铺满，不走 Fullscreen API）。  
 设置页：默认倍速、自动下一集、续播、跳 OP/ED、超分档位、强制广告过滤 / 媒体代理等。
-
-## 生产运行
-
-### 本机 Node（单进程）
-
-一个进程同时提供 `/api/*` 与 SPA（同源，无需 Vite 代理）：
-
-```bash
-pnpm start:prod
-# 等价：pnpm build && pnpm start
-```
-
-浏览器打开 **http://localhost:$PORT**（默认 `8787`）。  
-`WEB_DIST` 可指定静态目录（相对进程 cwd）；本机可省略，会探测 `public` / `apps/web/dist` 等。
-
-开发请继续用 `pnpm dev`，不要用生产 `start` 做日常改代码。
-
-### Docker / Compose
-
-```bash
-cp .env.example .env    # 按需改 PORT、PUBLIC_PROXY 等
-docker compose up -d --build
-
-docker compose logs -f
-docker compose down
-```
-
-```bash
-# 不用 compose
-docker build -t animaku .
-docker run --rm -p 8787:8787 --env-file .env -e PORT=8787 -e PUBLIC_PROXY=1 animaku
-```
-
-- 健康检查：`GET /api/health`
-- 镜像内 `WEB_DIST=public`
-- 入口：**http://localhost:$PORT**
 
 ## 环境变量
 
@@ -198,16 +204,16 @@ docker run --rm -p 8787:8787 --env-file .env -e PORT=8787 -e PUBLIC_PROXY=1 anim
 
 完整列表见 [.env.example](.env.example)。
 
-### 公网部署（重要）
+### 公网 / 代理访问（重要）
 
 | 变量 | 说明 |
 |------|------|
-| `PUBLIC_PROXY` | 默认关：媒体代理 + 规则 search/chapters/resolve **仅本机/局域网**。VPS 公网访问时设 `1` |
-| `PROXY_TOKEN` | 可选；请求头 `X-Animaku-Proxy-Token` 或 `?proxyToken=` 可绕过局域网限制 |
+| `PUBLIC_PROXY` | **默认 `1`**：任意客户端可用媒体代理 + 规则 search/chapters/resolve。设 `0` 则仅本机/局域网（或 `PROXY_TOKEN`） |
+| `PROXY_TOKEN` | 可选；在 `PUBLIC_PROXY=0` 时可用请求头 `X-Animaku-Proxy-Token` 或 `?proxyToken=` 放行 |
 | `CORS_ORIGINS` | 额外允许的浏览器 Origin（逗号分隔）；localhost 始终可用 |
 
-**本机 / 局域网开发：不必开 `PUBLIC_PROXY`。**  
-**VPS 公网：通常需要 `PUBLIC_PROXY=1`，否则选源 / 播放代理会 403。** 打开后他人也可借你的服务器出口拉流，请知悉带宽风险（仍有内网 SSRF 拦截）。
+**默认已适合 VPS 公网部署。** 开启后他人也可借你的服务器出口拉流，请知悉带宽风险（仍有内网 SSRF 拦截）。  
+仅本机 / 局域网、不希望端口暴露后被公网当出口用时：设 `PUBLIC_PROXY=0`。
 
 ## 贡献
 
@@ -234,7 +240,7 @@ A: Web 端没有桌面 Kazumi 的 WebView 拦截能力，只能静态抽链。�
 
 #### Q: 公网能开页面但不能选源 / 播放？
 
-A: 检查是否设置 `PUBLIC_PROXY=1`（或配置 `PROXY_TOKEN`）。默认代理接口仅允许本机与局域网。
+A: 检查 `.env` / 环境变量是否把 `PUBLIC_PROXY` 设成了 `0`。默认应为 `1`；若刻意收紧，可改回 `1` 或配置 `PROXY_TOKEN`。
 
 #### Q: 弹幕显示「未配置」？
 
@@ -249,13 +255,13 @@ A: 多为布局 / 合成问题（例如父级 `overflow` + 圆角与硬解视频
 <details>
 <summary>规则与部署 Q&A</summary>
 
-#### Q: `pnpm: command not found` / `node_modules missing`？
-
-A: 安装 pnpm 9.15.0 并保证在 **仓库根** 执行 `pnpm install`。不要只开 `dev:web` 却期望 `/api` 可用。
-
 #### Q: Docker 首页 404？
 
 A: 确认镜像构建包含前端 SPA；`WEB_DIST=public`，并确认 `GET /api/health` 正常。
+
+#### Q: `pnpm: command not found` / `node_modules missing`？
+
+A: 仅本机 Node / 开发需要 pnpm。安装 pnpm 9.15.0 并保证在 **仓库根** 执行 `pnpm install`。只想部署时用上面的 Docker 即可。不要只开 `dev:web` 却期望 `/api` 可用。
 
 #### Q: 自定义规则能搜不能看？
 
@@ -275,7 +281,7 @@ A: 与 Kazumi 类似：部分站反爬 / 验证码 / 防盗链会导致静态解
 
 - 不收集用户遥测；无内置分析 SDK。  
 - Bangumi Token、规则 JSON、历史与设置仅保存在 **浏览器本地**（`localStorage` 等）。  
-- 服务端代理请求会按规则访问第三方站点与媒体 CDN；公网开启 `PUBLIC_PROXY` 时请注意出口流量与访问控制。
+- 服务端代理请求会按规则访问第三方站点与媒体 CDN；`PUBLIC_PROXY` 默认开启，请注意出口流量与访问控制（可设 `0` 限制为局域网）。
 
 ## 致谢
 

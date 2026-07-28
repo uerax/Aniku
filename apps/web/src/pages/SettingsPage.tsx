@@ -260,8 +260,8 @@ export function SettingsPage() {
               <br />
               开放代理访问：
               {(health.data as ServerHealth).publicProxy
-                ? '公网可调（PUBLIC_PROXY=1）'
-                : '仅本机/局域网（PUBLIC_PROXY 未开）'}
+                ? '公网可调（PUBLIC_PROXY 默认开）'
+                : '仅本机/局域网（PUBLIC_PROXY=0）'}
             </>
           )}
         </div>

@@ -137,8 +137,8 @@ Browser (WEB_DEV_PORT，默认 5173)
 | `PRODUCT_USER_AGENT` | 产品身份 UA（弹弹等），默认 `animaku/0.1` |
 | `DEFAULT_USER_AGENT` | 抓插件 HTML / 媒体等浏览器型 UA |
 | `CORS_ORIGINS` | 额外浏览器 Origin（逗号分隔）；默认仅 localhost/127.0.0.1。`*` 开放 CORS（不推荐） |
-| `PUBLIC_PROXY` | 默认关：媒体代理 + 规则 search/chapters/resolve 仅本机/局域网。公网部署设 `1` |
-| `PROXY_TOKEN` | 可选；请求头 `X-Animaku-Proxy-Token` 或 query `proxyToken` 可绕过局域网限制 |
+| `PUBLIC_PROXY` | **默认开 (`1`)**：任意客户端可用媒体代理 + 规则 search/chapters/resolve。设 `0` 仅本机/局域网 |
+| `PROXY_TOKEN` | 可选；`PUBLIC_PROXY=0` 时请求头 `X-Animaku-Proxy-Token` 或 query `proxyToken` 可放行 |
 | `MEDIA_FULL_PROXY` | 默认 **关 (0)**：`/api/media/proxy` **只允许 m3u8**（分片 CDN 直连；`fullProxy`/cookie mp4 拒绝）。`1` = 允许 ts/mp4 全量代拉（Anime1 等）。与 `PUBLIC_PROXY` 正交 |
 | `VITE_GITHUB_URL` 等 | 前端页脚 branding（见 `.env.example`）；构建时打进 SPA，**非**运行时 API 配置 |
 
@@ -169,7 +169,7 @@ Browser (WEB_DEV_PORT，默认 5173)
 
 `GET /api/health` 返回 `mediaFullProxy` / `publicProxy` 供设置页只读展示。
 
-公网推荐：`PUBLIC_PROXY=1`（或 + `PROXY_TOKEN`）+ **`MEDIA_FULL_PROXY` 保持 0**。
+公网默认：`PUBLIC_PROXY=1` + **`MEDIA_FULL_PROXY` 保持 0**。仅内网可 `PUBLIC_PROXY=0`（或 + `PROXY_TOKEN`）。
 
 ---
 

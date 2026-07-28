@@ -53,9 +53,8 @@ export function clientRemoteAddress(c: Context): string {
 
 /**
  * Whether this request may use open-proxy style APIs (media + plugin exec).
- * Default: loopback / private LAN only (safe for local + Docker LAN).
- * PUBLIC_PROXY=1 → all clients.
- * PROXY_TOKEN set → also allow matching header.
+ * Default PUBLIC_PROXY=1 → all clients (VPS-ready).
+ * PUBLIC_PROXY=0 → loopback / private LAN only (or matching PROXY_TOKEN).
  */
 export function canUseOpenProxy(c: Context): boolean {
   if (config.publicProxy) return true
@@ -89,7 +88,7 @@ export async function requireLocalOrToken(c: Context, next: Next) {
     {
       error: 'forbidden',
       message:
-        '媒体/规则代理仅允许本机或局域网访问。公网部署请设置 PUBLIC_PROXY=1，或配置 PROXY_TOKEN。',
+        '媒体/规则代理当前仅允许本机或局域网（PUBLIC_PROXY=0）。公网访问请设 PUBLIC_PROXY=1，或配置 PROXY_TOKEN。',
     },
     403,
   )

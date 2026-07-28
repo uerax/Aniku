@@ -1,5 +1,32 @@
 # Animaku 项目状态
 
+## [2026-07-28] PUBLIC_PROXY 默认改为 1
+
+- 状态：已完成
+- 优先级：P1
+- 描述：公网 VPS 部署实质必须开；默认 0 会导致「能开页不能选源」。`config.publicProxy` 默认 true；compose 已是 :-1；同步 .env.example / README / CONTEXT / access 403 文案 / 设置页展示。
+- 涉及文件：apps/server/src/config.ts、lib/access.ts、.env.example、docker-compose.yml、README.md、docs/CONTEXT.md、SettingsPage.tsx
+- 备注：MEDIA_FULL_PROXY 仍默认 0；设 PUBLIC_PROXY=0 可收紧为局域网
+
+## [2026-07-28] Docker 部署文件优化
+
+- 状态：已完成
+- 优先级：P2
+- 描述：
+  1. compose：去掉错误 UA 默认 `animaku/0.1`（空则走 config.ts 正式 Bangumi UA）；显式透传 PUBLIC_PROXY / MEDIA_FULL_PROXY / PROXY_TOKEN / CORS_ORIGINS
+  2. Dockerfile：修正 $WEB_PORT 注释；runner 只拷 index.js（无 map）；USER node + chown；health start_period 对齐 20s；VITE_* ARG/ENV 构建期注入
+  3. compose build.args 透传 VITE_*；.env.example / README 补 Docker 公网与页脚 rebuild 说明
+- 涉及文件：Dockerfile、docker-compose.yml、.env.example、README.md
+- 备注：未改应用代码；未实测 docker build（环境若无 daemon 需用户本地验证）
+
+## [2026-07-28] README 部署指南：Docker 前置
+
+- 状态：已完成
+- 优先级：P3
+- 描述：避免用户只看前半段以为必须 pnpm。支持环境把 Docker 标为推荐；快速开始改为 Docker → 本机 Node 生产 → 本地开发；删独立「生产运行」节（内容并入快速开始）；部署 Q&A 把 Docker 404 提前，pnpm 说明改为「仅本机/开发需要」。
+- 涉及文件：README.md
+- 备注：内容未改命令本身，只调顺序与引导文案
+
 ## [2026-07-28] Bangumi API User-Agent 规范
 
 - 状态：已完成
