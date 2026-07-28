@@ -1,5 +1,13 @@
 # Animaku 项目状态
 
+## [2026-07-28] 轻量页取消路由 lazy
+
+- 状态：已完成
+- 优先级：P1
+- 描述：Home/Anime/Timeline/Search/Collect/History/Settings 改为静态 import，避免导航 RTT。仅 subject/play 保留 lazy + 局部 Suspense。播放器/hls/anime4k 仍按原 lazy。
+- 涉及文件：apps/web/src/App.tsx
+- 备注：typecheck + build 通过；主 index ~92KB / gzip ~30KB（原 ~49/17）；无独立 HomePage 等小 chunk
+
 ## [2026-07-28] 弹幕改为 CDN 头、撤销源站内存缓存
 
 - 状态：已完成
