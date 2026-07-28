@@ -82,10 +82,16 @@ export const config = {
   mediaFullProxy: envBool(process.env.MEDIA_FULL_PROXY, false),
   dandanAppId: process.env.DANDAN_APP_ID || '',
   dandanAppSecret: process.env.DANDAN_APP_SECRET || '',
+  /**
+   * Bangumi API User-Agent (required for non-browser clients; we set it always).
+   * Format: developer/App[/version] (https://project-homepage)
+   * @see https://bangumi.github.io/api/ — 非浏览器使用者须带个人 ID + 应用名；开源附主页
+   */
   bangumiUserAgent:
-    process.env.BANGUMI_USER_AGENT || 'animaku/0.1',
+    process.env.BANGUMI_USER_AGENT ||
+    'uerax/Animaku/0.1.0 (https://github.com/uerax/Animaku)',
   /** Product UA for APIs that expect an app identity (e.g. DanDanPlay) */
-  productUserAgent: process.env.PRODUCT_USER_AGENT || 'animaku/0.1',
+  productUserAgent: process.env.PRODUCT_USER_AGENT || 'Animaku/0.1.0',
   defaultUserAgent:
     process.env.DEFAULT_USER_AGENT ||
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',

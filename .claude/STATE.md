@@ -1,5 +1,13 @@
 # Animaku 项目状态
 
+## [2026-07-28] Bangumi API User-Agent 规范
+
+- 状态：已完成
+- 优先级：P3
+- 描述：非浏览器调 Bangumi 须带「开发者 ID + 应用名」；开源附主页。默认 UA：`uerax/Animaku/0.1.0 (https://github.com/uerax/Animaku)`（项目已改名 Animaku，与 footer branding 一致）。`bangumiFetch` 始终注入。
+- 涉及文件：apps/server/src/config.ts、.env.example、.env
+- 备注：勿用 database / 仅 Bangumi/x.y；git remote 仍可能是旧名 Kazumi-web
+
 ## [2026-07-28] README 播放页截图
 
 - 状态：已完成
