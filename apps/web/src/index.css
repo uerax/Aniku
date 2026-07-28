@@ -38,6 +38,11 @@ html[data-theme='dark'] {
   /* Score chip (warm, readable on dark covers) */
   --kz-score: #ffd400;
 
+  /* Air-progress chip on covers — cool tones pair with warm score */
+  --kz-air-airing: #7dd3fc; /* sky-300 — 更新至 */
+  --kz-air-finished: #6ee7b7; /* emerald-300 — 已完结 */
+  --kz-air-upcoming: #a5b4fc; /* indigo-300 — 未开播 */
+
   /* Semantic (X-adjacent) */
   --kz-like: #f91880;
   --kz-success: #00ba7c;
@@ -76,6 +81,11 @@ html[data-theme='light'] {
   --kz-accent-fg: #ffffff;
 
   --kz-score: #b8860b;
+
+  /* Same chip hues on light theme (still sit on dark cover gradient) */
+  --kz-air-airing: #7dd3fc;
+  --kz-air-finished: #6ee7b7;
+  --kz-air-upcoming: #a5b4fc;
 
   --kz-like: #f91880;
   --kz-success: #00ba7c;

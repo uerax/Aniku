@@ -88,6 +88,13 @@ export interface BangumiItem {
   ratingScore: number
   votes: number
   info?: string
+  /**
+   * Planned episode count (wiki `eps`, or parsed from next.bgm `info` like `12话`).
+   * 0 when unknown.
+   */
+  eps: number
+  /** Chapter rows in Bangumi DB (`total_episodes`); may include SP. 0 when unknown. */
+  totalEpisodes: number
 }
 
 export interface BangumiEpisode {
@@ -117,6 +124,110 @@ export interface BangumiCollectionEntry {
   comment?: string
 }
 
+/**
+ * next.bgm.tv list payloads often only expose `info` like
+ * `12话 / 2026年7月6日 / 監督…` — pull eps + air date from it.
+ */
+export function parseBangumiInfoMeta(info: string): {
+  eps: number
+  airDate: string
+} {
+  const text = String(info || '').trim()
+  if (!text) return { eps: 0, airDate: '' }
+
+  let eps = 0
+  const epsM = text.match(/(\d+)\s*话/)
+  if (epsM) {
+    const n = Number(epsM[1])
+    if (Number.isFinite(n) && n > 0) eps = n
+  }
+
+  let airDate = ''
+  const cn = text.match(/(\d{4})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日/)
+  if (cn) {
+    airDate = `${cn[1]}-${cn[2].padStart(2, '0')}-${cn[3].padStart(2, '0')}`
+  } else {
+    const iso = text.match(/\b(\d{4}-\d{2}-\d{2})\b/)
+    if (iso) airDate = iso[1]
+  }
+  return { eps, airDate }
+}
+
+export type BangumiAirStatus = 'upcoming' | 'airing' | 'finished' | 'unknown'
+
+export interface BangumiAirProgress {
+  status: BangumiAirStatus
+  /** Estimated main-story episodes already aired (weekly from airDate). */
+  airedEpisodes: number
+  eps: number
+}
+
+/**
+ * Estimate broadcast progress from first air date + planned eps.
+ * Bangumi has no official airing/finished enum on subjects — weekly TV is assumed.
+ * Prefer computing at render time from cached `airDate`/`eps` so list TTL does not
+ * freeze the badge across week boundaries.
+ */
+export function estimateAirProgress(
+  item: Pick<BangumiItem, 'airDate' | 'eps'>,
+  now: Date = new Date(),
+): BangumiAirProgress {
+  const eps = item.eps > 0 ? Math.trunc(item.eps) : 0
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(item.airDate || '').trim())
+  if (!m) {
+    return { status: 'unknown', airedEpisodes: 0, eps }
+  }
+
+  // Local calendar days — matches viewer “今天更到哪” better than UTC.
+  const start = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
+  if (Number.isNaN(start.getTime())) {
+    return { status: 'unknown', airedEpisodes: 0, eps }
+  }
+  const startDay = new Date(
+    start.getFullYear(),
+    start.getMonth(),
+    start.getDate(),
+  ).getTime()
+  const todayDay = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate(),
+  ).getTime()
+
+  if (startDay > todayDay) {
+    return { status: 'upcoming', airedEpisodes: 0, eps }
+  }
+
+  const days = Math.floor((todayDay - startDay) / 86_400_000)
+  // Ep 1 on airDate, then +1 each 7 days (common weekly slot).
+  let aired = Math.floor(days / 7) + 1
+  if (aired < 1) aired = 1
+
+  if (eps > 0) {
+    if (aired >= eps) {
+      return { status: 'finished', airedEpisodes: eps, eps }
+    }
+    return { status: 'airing', airedEpisodes: aired, eps }
+  }
+
+  // Unknown total (long-runner / unfilled wiki): still show 更新至 N 集.
+  return { status: 'airing', airedEpisodes: aired, eps: 0 }
+}
+
+/** Card / meta badge text: `已完结` | `更新至03集` | `未开播` | null. */
+export function airProgressLabel(
+  item: Pick<BangumiItem, 'airDate' | 'eps'>,
+  now: Date = new Date(),
+): string | null {
+  const p = estimateAirProgress(item, now)
+  if (p.status === 'finished') return '已完结'
+  if (p.status === 'upcoming') return '未开播'
+  if (p.status === 'airing' && p.airedEpisodes > 0) {
+    return `更新至${String(p.airedEpisodes).padStart(2, '0')}集`
+  }
+  return null
+}
+
 export function parseBangumiItem(json: Record<string, unknown>): BangumiItem {
   const rating = (json.rating as Record<string, unknown>) || {}
   const imagesRaw = json.images as Record<string, string> | undefined
@@ -126,12 +237,24 @@ export function parseBangumiItem(json: Record<string, unknown>): BangumiItem {
     (json.nameCN as string) ||
     (json.name as string) ||
     ''
-  const airDate =
+  const info = String(json.info ?? '')
+  const fromInfo = parseBangumiInfoMeta(info)
+
+  let airDate =
     (typeof json.date === 'string' && json.date) ||
     (json.airtime &&
       typeof (json.airtime as { date?: string }).date === 'string' &&
       (json.airtime as { date: string }).date) ||
     ''
+  if (!airDate && fromInfo.airDate) airDate = fromInfo.airDate
+
+  const epsRaw = Number(json.eps ?? 0)
+  const epsFromApi = Number.isFinite(epsRaw) && epsRaw > 0 ? Math.trunc(epsRaw) : 0
+  const eps = epsFromApi || fromInfo.eps || 0
+
+  const totalRaw = Number(json.total_episodes ?? json.totalEpisodes ?? 0)
+  const totalEpisodes =
+    Number.isFinite(totalRaw) && totalRaw > 0 ? Math.trunc(totalRaw) : 0
 
   const tagsRaw = Array.isArray(json.tags) ? json.tags : []
   const tags: BangumiTag[] = tagsRaw
@@ -168,7 +291,9 @@ export function parseBangumiItem(json: Record<string, unknown>): BangumiItem {
     alias: parseBangumiAliases(json),
     ratingScore: Number(Number(rating.score ?? 0).toFixed(1)),
     votes: Number(rating.total ?? 0),
-    info: String(json.info ?? ''),
+    info,
+    eps,
+    totalEpisodes,
   }
 }
 

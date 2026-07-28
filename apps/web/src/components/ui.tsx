@@ -1,7 +1,29 @@
 import { memo } from 'react'
 import { Link } from 'react-router-dom'
 import type { BangumiItem } from '@animaku/shared'
-import { coverOf } from '@animaku/shared'
+import {
+  airProgressLabel,
+  coverOf,
+  estimateAirProgress,
+} from '@animaku/shared'
+
+/** Chip text color on dark cover — pairs with warm score yellow on the right. */
+function airChipClass(
+  status: ReturnType<typeof estimateAirProgress>['status'],
+): string {
+  switch (status) {
+    case 'finished':
+      // Soft mint — “done”, less shouty than pure success green
+      return 'text-[var(--kz-air-finished)]'
+    case 'airing':
+      // Cool sky — active update, complementary to score
+      return 'text-[var(--kz-air-airing)]'
+    case 'upcoming':
+      return 'text-[var(--kz-air-upcoming)]'
+    default:
+      return 'text-[var(--kz-air-airing)]'
+  }
+}
 
 export const BangumiCard = memo(function BangumiCard({
   item,
@@ -13,6 +35,9 @@ export const BangumiCard = memo(function BangumiCard({
   const title = item.nameCn || item.name
   const score =
     item.ratingScore > 0 ? item.ratingScore.toFixed(1) : null
+  // Derived at render from cached airDate/eps (not frozen inside list TTL).
+  const air = estimateAirProgress(item)
+  const airLabel = airProgressLabel(item)
 
   return (
     <Link
@@ -35,11 +60,18 @@ export const BangumiCard = memo(function BangumiCard({
             无封面
           </div>
         )}
-        {/* bottom gradient for score legibility */}
+        {/* bottom gradient for score / air-progress legibility */}
         <div
           className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/75 to-transparent"
           aria-hidden
         />
+        {airLabel && (
+          <span
+            className={`absolute bottom-2.5 left-2.5 max-w-[70%] truncate rounded-md bg-black/65 px-1.5 py-0.5 text-xs font-semibold tabular-nums backdrop-blur-sm ${airChipClass(air.status)}`}
+          >
+            {airLabel}
+          </span>
+        )}
         {score && (
           <span className="absolute bottom-2.5 right-2.5 rounded-md bg-black/65 px-1.5 py-0.5 text-xs font-semibold tabular-nums text-[var(--kz-score)] backdrop-blur-sm">
             {score}

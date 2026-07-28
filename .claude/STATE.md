@@ -1,5 +1,13 @@
 # Animaku 项目状态
 
+## [2026-07-28] 卡片「更新至N集 / 已完结」
+
+- 状态：已完成
+- 优先级：P2
+- 描述：Bangumi 无官方播出状态枚举。解析并缓存 `eps`/`totalEpisodes`（v0 字段 + next `info` 的 `N话`/`YYYY年M月D日`）；卡片用首播日按周更估算进度。文案左下角徽章（右下仍为评分）。进度在渲染时算，不把「更新至」冻进 list TTL。
+- 涉及文件：packages/shared/src/bangumi.ts、apps/web/src/components/ui.tsx
+- 备注：typecheck shared/web/server 通过；不精确于非周更/延期；未接 episodes 精算
+
 ## [2026-07-28] 页脚 GitHub + 可配置维护者信息
 
 - 状态：已完成
