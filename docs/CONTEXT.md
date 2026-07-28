@@ -87,15 +87,16 @@ Browser (WEB_DEV_PORT，默认 5173)
 - 入口：`apps/server/src/index.ts`  
 - **用户数据边界：** Bangumi Token、规则 JSON 只存浏览器；服务端不落库，每次插件调用 POST 完整 `rule`  
 
-### Bangumi 公开列表缓存
+### Bangumi 公开列表 / 详情缓存
 
-公开只读列表在服务端用进程内 TTL Map（`apps/server/src/lib/ttl-cache.ts`），**不引入 Redis**。只缓存 200 成功体；`me` / `collections` 等用户接口不进缓存。
+公开只读接口在服务端用进程内 TTL Map（`apps/server/src/lib/ttl-cache.ts`），**不引入 Redis**。只缓存 200 成功体；`me` / `collections` 等用户接口不进缓存。
 
 | 路由 | 服务端 TTL | 客户端 staleTime（RQ） | 备注 |
 |------|------------|------------------------|------|
 | `GET /api/bangumi/calendar` | 24h | 12h | 近季末/部署后避免多日脏数据 |
 | `GET /api/bangumi/trending` | 12h | 2h | 热门缓变 |
-| `POST /api/bangumi/search` | 2h | 30m（番剧浏览） | key = keyword+sort+tags+airDate+limit+offset |
+| `POST /api/bangumi/search` | 2h | 30m（番剧浏览 + 顶栏搜索） | key = keyword+sort+tags+airDate+limit+offset |
+| `GET /api/bangumi/subjects/:id` | 6h | 30m（观看页） | 完整条目（含 summary/alias）；非 slim |
 
 - 响应头 `X-Cache: HIT|MISS` 便于自测  
 - 强制刷新：`?refresh=1` 或请求头 `Cache-Control: no-cache`（删 key 后回源）  

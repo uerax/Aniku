@@ -1,5 +1,32 @@
 # Animaku 项目状态
 
+## [2026-07-28] 缓存小补丁 1+2+3
+
+- 状态：已完成
+- 优先级：P2
+- 描述：
+  1. SearchPage RQ staleTime 30m / gcTime 2h（对齐 browse）
+  2. useWatchSession subject RQ staleTime 30m / gcTime 6h
+  3. 服务端 GET /subjects/:id 进程内 TTL 6h + X-Cache + refresh 绕过；缓存完整 parseBangumiItem（非 slim）
+- 涉及文件：ttl-cache.ts、routes/bangumi.ts、SearchPage.tsx、use-watch-session.ts、docs/CONTEXT.md、docs/TODO.md
+- 备注：未做 episodes 缓存、未做 hover prefetch
+
+## [2026-07-28] 基础页面功能/性能再评估（未改代码）
+
+- 状态：已完成（分析）
+- 优先级：P2
+- 描述：首页/时间表/番剧/搜索/追番/历史/设置/观看壳。列表双层缓存、路由与播放器 lazy、卡片 memo+lazy img、历史 debounce 已到位。剩余多为 subject 详情缓存、追番分页、搜索 staleTime、预取等中低收益；不建议为 24–50 条网格上虚拟列表。功能缺口见 docs/TODO OP/ED。
+- 涉及文件：pages/*、Layout、ui、bangumi routes、use-watch-session、stores
+- 备注：见对话分析
+
+## [2026-07-28] 弹幕性能再评估（未改代码）
+
+- 状态：已完成（分析）
+- 优先级：P2
+- 描述：相对 07-26 桌面密集优化后的现状再评估。热路径（glyph atlas + lazy measure + in-place prune + soft cap + DPR clamp）仍在，不宜回退。尚有优化空间但多为次要/需 benchmark；高风险项（WebGL 重写、去掉 media-time、去掉 cap、全量 measure、每帧 filter）明确不碰。
+- 涉及文件：canvas-danmaku.ts、danmaku-utils.ts、VideoPlayer.tsx、danmaku-pools.ts、use-danmaku-session.ts
+- 备注：见对话分析；若落地优先低风险：contentKey 误触、glyph LRU 按字节、reload 时对象复用、clear 脏区/跳帧、cap 旁路 spawn 不推进 cursor
+
 ## [2026-07-28] 选集卡片缩小 + 只显示源站集名
 
 - 状态：已完成

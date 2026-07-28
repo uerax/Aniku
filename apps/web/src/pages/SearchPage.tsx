@@ -11,6 +11,9 @@ export function SearchPage() {
     queryKey: ['search', keyword],
     queryFn: ({ signal }) => bangumiApi.search(keyword, { signal }),
     enabled: keyword.length > 0,
+    // Align with anime browse + server POST /search TTL (2h)
+    staleTime: 30 * 60_000,
+    gcTime: 2 * 60 * 60_000,
   })
 
   return (

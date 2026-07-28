@@ -264,12 +264,26 @@ bangumiRoutes.post('/search', async (c) => {
 
 bangumiRoutes.get('/subjects/:id', async (c) => {
   const id = c.req.param('id')
+  const key = `bangumi:subject:${id}`
+  const bypass = wantsCacheBypass(c)
+  if (bypass) cacheDelete(key)
+  else {
+    const hit = cacheGet<{ data: BangumiItem }>(key)
+    if (hit) return c.json(hit, 200, cacheHeaders(true))
+  }
+
   const res = await bangumiFetch(`${config.bangumiApi}/v0/subjects/${id}`)
   if (!res.ok) {
-    return c.json({ error: 'upstream', message: await res.text() }, res.status as 404)
+    return c.json(
+      { error: 'upstream', message: await res.text() },
+      res.status as 404,
+    )
   }
   const json = (await res.json()) as Record<string, unknown>
-  return c.json({ data: parseBangumiItem(json) })
+  // Full item (not slimItem): watch needs summary / alias / tags for keywords
+  const payload = { data: parseBangumiItem(json) }
+  cacheSet(key, payload, BANGUMI_CACHE_TTL.subject)
+  return c.json(payload, 200, cacheHeaders(false))
 })
 
 bangumiRoutes.get('/subjects/:id/episodes', async (c) => {

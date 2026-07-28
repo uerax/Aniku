@@ -19,6 +19,11 @@ export const BANGUMI_CACHE_TTL = {
   trending: 12 * 60 * 60_000,
   /** Browse/search can see sudden drops; shorter than trending. */
   browse: 2 * 60 * 60_000,
+  /**
+   * Subject detail (name/summary/tags) — slow-changing public metadata.
+   * Longer than browse so watch re-entry hits after list navigation.
+   */
+  subject: 6 * 60 * 60_000,
 } as const
 
 /** Plugin exec result TTLs (search/chapters long; resolve classified). */

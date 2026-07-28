@@ -246,6 +246,9 @@ export function useWatchSession(bangumiId: number): WatchSession {
     queryKey: ['subject', bangumiId],
     queryFn: ({ signal }) => bangumiApi.subject(bangumiId, { signal }),
     enabled: Number.isFinite(bangumiId) && bangumiId > 0,
+    // Public metadata; server subject TTL 6h — keep client shorter to revalidate via HIT
+    staleTime: 30 * 60_000,
+    gcTime: 6 * 60 * 60_000,
   })
   const item = subject.data?.data
   const title = item ? item.nameCn || item.name : qTitle || `番剧 ${bangumiId}`

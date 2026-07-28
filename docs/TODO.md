@@ -5,6 +5,8 @@
 - [x] 对番剧页面的列表结果增加缓存机制（服务端 browse 2h + 客户端 30m）
 - [x] 时间表（放送日历）数据设置更长缓存周期（服务端 24h + 客户端 12h；避免 3d+ 跨季末脏数据）
 - [x] 明确缓存失效策略（TTL 为主 + `?refresh=1` / Cache-Control: no-cache 为辅；见 `docs/CONTEXT.md`）
+- [x] 顶栏搜索 RQ staleTime 30m（与 browse 对齐；服务端 search 已 2h）
+- [x] 条目详情：服务端 subject 6h + 观看页 RQ 30m（完整 item，非 slim）
 - 备注：封面直连 Bangumi CDN，已有长 max-age，**不做**本机图片代理/SW
 
 ## 2. 设置面板与部署安全
