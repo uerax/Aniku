@@ -76,7 +76,7 @@
 ### Docker 一键部署（推荐）
 
 ```bash
-git clone <remote> animaku
+git clone https://github.com/uerax/Animaku.git animaku
 cd animaku
 
 cp .env.example .env    # 按需改 PORT、PUBLIC_PROXY 等
