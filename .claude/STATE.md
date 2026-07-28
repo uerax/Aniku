@@ -1,5 +1,21 @@
 # Animaku 项目状态
 
+## [2026-07-28] 观看页 W1–W3 面板美化
+
+- 状态：已完成
+- 优先级：P2
+- 描述：简介/视频源/选集套 kz-watch-panel；meta chip（评分/更新至/标签）；源头栏字阶 + 源卡左边条；线路 pill tab；在播集卡 accent-soft；空态 step。**未改** focusAfterSelection / sourcesOpen / epsListExpanded / kz-watch-focus / 桌面 body 滚动 class / 4·3 列密度 / kw 高度 / 集名逻辑。
+- 涉及文件：WatchMeta.tsx、MobileEpsSection.tsx、WatchPage.tsx、index.css、plyr-overrides.css
+- 备注：web typecheck 通过；行为钩子 checklist 全 OK
+
+## [2026-07-28] 分析 share.acgnx.se 资源接入可行性
+
+- 状态：已完成（分析，未改代码）
+- 优先级：P3
+- 描述：评估 AcgnX（末日動漫資源庫）能否接入。结论：站点是 BT/magnet 索引，不是流媒体；与现有 Kazumi 插件管线（search→chapters→resolve→m3u8/mp4）模型不兼容。HTML 全站 Cloudflare 挑战；RSS（`/rss.xml?keyword=`、`/rss-N.xml`）可直拉且带 magnet enclosure。若要接，只能做「新表面」：RSS 搜索 + magnet 外抛/复制，不能当内置视频源播放。
+- 涉及文件：无代码改动；架构见 packages/shared/src/plugin.ts、rule-engine、docs/CONTEXT.md
+- 备注：详见本次对话分析
+
 ## [2026-07-28] P0 视觉抛光 1–4
 
 - 状态：已完成

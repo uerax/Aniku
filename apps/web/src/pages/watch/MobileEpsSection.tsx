@@ -8,13 +8,12 @@ export type MobileEpsRoad = {
 }
 
 /**
- * Bilibili web-mobile style 选集:
- *  选集                    全 N 话 >
- *  [线路 tabs as text]
- *  [horizontal episode cards]
+ * Bilibili-style 选集 (shared mobile + desktop rail):
+ *  选集                    全 N 话
+ *  [线路 pill tabs]
+ *  [horizontal episode cards | full grid]
  *
- * Card chrome matches 视频源 / 简介 width (rounded elevated panel).
- * "全 N 话" expands to a wrapping grid of the same cards.
+ * Behavior hooks preserved: listExpanded, data-ep-index scroll, 4/3-col grid.
  */
 export function MobileEpsSection({
   roads,
@@ -68,15 +67,13 @@ export function MobileEpsSection({
   }, [listExpanded, playingRoad, playingEpisode, activeRoadIndex, activeRoad])
 
   return (
-    <section className="kz-watch-eps kz-watch-eps--mobile min-w-0 overflow-hidden rounded-xl border border-[var(--kz-border)] bg-[var(--kz-bg-elevated)] px-3 py-2 text-xs">
+    <section className="kz-watch-eps kz-watch-eps--mobile kz-watch-panel min-w-0 overflow-hidden px-3 py-2 text-xs">
       <div className="flex items-center gap-2 leading-none">
-        <h2 className="min-w-0 flex-1 text-xs font-normal text-[var(--kz-fg-muted)]">
-          选集
-        </h2>
+        <h2 className="kz-watch-panel-title min-w-0 flex-1">选集</h2>
         <button
           type="button"
           onClick={onToggleList}
-          className="shrink-0 text-xs font-normal text-[var(--kz-fg-muted)] transition hover:text-[var(--kz-fg)]"
+          className="shrink-0 rounded-full bg-[var(--kz-bg-soft)] px-2 py-0.5 text-xs font-medium text-[var(--kz-fg-muted)] transition hover:bg-[var(--kz-bg-hover)] hover:text-[var(--kz-fg)]"
           aria-expanded={listExpanded}
         >
           {epCount > 0 ? `全${epCount}话` : '全部'}
@@ -88,7 +85,7 @@ export function MobileEpsSection({
 
       {showRoads && (
         <div
-          className="kz-watch-roads mt-1.5 flex gap-2.5 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          className="kz-watch-roads mt-2 flex gap-1.5 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           role="tablist"
           aria-label="播放线路"
         >
@@ -104,17 +101,21 @@ export function MobileEpsSection({
                 aria-selected={active}
                 onClick={() => onSelectRoad(ri)}
                 className={clsx(
-                  'kz-watch-road-tab shrink-0 border-b-2 pb-0.5 text-xs font-normal leading-none transition',
+                  'kz-watch-road-tab shrink-0 rounded-full px-2.5 py-1 text-xs font-medium leading-none transition',
                   active
-                    ? 'border-[var(--kz-accent)] text-[var(--kz-accent)]'
-                    : 'border-transparent text-[var(--kz-fg-muted)] hover:text-[var(--kz-fg)]',
+                    ? 'bg-[var(--kz-accent-soft)] text-[var(--kz-accent)]'
+                    : 'bg-[var(--kz-bg-soft)] text-[var(--kz-fg-muted)] hover:text-[var(--kz-fg)]',
                 )}
                 title={label}
               >
                 {label}
                 {playingHere && !active ? (
-                  <span className="ml-1 text-[10px] text-[var(--kz-accent)]">
-                    ·播
+                  <span className="ml-1 inline-flex items-center gap-0.5 text-[10px] text-[var(--kz-accent)]">
+                    <span
+                      className="inline-block h-1 w-1 rounded-full bg-current"
+                      aria-hidden
+                    />
+                    在播
                   </span>
                 ) : null}
               </button>
@@ -132,14 +133,19 @@ export function MobileEpsSection({
           </p>
         )}
         {roadError && (
-          <p className="px-1 py-2 text-xs text-red-400">{roadError}</p>
+          <p className="px-1 py-2 text-xs text-[var(--kz-danger)]">{roadError}</p>
         )}
         {!hasSelection && !roadLoading && (
-          <p className="py-5 text-center text-xs leading-relaxed text-[var(--kz-fg-muted)]">
-            ① 在「视频源」点规则搜索
-            <br />
-            ② 再点搜出的番剧条目加载分集
-          </p>
+          <div className="flex flex-col items-center gap-2 py-5 text-xs leading-relaxed text-[var(--kz-fg-muted)]">
+            <p className="flex items-center gap-2">
+              <span className="kz-watch-step">1</span>
+              在「视频源」点规则搜索
+            </p>
+            <p className="flex items-center gap-2">
+              <span className="kz-watch-step">2</span>
+              再点搜出的番剧条目加载分集
+            </p>
+          </div>
         )}
         {hasSelection && !roadLoading && activeRoad && (
           <div
@@ -148,7 +154,7 @@ export function MobileEpsSection({
               'kz-watch-ep-strip',
               /* p-[3px]: room for selected ring so overflow-x doesn't clip it */
               listExpanded
-                ? /* mobile 4 cols; desktop rail ~320px → 3 */
+                ? /* mobile 4 cols; desktop rail ~320px → 3 — density preserved */
                   'grid grid-cols-4 gap-1.5 p-[3px] lg:grid-cols-3'
                 : 'flex gap-1.5 overflow-x-auto p-[3px] pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
             )}
@@ -167,19 +173,19 @@ export function MobileEpsSection({
                   onClick={() => onPickEpisode(epIndex, activeRoadIndex)}
                   title={label}
                   className={clsx(
-                    'kz-watch-ep-card flex items-center justify-center rounded-md px-1.5 py-2 text-center transition',
+                    'kz-watch-ep-card flex items-center justify-center rounded-lg px-1.5 py-2 text-center transition',
                     listExpanded ? 'min-w-0' : 'w-[4.75rem] shrink-0',
                     playing
-                      ? 'bg-[var(--kz-bg-soft)] ring-1 ring-inset ring-[var(--kz-accent)]/50'
+                      ? 'kz-watch-ep-card--playing bg-[var(--kz-accent-soft)] ring-1 ring-inset ring-[var(--kz-accent)]/45'
                       : 'bg-[var(--kz-bg-soft)] hover:bg-[var(--kz-bg-hover)]',
                   )}
                 >
                   <div
                     className={clsx(
-                      'flex items-center justify-center gap-0.5 text-[11px] font-normal leading-snug',
+                      'flex items-center justify-center gap-0.5 text-[11px] leading-snug',
                       playing
-                        ? 'font-medium text-[var(--kz-accent)]'
-                        : 'text-[var(--kz-fg)]',
+                        ? 'font-semibold text-[var(--kz-accent)]'
+                        : 'font-normal text-[var(--kz-fg)]',
                     )}
                   >
                     {playing ? (

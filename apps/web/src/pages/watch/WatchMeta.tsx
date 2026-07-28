@@ -2,26 +2,64 @@ import { Link } from 'react-router-dom'
 import {
   CollectType,
   CollectTypeLabel,
+  airProgressLabel,
   coverOf,
+  estimateAirProgress,
   type BangumiItem,
 } from '@animaku/shared'
 
 /**
- * Same chrome + type scale as player 弹幕 status strip:
- *   flex … rounded-xl border … px-3 py-2 text-xs
- * font-normal is required on <button> so UA bold doesn't enlarge 简介.
+ * Collapsed mobile bar — keep text-xs + py-2 so height stays aligned with
+ * the 弹幕 status strip (behavior constraint; do not inflate padding).
  */
 const META_BAR =
-  'flex flex-wrap items-center gap-2 rounded-xl border border-[var(--kz-border)] bg-[var(--kz-bg-elevated)] px-3 py-2 text-xs font-normal leading-none text-[var(--kz-fg-muted)]'
-/** 展开 / 收起 — same text-xs as bar body (no medium/semibold). */
+  'kz-watch-panel flex w-full flex-wrap items-center gap-2 px-3 py-2 text-left text-xs font-normal leading-none text-[var(--kz-fg-muted)] transition hover:bg-[var(--kz-bg-hover)]'
 const META_TOGGLE =
-  'shrink-0 text-xs font-normal text-[var(--kz-accent)] hover:underline'
+  'kz-watch-panel-action shrink-0 text-xs hover:underline'
+
+function airChipClass(
+  status: ReturnType<typeof estimateAirProgress>['status'],
+): string {
+  switch (status) {
+    case 'finished':
+      return 'kz-watch-chip kz-watch-chip-air-finished'
+    case 'airing':
+      return 'kz-watch-chip kz-watch-chip-air-airing'
+    case 'upcoming':
+      return 'kz-watch-chip kz-watch-chip-air-upcoming'
+    default:
+      return 'kz-watch-chip'
+  }
+}
+
+function MetaChips({ item }: { item: BangumiItem }) {
+  const airLabel = airProgressLabel(item)
+  const air = estimateAirProgress(item)
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {item.ratingScore > 0 && (
+        <span className="kz-watch-chip kz-watch-chip-score tabular-nums">
+          ★ {item.ratingScore.toFixed(1)}
+        </span>
+      )}
+      {airLabel && (
+        <span className={airChipClass(air.status)}>{airLabel}</span>
+      )}
+      {item.airDate && <span className="kz-watch-chip">{item.airDate}</span>}
+      {item.tags?.slice(0, 6).map((t) => (
+        <span key={t.name} className="kz-watch-chip max-w-[8rem] truncate">
+          {t.name}
+        </span>
+      ))}
+    </div>
+  )
+}
 
 function MetaSubline({
   pluginName,
   episodeLabel,
   mediaHint,
-  className = 'truncate text-xs text-[var(--kz-fg-muted)]',
+  className = 'truncate text-[13px] text-[var(--kz-fg-muted)]',
 }: {
   pluginName?: string
   episodeLabel?: string | null
@@ -34,6 +72,56 @@ function MetaSubline({
   if (episodeLabel) parts.push(episodeLabel)
   if (mediaHint) parts.push(mediaHint)
   return <p className={className}>{parts.join(' · ')}</p>
+}
+
+function CollectControl({
+  token,
+  collectType,
+  collectOptions,
+  onCollectChange,
+  collectPending,
+  compact,
+}: {
+  token: string
+  collectType: CollectType
+  collectOptions: CollectType[]
+  onCollectChange: (t: CollectType) => void
+  collectPending?: boolean
+  compact?: boolean
+}) {
+  if (!token) {
+    return (
+      <Link
+        to="/settings"
+        className={
+          compact
+            ? 'text-xs text-[var(--kz-fg-muted)] hover:text-[var(--kz-accent)]'
+            : 'text-[13px] text-[var(--kz-fg-muted)] hover:text-[var(--kz-accent)]'
+        }
+      >
+        登录 Bangumi 同步追番
+      </Link>
+    )
+  }
+  return (
+    <select
+      value={collectType}
+      onChange={(e) => onCollectChange(Number(e.target.value) as CollectType)}
+      className={
+        compact
+          ? 'rounded-lg border border-[var(--kz-border)] bg-[var(--kz-bg)] px-2 py-0.5 text-xs'
+          : 'rounded-lg border border-[var(--kz-border)] bg-[var(--kz-bg)] px-2.5 py-1 text-[13px]'
+      }
+      disabled={collectPending}
+    >
+      <option value={CollectType.none}>未收藏</option>
+      {collectOptions.map((t) => (
+        <option key={t} value={t}>
+          {CollectTypeLabel[t]}
+        </option>
+      ))}
+    </select>
+  )
 }
 
 export function WatchMeta({
@@ -71,19 +159,21 @@ export function WatchMeta({
   metaOpen?: boolean
   onToggleMeta?: () => void
 }) {
-  /* Mobile collapsed — pixel-match 弹幕 status bar type scale */
+  /* Mobile collapsed — height locked to 弹幕 bar (xs + py-2) */
   if (compact && !metaOpen) {
     return (
       <div className="kz-watch-meta">
         <button
           type="button"
           onClick={onToggleMeta}
-          className={`${META_BAR} w-full text-left transition hover:bg-[var(--kz-bg-hover)]`}
+          className={META_BAR}
           aria-expanded={false}
         >
-          <span className="shrink-0 text-xs font-normal text-[var(--kz-fg-muted)]">
-            简介
-          </span>
+          <span
+            className="h-3 w-0.5 shrink-0 rounded-full bg-[var(--kz-accent)]/70"
+            aria-hidden
+          />
+          <span className="kz-watch-panel-title">简介</span>
           <span className="min-w-0 flex-1 truncate text-xs font-normal text-[var(--kz-fg)]">
             {title}
             {(episodeLabel || pluginName || mediaHint) && (
@@ -101,13 +191,13 @@ export function WatchMeta({
     )
   }
 
-  /* Mobile expanded — same text-xs scale as 弹幕 / collapsed bar */
+  /* Mobile expanded */
   if (compact) {
     return (
-      <div className="kz-watch-meta space-y-2 rounded-xl border border-[var(--kz-border)] bg-[var(--kz-bg-elevated)] px-3 py-2 text-xs text-[var(--kz-fg-muted)]">
+      <div className="kz-watch-meta kz-watch-panel space-y-2.5 px-3 py-2.5 text-[var(--kz-fg-muted)]">
         <div className="flex items-start gap-2.5">
           {item && coverOf(item, 'large') ? (
-            <div className="h-14 w-10 shrink-0 overflow-hidden rounded-lg border border-[var(--kz-border)] bg-[var(--kz-bg-soft)]">
+            <div className="h-16 w-12 shrink-0 overflow-hidden rounded-lg bg-[var(--kz-bg-soft)] shadow-sm ring-1 ring-[var(--kz-border)]">
               <img
                 src={coverOf(item, 'large') || coverOf(item, 'thumb')}
                 alt=""
@@ -117,7 +207,7 @@ export function WatchMeta({
           ) : null}
           <div className="min-w-0 flex-1 space-y-1">
             <div className="flex items-start gap-2">
-              <h1 className="min-w-0 flex-1 text-xs font-semibold leading-snug text-[var(--kz-fg)]">
+              <h1 className="min-w-0 flex-1 text-sm font-semibold leading-snug tracking-tight text-[var(--kz-fg)]">
                 {title}
               </h1>
               {onToggleMeta ? (
@@ -145,19 +235,7 @@ export function WatchMeta({
           </div>
         </div>
 
-        {item && (
-          <div className="flex flex-wrap gap-x-2.5 gap-y-0.5 text-xs text-[var(--kz-fg-muted)]">
-            {item.ratingScore > 0 && (
-              <span className="font-medium text-amber-300/90">
-                ★ {item.ratingScore.toFixed(1)}
-              </span>
-            )}
-            {item.airDate && <span>{item.airDate}</span>}
-            {item.tags?.slice(0, 5).map((t) => (
-              <span key={t.name}>{t.name}</span>
-            ))}
-          </div>
-        )}
+        {item && <MetaChips item={item} />}
 
         {item?.summary && (
           <div className="text-xs leading-relaxed text-[var(--kz-fg-muted)]">
@@ -165,7 +243,7 @@ export function WatchMeta({
             {item.summary.length > 60 && (
               <button
                 type="button"
-                className="mt-0.5 text-xs text-[var(--kz-accent)] hover:underline"
+                className="mt-0.5 text-xs font-medium text-[var(--kz-accent)] hover:underline"
                 onClick={onToggleSummary}
               >
                 {summaryOpen ? '收起简介' : '展开简介'}
@@ -175,30 +253,14 @@ export function WatchMeta({
         )}
 
         <div className="flex flex-wrap items-center gap-2">
-          {token ? (
-            <select
-              value={collectType}
-              onChange={(e) =>
-                onCollectChange(Number(e.target.value) as CollectType)
-              }
-              className="rounded-lg border border-[var(--kz-border)] bg-[var(--kz-bg)] px-2 py-0.5 text-xs"
-              disabled={collectPending}
-            >
-              <option value={CollectType.none}>未收藏</option>
-              {collectOptions.map((t) => (
-                <option key={t} value={t}>
-                  {CollectTypeLabel[t]}
-                </option>
-              ))}
-            </select>
-          ) : (
-            <Link
-              to="/settings"
-              className="text-xs text-[var(--kz-fg-muted)] hover:text-[var(--kz-accent)]"
-            >
-              登录 Bangumi 同步追番
-            </Link>
-          )}
+          <CollectControl
+            token={token}
+            collectType={collectType}
+            collectOptions={collectOptions}
+            onCollectChange={onCollectChange}
+            collectPending={collectPending}
+            compact
+          />
           {item?.alias && item.alias.length > 0 && (
             <span className="text-xs text-[var(--kz-fg-dim)]">
               别名 {item.alias.length} 个
@@ -209,11 +271,11 @@ export function WatchMeta({
     )
   }
 
-  /* Desktop — original full meta */
+  /* Desktop — elevated meta card */
   return (
-    <div className="kz-watch-meta flex gap-3 sm:gap-4">
+    <div className="kz-watch-meta kz-watch-panel flex gap-3.5 p-3.5 sm:gap-4 sm:p-4">
       {item && coverOf(item, 'large') ? (
-        <div className="h-[7.5rem] w-[5.5rem] shrink-0 overflow-hidden rounded-xl border border-[var(--kz-border)] bg-[var(--kz-bg-soft)] shadow-sm sm:h-36 sm:w-[6.75rem]">
+        <div className="h-[7.75rem] w-[5.75rem] shrink-0 overflow-hidden rounded-xl bg-[var(--kz-bg-soft)] shadow-sm ring-1 ring-[var(--kz-border)] sm:h-36 sm:w-[6.75rem]">
           <img
             src={coverOf(item, 'large') || coverOf(item, 'thumb')}
             alt=""
@@ -221,38 +283,26 @@ export function WatchMeta({
           />
         </div>
       ) : null}
-      <div className="min-w-0 flex-1 space-y-1.5">
-        <h1 className="text-base font-semibold leading-snug text-[var(--kz-fg)] sm:text-lg">
+      <div className="min-w-0 flex-1 space-y-2">
+        <h1 className="text-lg font-semibold leading-snug tracking-tight text-[var(--kz-fg)] sm:text-xl">
           {title}
         </h1>
         {item?.nameCn && item.name && item.nameCn !== item.name && (
-          <p className="text-xs text-[var(--kz-fg-muted)]">{item.name}</p>
+          <p className="text-[13px] text-[var(--kz-fg-muted)]">{item.name}</p>
         )}
         <MetaSubline
           pluginName={pluginName}
           episodeLabel={episodeLabel}
           mediaHint={mediaHint}
         />
-        {item && (
-          <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-[var(--kz-fg-muted)]">
-            {item.ratingScore > 0 && (
-              <span className="font-medium text-amber-300/90">
-                ★ {item.ratingScore.toFixed(1)}
-              </span>
-            )}
-            {item.airDate && <span>{item.airDate}</span>}
-            {item.tags?.slice(0, 6).map((t) => (
-              <span key={t.name}>{t.name}</span>
-            ))}
-          </div>
-        )}
+        {item && <MetaChips item={item} />}
         {item?.summary && (
-          <div className="text-xs leading-relaxed text-[var(--kz-fg-muted)]">
+          <div className="text-[13px] leading-relaxed text-[var(--kz-fg-muted)]">
             <p className={summaryOpen ? '' : 'line-clamp-3'}>{item.summary}</p>
             {item.summary.length > 80 && (
               <button
                 type="button"
-                className="mt-0.5 text-[var(--kz-accent)] hover:underline"
+                className="mt-0.5 font-medium text-[var(--kz-accent)] hover:underline"
                 onClick={onToggleSummary}
               >
                 {summaryOpen ? '收起' : '展开'}
@@ -261,30 +311,13 @@ export function WatchMeta({
           </div>
         )}
         <div className="flex flex-wrap items-center gap-2 pt-0.5">
-          {token ? (
-            <select
-              value={collectType}
-              onChange={(e) =>
-                onCollectChange(Number(e.target.value) as CollectType)
-              }
-              className="rounded-lg border border-[var(--kz-border)] bg-[var(--kz-bg-elevated)] px-2 py-1 text-xs"
-              disabled={collectPending}
-            >
-              <option value={CollectType.none}>未收藏</option>
-              {collectOptions.map((t) => (
-                <option key={t} value={t}>
-                  {CollectTypeLabel[t]}
-                </option>
-              ))}
-            </select>
-          ) : (
-            <Link
-              to="/settings"
-              className="text-xs text-[var(--kz-fg-muted)] hover:text-[var(--kz-accent)]"
-            >
-              登录 Bangumi 同步追番
-            </Link>
-          )}
+          <CollectControl
+            token={token}
+            collectType={collectType}
+            collectOptions={collectOptions}
+            onCollectChange={onCollectChange}
+            collectPending={collectPending}
+          />
           {item?.alias && item.alias.length > 0 && (
             <span className="text-[11px] text-[var(--kz-fg-dim)]">
               别名 {item.alias.length} 个（可用于换关键词）

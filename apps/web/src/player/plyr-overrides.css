@@ -175,9 +175,19 @@
 }
 
 .kz-watch-ep-card {
-  /* Single-line source title; taller than 1.75 so 3–4-col cells don’t look flat */
-  min-height: 2.5rem;
+  /* Single-line source title; denser grid — do not inflate much (W polish) */
+  min-height: 2.55rem;
   box-sizing: border-box;
+}
+
+.kz-watch-ep-card--playing {
+  /* accent-soft fill already in markup; keep ring room from strip padding */
+  box-shadow: none;
+}
+
+/* Pill road tabs replace underline tabs — light theme uses same accent soft */
+.kz-watch-road-tab[aria-selected='true'] {
+  font-weight: 600;
 }
 
 /*
@@ -228,11 +238,11 @@
   font-size: 11px !important;
 }
 
-/* Light theme: violet road chips stay readable */
+/* Legacy violet chip rule kept for any residual markup; active tabs use accent pills */
 html[data-theme='light'] .kz-watch-road-chip[aria-selected='true'] {
-  color: #6d28d9;
-  background: rgba(139, 92, 246, 0.12);
-  border-color: rgba(139, 92, 246, 0.45);
+  color: var(--kz-accent);
+  background: var(--kz-accent-soft);
+  border-color: color-mix(in srgb, var(--kz-accent) 40%, transparent);
 }
 
 .kz-watch-cinema--desktop .kz-watch-rail {
