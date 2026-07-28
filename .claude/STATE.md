@@ -1,5 +1,13 @@
 # Animaku 项目状态
 
+## [2026-07-28] P0 视觉抛光 1–4
+
+- 状态：已完成
+- 优先级：P2
+- 描述：字体 Inter（Bunny CDN）+ 中文系统 fallback；深色离开纯黑、浅色暖灰底；kz-surface 阴影层级 + interactive hover；PageHeader 字阶加大、首页区块 kz-section-title、续播卡 surface、空/载/错态套 surface。
+- 涉及文件：apps/web/index.html、index.css、components/ui.tsx、pages/HomePage.tsx
+- 备注：web typecheck 通过；未引 UI 库；P1 未做
+
 ## [2026-07-28] 卡片「更新至N集 / 已完结」
 
 - 状态：已完成

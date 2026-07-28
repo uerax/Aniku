@@ -28,13 +28,11 @@ export function HomePage() {
 
       {recent.length > 0 && (
         <section>
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-[20px] font-bold tracking-tight text-[var(--kz-fg)]">
-              继续观看
-            </h2>
+          <div className="mb-4 flex items-center justify-between gap-2">
+            <h2 className="kz-section-title">继续观看</h2>
             <Link
               to="/history"
-              className="text-[15px] font-medium text-[var(--kz-accent)] hover:underline"
+              className="text-[13px] font-medium text-[var(--kz-accent)] hover:underline"
             >
               全部历史
             </Link>
@@ -49,7 +47,7 @@ export function HomePage() {
               <Link
                 key={h.id}
                 to={`/play/${h.bangumiId}?plugin=${encodeURIComponent(h.pluginName)}&pageUrl=${encodeURIComponent(h.pageUrl)}&ep=${h.episode}&road=${h.road}&title=${encodeURIComponent(h.title)}${h.cover ? `&cover=${encodeURIComponent(h.cover)}` : ''}${h.sourceUrl ? `&source=${encodeURIComponent(h.sourceUrl)}` : ''}`}
-                className="flex min-w-0 max-w-full items-center gap-3 overflow-hidden rounded-2xl border border-[var(--kz-border)] bg-[var(--kz-bg-elevated)] p-3 transition hover:bg-[var(--kz-bg-hover)]"
+                className="kz-surface kz-surface-interactive flex min-w-0 max-w-full items-center gap-3 overflow-hidden p-3"
               >
                 {h.cover ? (
                   <img
@@ -61,16 +59,16 @@ export function HomePage() {
                   <div className="h-16 w-12 shrink-0 rounded-lg bg-[var(--kz-bg-soft)]" />
                 )}
                 <div className="min-w-0 flex-1 overflow-hidden">
-                  <div className="truncate text-[13px] font-medium text-[var(--kz-fg)]">
+                  <div className="truncate text-[13px] font-semibold text-[var(--kz-fg)]">
                     {h.title}
                   </div>
-                  <div className="mt-0.5 truncate text-[13px] text-[var(--kz-fg-muted)]">
+                  <div className="mt-0.5 truncate text-[12px] text-[var(--kz-fg-muted)]">
                     第 {h.episode} 集 · {h.pluginName}
                     {h.duration > 0 &&
                       ` · ${Math.floor((h.position / h.duration) * 100)}%`}
                   </div>
                   {h.duration > 0 && (
-                    <div className="mt-2 h-0.5 overflow-hidden rounded-full bg-[var(--kz-border)]">
+                    <div className="mt-2.5 h-1 overflow-hidden rounded-full bg-[var(--kz-border)]">
                       <div
                         className="h-full rounded-full bg-[var(--kz-accent)]"
                         style={{
@@ -88,10 +86,8 @@ export function HomePage() {
 
       <section>
         <div className="mb-4 flex items-end justify-between gap-2">
-          <h2 className="text-[20px] font-bold tracking-tight text-[var(--kz-fg)]">
-            热门趋势
-          </h2>
-          <span className="text-[13px] text-[var(--kz-fg-muted)]">Bangumi</span>
+          <h2 className="kz-section-title">热门趋势</h2>
+          <span className="kz-section-meta">BANGUMI</span>
         </div>
         {trending.isLoading && <LoadingState />}
         {trending.isError && (

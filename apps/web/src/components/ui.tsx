@@ -113,7 +113,7 @@ export const BangumiGrid = memo(function BangumiGrid({
 
 export function EmptyState({ text }: { text: string }) {
   return (
-    <div className="rounded-2xl border border-dashed border-[var(--kz-border)] bg-[var(--kz-bg-elevated)]/40 py-16 text-center text-sm text-[var(--kz-fg-dim)]">
+    <div className="kz-surface border-dashed px-4 py-16 text-center text-sm text-[var(--kz-fg-dim)] shadow-none">
       {text}
     </div>
   )
@@ -121,7 +121,7 @@ export function EmptyState({ text }: { text: string }) {
 
 export function LoadingState({ text = '加载中…' }: { text?: string }) {
   return (
-    <div className="rounded-2xl border border-[var(--kz-border-subtle)] bg-[var(--kz-bg-elevated)]/50 py-16 text-center text-sm text-[var(--kz-fg-muted)]">
+    <div className="kz-surface px-4 py-16 text-center text-sm text-[var(--kz-fg-muted)]">
       <span className="inline-flex items-center gap-2">
         <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-[var(--kz-border)] border-t-[var(--kz-accent)]" />
         {text}
@@ -139,8 +139,8 @@ export function ErrorState({
 }) {
   const msg = error instanceof Error ? error.message : '出错了'
   return (
-    <div className="rounded-2xl border border-red-900/40 bg-red-950/20 px-4 py-10 text-center">
-      <div className="mx-auto max-w-xl text-left text-sm leading-relaxed whitespace-pre-wrap break-words text-red-300">
+    <div className="kz-surface kz-surface-danger px-4 py-10 text-center">
+      <div className="mx-auto max-w-xl text-left text-sm leading-relaxed break-words whitespace-pre-wrap text-[var(--kz-danger)]">
         {msg}
       </div>
       {onRetry && (
@@ -166,13 +166,13 @@ export function PageHeader({
   actions?: React.ReactNode
 }) {
   return (
-    <div className="mb-7 flex flex-wrap items-end justify-between gap-3">
-      <div>
-        <h1 className="text-[1.75rem] font-bold tracking-tight text-[var(--kz-fg)]">
+    <div className="mb-8 flex flex-wrap items-end justify-between gap-3">
+      <div className="min-w-0 max-w-3xl">
+        <h1 className="text-[1.95rem] font-bold leading-[1.15] tracking-[-0.035em] text-[var(--kz-fg)] sm:text-[2.15rem]">
           {title}
         </h1>
         {description && (
-          <p className="mt-1.5 text-[15px] leading-snug text-[var(--kz-fg-muted)]">
+          <p className="mt-2 max-w-2xl text-[0.9375rem] leading-relaxed text-[var(--kz-fg-muted)]">
             {description}
           </p>
         )}
