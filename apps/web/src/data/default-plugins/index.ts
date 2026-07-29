@@ -16,9 +16,9 @@ import omofun from './omofun.json'
  * More sources: Settings → catalog / import (7sefun, AGE, gugu3 still folder-only).
  */
 export const DEFAULT_PLUGIN_RULES: PluginRule[] = [
-  otage as PluginRule,
-  xifan as PluginRule,
   mxdm as PluginRule,
   omofun as PluginRule,
+  otage as PluginRule,
+  xifan as PluginRule,
   anime1 as PluginRule,
 ]

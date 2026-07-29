@@ -8,7 +8,7 @@
   "useNativePlayer": true,
   "usePost": false,
   "useLegacyParser": false,
-  "adBlocker": false,
+  "adBlocker": true,
   "userAgent": "",
   "baseURL": "https://cn.211dm.com/",
   "searchURL": "https://cn.211dm.com/search/-------------.html?wd=@keyword",
