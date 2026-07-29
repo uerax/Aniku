@@ -1,5 +1,5 @@
 /**
- * HLS discontinuity-based ad filter (Kazumi / FFmpeg hls_ad_filter style).
+ * HLS discontinuity-based ad filter ( FFmpeg hls_ad_filter style).
  * Groups segments by #EXT-X-DISCONTINUITY; drops short non-main groups.
  */
 
@@ -160,7 +160,7 @@ export function parseMediaPlaylist(
 }
 
 /**
- * Filter ad segments. Same thresholds as Kazumi M3u8AdFilter.
+ * Filter ad segments. Same thresholds as M3u8AdFilter.
  */
 export function filterAds(segments: M3u8Segment[]): M3u8Segment[] {
   if (segments.length === 0) return segments

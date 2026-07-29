@@ -26,7 +26,7 @@ interface PluginState {
   ) => PluginMeta
   removePlugin: (id: string) => void
   togglePlugin: (id: string, enabled?: boolean) => void
-  /** Per-rule HLS ad filter (Kazumi `adBlocker`) */
+  /** Per-rule HLS ad filter */
   setPluginAdBlocker: (id: string, adBlocker: boolean) => void
   getEnabled: () => PluginMeta[]
   getByName: (name: string) => PluginMeta | undefined

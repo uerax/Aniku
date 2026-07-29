@@ -15,7 +15,6 @@ const SETTINGS_PERSIST_DEBOUNCE_MS = 800
 
 migrateLocalStorageKey('animaku-settings', [
   'aniku-settings',
-  'kazumi-web-settings',
 ])
 
 export type AppTheme = 'dark' | 'light'

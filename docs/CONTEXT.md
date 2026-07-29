@@ -20,8 +20,6 @@
 | 仓库 | 角色 |
 |------|------|
 | 本仓库 `animaku` | 完整读写 |
-| 工作区旁 `Kazumi/`（若存在） | 只读参考 |
-| 工作区旁 `agefans-enhance/`（若存在） | 只读参考 |
 
 参考项目的模式可以抄，**不要整文件搬**。
 
@@ -33,8 +31,6 @@
 |------|------|----------------|
 | [Kazumi](https://github.com/Predidit/Kazumi) | Flutter 客户端 | Bangumi；[KazumiRules](https://github.com/Predidit/KazumiRules)；XPath/API 规则；关键词策略与选源；弹弹匹配；历史；跳 OP/ED |
 | [agefans-enhance](https://github.com/IronKinoko/agefans-enhance) | 油猴 | [@ironkinoko/danmaku](https://github.com/IronKinoko/danmaku)；弹弹鉴权思路；播放器内弹幕面板；XML 拖入；偏移与快捷键 |
-
-**相对桌面 Kazumi 的硬天花板：**
 
 - 没有内嵌 **WebView 媒体拦截**。
 - 播放地址优先靠服务端**静态 HTML** 抽 m3u8/mp4。
@@ -198,7 +194,7 @@ Browser (WEB_DEV_PORT，默认 5173)
 
 分集侧栏缓存：`sessionStorage` 键 `roads:{bangumiId}:{pluginName}`（详情页写入，播放页读取）。
 
-### 搜索约定（对齐 Kazumi，故意不做引擎内模糊）
+### 搜索约定
 
 | 层 | 行为 |
 |----|------|
@@ -213,7 +209,7 @@ Browser (WEB_DEV_PORT，默认 5173)
 - resolve 优先 **m3u8**，签名 mp4（如 qq photo `dis_k`）易过期  
 - 媒体代理禁内网主机；403 可松 referer 重试  
 
-### HLS 广告过滤（对齐 Kazumi）
+### HLS 广告过滤
 
 - **不是**浏览器广告拦截 / 域名黑名单，只处理 playlist 里 `#EXT-X-DISCONTINUITY` 分隔的短 TS 段（启发：&lt;正片 30%、首末 &lt;30s、任意 &lt;10s）。
 - 算法：`packages/shared/src/m3u8-ad-filter.ts`；代理 `GET /api/media/proxy?…&adFilter=1` 在 rewrite 前过滤 media 列表。
@@ -261,7 +257,7 @@ Anime4K (可选)   → WebGPU canvas 覆盖层（默认关，不占 GPU）
 
 ### 超分（Anime4K / WebGPU）
 
-- 语义对齐桌面 Kazumi：关 / **效率档** / **质量档**；`player.superResolution`（默认 `off`）
+- 语义：关 / **效率档** / **质量档**；`player.superResolution`（默认 `off`）
 - 实现：`apps/web/src/player/anime4k.ts` + `anime4k-webgpu`；**动态 import**，未开启时不加载库、不申请 GPU
 - 画面：`<video>` 继续解码；开启后 `opacity:0`，画面画在 `<canvas class="kz-sr-canvas">`；弹幕仍在最上层
 - 效率：Clamp + CNNM + CNNx2M；质量：`ModeA` 预设
@@ -363,7 +359,7 @@ Anime4K (可选)   → WebGPU canvas 覆盖层（默认关，不占 GPU）
 ## 11. 约定
 
 - 面向用户的文案用**中文**  
-- 规则字段对齐 Kazumi JSON；默认规则保持精简，更多源走导入 / 商店  
+- 规则字段 JSON；默认规则保持精简，更多源走导入 / 商店  
 - 位置 XPath `//div[n]` 很脆 → 优先改回退 / 关键词，而不是引擎里造模糊 XPath  
 - 根目录脚本用 `pnpm -r` / `--filter`  
 

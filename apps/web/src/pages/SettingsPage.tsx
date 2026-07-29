@@ -646,9 +646,9 @@ export function SettingsPage() {
           </button>
         </div>
         <p className="text-xs text-[var(--kz-fg-muted)]">
-          对齐 agefans-enhance：倍速、自动下一集、记忆进度、跳过片头/片尾。超分对齐
-          Kazumi（Anime4K / WebGPU），默认关闭时不占 GPU。也可在播放器控制条切换。
-          HLS 广告过滤对齐 Kazumi：按 discontinuity 短段启发式剔除，非域名拦截。
+          播放器：倍速、自动下一集、记忆进度、跳过片头/片尾。
+          默认关闭时不占 GPU。也可在播放器控制条切换。
+          HLS 广告过滤：按 discontinuity 短段启发式剔除，非域名拦截。
         </p>
         <Toggle
           label="媒体走服务器代理"
@@ -926,45 +926,6 @@ export function SettingsPage() {
             className="w-full rounded-xl border border-[var(--kz-border)] bg-[var(--kz-bg)] px-3 py-2 text-sm"
           />
         </div>
-      </section>
-
-      <section className="space-y-2 rounded-2xl border border-[var(--kz-border)] bg-[var(--kz-bg-elevated)] p-5 text-sm text-[var(--kz-fg-muted)]">
-        <h2 className="text-lg font-bold tracking-tight text-[var(--kz-fg)]">关于</h2>
-        <p>
-          <strong className="font-medium text-[var(--kz-fg)]">Animaku</strong>{' '}
-          是浏览器端番剧应用。规则格式兼容{' '}
-          <a
-            className="kz-link"
-            href="https://github.com/Predidit/KazumiRules"
-            target="_blank"
-            rel="noreferrer"
-          >
-            KazumiRules
-          </a>
-          ；早期设计曾参考{' '}
-          <a
-            className="kz-link"
-            href="https://github.com/Predidit/Kazumi"
-            target="_blank"
-            rel="noreferrer"
-          >
-            Kazumi
-          </a>{' '}
-          与{' '}
-          <a
-            className="kz-link"
-            href="https://github.com/IronKinoko/agefans-enhance"
-            target="_blank"
-            rel="noreferrer"
-          >
-            agefans-enhance
-          </a>
-          。
-        </p>
-        <p>
-          元数据：Bangumi · 弹幕：弹弹play · 播放源：内置/导入/规则仓库。请在 24
-          小时内清除缓存数据，并遵守当地法律法规。
-        </p>
       </section>
     </div>
   )

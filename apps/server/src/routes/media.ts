@@ -188,7 +188,7 @@ mediaRoutes.get('/proxy', async (c) => {
   const referer = c.req.query('referer') || ''
   /** Optional upstream Cookie (e.g. anime1 path-scoped e/p/h). Not used by most sources. */
   const cookie = c.req.query('cookie') || ''
-  /** HLS discontinuity ad-filter (Kazumi-style). Query: adFilter=1 */
+  /** HLS discontinuity ad-filter. Query: adFilter=1 */
   const adFilter =
     c.req.query('adFilter') === '1' ||
     c.req.query('adFilter') === 'true' ||

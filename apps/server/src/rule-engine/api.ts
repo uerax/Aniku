@@ -1,5 +1,5 @@
 /**
- * API-mode plugin engine (Kazumi ApiRuleStrategy subset).
+ * API-mode plugin engine.
  * Supports searchApiConfig / chapterApiConfig used by rules like sorani, TvTFun.
  */
 import type {

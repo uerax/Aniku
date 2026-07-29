@@ -41,7 +41,7 @@ export interface PlayerSettings {
   superResolution: SuperResolutionMode
   /**
    * Force HLS discontinuity ad-filter on all proxied m3u8
-   * (ignores per-rule `adBlocker` when true). Kazumi: forceAdBlocker.
+   * (ignores per-rule `adBlocker` when true). : forceAdBlocker.
    */
   forceAdBlocker: boolean
   /**

@@ -1,4 +1,4 @@
-/** Local collect type — Kazumi CollectType (const object for better ESM interop) */
+/** Local collect type — CollectType (const object for better ESM interop) */
 export const CollectType = {
   none: 0,
   watching: 1,
@@ -287,7 +287,7 @@ export function parseBangumiItem(json: Record<string, unknown>): BangumiItem {
           grid: image,
         },
     tags,
-    // Kazumi: parse 「别名」 from infobox (api.bgm.tv / next.bgm.tv)
+    // parse 「别名」 from infobox (api.bgm.tv / next.bgm.tv)
     alias: parseBangumiAliases(json),
     ratingScore: Number(Number(rating.score ?? 0).toFixed(1)),
     votes: Number(rating.total ?? 0),
@@ -298,7 +298,7 @@ export function parseBangumiItem(json: Record<string, unknown>): BangumiItem {
 }
 
 /**
- * Extract 别名 from Bangumi subject infobox (same as Kazumi BangumiItem.fromJson).
+ * Extract 别名 from Bangumi subject infobox (same as BangumiItem.fromJson).
  * api.bgm.tv uses `value`; next.bgm.tv /p1 may use `values`.
  */
 export function parseBangumiAliases(

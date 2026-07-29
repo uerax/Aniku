@@ -40,7 +40,7 @@
 | 弹幕 | 弹弹 play 匹配；B 站 BV；拖入 bilibili / pakku XML |
 | 本地数据 | 历史、设置、规则 JSON 均在浏览器；服务端不落库用户内容 |
 
-相对桌面 Kazumi 的硬天花板：没有内嵌 WebView 媒体拦截，播放地址优先靠服务端静态解析 m3u8/mp4；抽不到时可 iframe 嵌源站页降级（跨域、弹幕与续播等能力受限）。
+没有内嵌 WebView 媒体拦截，播放地址优先靠服务端静态解析 m3u8/mp4；抽不到时可 iframe 嵌源站页降级（跨域、弹幕与续播等能力受限）。
 
 ## 支持环境
 
@@ -63,7 +63,7 @@
 - [x] 观看历史与续播
 - [x] 倍速 / 自动下一集 / 跳 OP·ED
 - [x] 明暗主题
-- [x] HLS 广告段过滤（对齐 Kazumi 思路）
+- [x] HLS 广告段过滤
 - [x] Anime4K 实时超分（WebGPU，效率 / 质量档）
 - [x] 媒体代理与直连回退；iframe 降级
 - [x] Docker 一键部署
@@ -227,12 +227,6 @@ SPA 默认带 `index.html` meta、客户端按路由改 title/description/OG、�
 **默认已适合 VPS 公网部署。** 开启后他人也可借你的服务器出口拉流，请知悉带宽风险（仍有内网 SSRF 拦截）。  
 仅本机 / 局域网、不希望端口暴露后被公网当出口用时：设 `PUBLIC_PROXY=0`。
 
-## 贡献
-
-欢迎向 [KazumiRules](https://github.com/Predidit/KazumiRules) 提交自定义规则；规则编写可参考 [Kazumi 规则开发文档](https://kazumi.app/docs/rules/develop-rules)。
-
-本仓库架构、约定与踩坑见 [docs/CONTEXT.md](docs/CONTEXT.md)。
-
 ## Q&A
 
 <details>
@@ -248,7 +242,7 @@ A: Anime4K 走浏览器 **WebGPU**，对 GPU 要求较高。尽量选 **效率�
 
 #### Q: 为什么有的源能搜到却播不了？
 
-A: Web 端没有桌面 Kazumi 的 WebView 拦截能力，只能静态抽链。大量 `resolve` 失败多半是解析上限，可换规则 / 线路，或接受 iframe 降级（弹幕与部分播放增强不可用）。
+A: Web 端没 WebView 拦截能力，只能静态抽链。大量 `resolve` 失败多半是解析上限，可换规则 / 线路，或接受 iframe 降级（弹幕与部分播放增强不可用）。
 
 #### Q: 公网能开页面但不能选源 / 播放？
 
@@ -277,7 +271,7 @@ A: 仅本机 Node / 开发需要 pnpm。安装 pnpm 9.15.0 并保证在 **仓库
 
 #### Q: 自定义规则能搜不能看？
 
-A: 与 Kazumi 类似：部分站反爬 / 验证码 / 防盗链会导致静态解析失败。可换线路，或依赖 iframe 降级提高兼容（体验弱于直链播放）。
+A: 部分站反爬 / 验证码 / 防盗链会导致静态解析失败。可换线路，或依赖 iframe 降级提高兼容（体验弱于直链播放）。
 
 </details>
 

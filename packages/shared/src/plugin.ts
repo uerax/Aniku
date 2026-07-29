@@ -1,4 +1,4 @@
-/** HTTP template used by API-mode rules (Kazumi ApiRequestConfig) */
+/** HTTP template used by API-mode rules ( ApiRequestConfig) */
 export interface ApiRequestConfig {
   method?: string
   url: string
@@ -8,7 +8,7 @@ export interface ApiRequestConfig {
   body?: unknown
 }
 
-/** Kazumi ApiSearchConfig — JSON API search */
+/**  ApiSearchConfig — JSON API search */
 export interface ApiSearchConfig {
   request: ApiRequestConfig
   listPath: string
@@ -27,7 +27,7 @@ export interface ApiEpisodePageConfig {
   query?: Record<string, unknown>
 }
 
-/** Kazumi ApiChapterConfig — nested or delimited chapter responses */
+/**  ApiChapterConfig — nested or delimited chapter responses */
 export interface ApiChapterConfig {
   request: ApiRequestConfig
   format?: 'nested' | 'delimited'
@@ -45,7 +45,7 @@ export interface ApiChapterConfig {
   episodePage?: ApiEpisodePageConfig
 }
 
-/** Kazumi-compatible plugin rule (subset used by web) */
+/** plugin rule (subset used by web) */
 export interface PluginRule {
   api: string
   type: string
@@ -95,7 +95,7 @@ export interface PluginCatalogItem {
 
 export type PluginCatalogStatus = 'install' | 'installed' | 'update'
 
-/** Simple semver-ish compare: true if remote is newer than local (Kazumi needUpdate) */
+/** Simple semver-ish compare: true if remote is newer than local*/
 export function isRemoteNewer(localVersion: string, remoteVersion: string): boolean {
   const local = String(localVersion || '')
     .split('.')
@@ -157,7 +157,7 @@ export interface ResolvePlayResult {
 }
 
 /**
- * Build search keyword candidates (Kazumi-style + short-head variants).
+ * Build search keyword candidates .
  * Order: short heads / cleaned titles first, then aliases, then full titles.
  * Caller may try several until a plugin returns hits; UI also exposes 别名/手动.
  */
@@ -202,7 +202,7 @@ export function buildSearchKeywords(
 
 /**
  * Cheap title similarity for ranking plugin hits (not a full fuzzy matcher).
- * Used like Kazumi's human pick: surface closer names first, still list all.
+ * Used like human pick: surface closer names first, still list all.
  */
 export function titleSimilarity(a: string, b: string): number {
   const s1 = (a || '').toLowerCase().replace(/\s+/g, '')

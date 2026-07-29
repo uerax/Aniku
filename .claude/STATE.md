@@ -101,7 +101,7 @@
 - 优先级：P3
 - 描述：非浏览器调 Bangumi 须带「开发者 ID + 应用名」；开源附主页。默认 UA：`uerax/Animaku/0.1.0 (https://github.com/uerax/Animaku)`（项目已改名 Animaku，与 footer branding 一致）。`bangumiFetch` 始终注入。
 - 涉及文件：apps/server/src/config.ts、.env.example、.env
-- 备注：勿用 database / 仅 Bangumi/x.y；git remote 仍可能是旧名 Kazumi-web
+- 备注：勿用 database / 仅 Bangumi/x.y；
 
 ## [2026-07-28] README 播放页截图
 
@@ -285,11 +285,11 @@
   - docs/TODO.md、docs/CONTEXT.md
 - 备注：typecheck 通过；未做 UI 刷新按钮（可后续）
 
-## [2026-07-27] 参考 Kazumi 重设计 README
+## [2026-07-27] 重设计 README
 
 - 状态：已完成
 - 优先级：P2
-- 描述：按 Kazumi README 的产品向结构重写 `README.md`：居中标题/徽章/简介、「这是什么」、支持环境、功能 checklist、快速开始、使用流程、生产/Docker、环境变量、贡献、折叠 Q&A、免责/隐私、致谢。保留自托管必需的 dev/prod 与 `PUBLIC_PROXY` 说明；开发者细节仍指向 `docs/CONTEXT.md`。API 全表从 README 挪走（避免喧宾夺主）。
+- 描述：结构重写 `README.md`：居中标题/徽章/简介、「这是什么」、支持环境、功能 checklist、快速开始、使用流程、生产/Docker、环境变量、贡献、折叠 Q&A、免责/隐私、致谢。保留自托管必需的 dev/prod 与 `PUBLIC_PROXY` 说明；开发者细节仍指向 `docs/CONTEXT.md`。API 全表从 README 挪走（避免喧宾夺主）。
 - 涉及文件：README.md
 - 备注：logo 暂用 `apps/web/public/android-chrome-512x512.png`；仓库根无 LICENSE，免责声明未写 GPL
 

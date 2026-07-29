@@ -461,7 +461,7 @@ function isGenericRoadName(name: string): boolean {
 }
 
 /**
- * Align with Kazumi: keep distinct play-lines; preserve site-provided names
+ * keep distinct play-lines; preserve site-provided names
  * (often resolution / CDN like 高清、蓝光、量子). Only drop empty / junk /
  * exact URL-list duplicates — never overwrite a good label with 播放线路N.
  */
@@ -716,7 +716,7 @@ function parseSearchHtml(
 ): SearchItem[] {
   let items: SearchItem[] = []
 
-  // 1) XPath (Kazumi-compatible) via cheerio→xml→xmldom
+  // 1) XPath via cheerio→xml→xmldom
   try {
     const doc = htmlToXPathDoc(html)
     const listNodes = xpathNodes(doc, rule.searchList)
@@ -762,8 +762,7 @@ function parseSearchHtml(
 }
 
 /**
- * Expand a single keyword into a few short variants (Kazumi user often
- * retypes shorter titles; we try those automatically before giving up).
+ * Expand a single keyword into a few short variants.
  */
 function expandKeywordCandidates(keyword: string): string[] {
   const raw = keyword.trim()
