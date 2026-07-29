@@ -33,6 +33,15 @@ export default defineConfig(({ mode }) => {
     get('WEB_HMR_HOST') ||
     (webHost === '0.0.0.0' || webHost === '::' ? '127.0.0.1' : webHost)
 
+  // Bangumi 封面图片源；默认使用镜像，设置页可切换。
+  // 走 define 而不是 import.meta.env，这样 repo-root/.env 里的值也能生效（envDir 只认 apps/web）。
+  const bangumiImageHost =
+    (get('VITE_BANGUMI_IMAGE_HOST') || '')
+      .trim()
+      .replace(/^https?:\/\//i, '')
+      .replace(/\/.*$/, '')
+      .toLowerCase() || 'bgmimg.anibt.net'
+
   const apiPort = envInt(get('PORT'), 8787)
   // Proxy connects to the API process; 0.0.0.0 is not a valid client target
   const apiProxyHost = get('API_PROXY_HOST') || '127.0.0.1'
@@ -40,7 +49,26 @@ export default defineConfig(({ mode }) => {
     get('API_PROXY_TARGET') || `http://${apiProxyHost}:${apiPort}`
 
   return {
-    plugins: [react(), tailwindcss()],
+    plugins: [
+      react(),
+      tailwindcss(),
+      {
+        // Inject preconnect/dns-prefetch for the configured cover host.
+        name: 'animaku-bangumi-image-preconnect',
+        transformIndexHtml(html: string) {
+          return html.replace(
+            '<!--bangumi-image-preconnect-->',
+            [
+              `<link rel="preconnect" href="https://${bangumiImageHost}" crossorigin />`,
+              `    <link rel="dns-prefetch" href="https://${bangumiImageHost}" />`,
+            ].join('\n'),
+          )
+        },
+      },
+    ],
+    define: {
+      'import.meta.env.VITE_BANGUMI_IMAGE_HOST': JSON.stringify(bangumiImageHost),
+    },
     resolve: {
       alias: {
         '@': path.resolve(__dirname, 'src'),

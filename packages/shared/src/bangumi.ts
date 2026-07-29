@@ -1,3 +1,5 @@
+import { bangumiImageUrl } from './bangumi-image'
+
 /** Local collect type — CollectType (const object for better ESM interop) */
 export const CollectType = {
   none: 0,
@@ -356,12 +358,14 @@ export function preferResizedCover(
 ): string {
   const src = (url || '').trim()
   if (!src) return ''
-  if (/\/r\/\d+\//.test(src)) return src
-  // lain.bgm.tv / bgm.tv cover & person paths
-  return src.replace(
-    /^(https?:\/\/(?:lain\.)?bgm\.tv)\/pic\//i,
+  if (/\/r\/\d+\//.test(src)) return bangumiImageUrl(src)
+  // Known Bangumi image sources share the same `/pic/` layout.
+  const resized = src.replace(
+    /^(https?:\/\/(?:lain\.)?bgm\.tv|https?:\/\/bgmimg\.anibt\.net)\/pic\//i,
     `$1/r/${maxEdge}/pic/`,
   )
+  // Host swap last so the resize path is applied regardless of stored host.
+  return bangumiImageUrl(resized)
 }
 
 /** Prefer smaller sizes for list/grid cards (less decode / transfer). */

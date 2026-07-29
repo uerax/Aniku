@@ -29,6 +29,10 @@ interface ImportMetaEnv {
    * (no trailing slash), e.g. https://anime.example.com
    */
   readonly VITE_SITE_URL?: string
+  /**
+   * Bangumi 封面图片源 host；由 vite.config.ts 注入，设置页可覆盖。
+   */
+  readonly VITE_BANGUMI_IMAGE_HOST?: string
 }
 
 interface ImportMeta {

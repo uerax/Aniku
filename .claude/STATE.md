@@ -1,5 +1,34 @@
 # Animaku 项目状态
 
+## [2026-07-29] 精简封面源命名与域名展示
+
+- 状态：已完成
+- 优先级：P2
+- 描述：域名仅保留在运行所需配置/常量中；注释和文档不重复展示镜像域名；设置项显示为「镜像」与「Bangumi」。
+- 涉及文件：封面源相关 shared/web/config/docs 文件
+- 备注：web typecheck 与 git diff --check 通过；Markdown 和示例配置中已无图片源域名
+
+## [2026-07-29] 修复刷新后封面图片源回退
+
+- 状态：已完成
+- 优先级：P1
+- 描述：`preferResizedCover` 遇到已有 `/r/{edge}/` 的 URL 时曾直接返回，绕过 `bangumiImageUrl`，导致刷新后缩放封面继续使用旧 host。改为已有缩放路径也执行 host 替换。
+- 涉及文件：packages/shared/src/bangumi.ts
+- 备注：web typecheck 通过；git diff --check 通过
+
+## [2026-07-29] 封面图片源可切换
+
+- 状态：已完成
+- 优先级：P2
+- 描述：Bangumi 图片 URL 仅替换 host，保留原 path 和缩放路径。
+  - shared 新增图片 host 改写工具，仅改写已知图片源，其它 URL 原样返回
+  - `preferResizedCover` 先补 `/r/N/` 再换 host，双向切换幂等
+  - 默认源来自构建期 `VITE_BANGUMI_IMAGE_HOST`；设置选择由 settings store 持久化
+  - `index.html` preconnect 按构建期默认源注入
+  - Home/History 的历史记录封面会按当前设置改写
+- 涉及文件：packages/shared/src/bangumi-image.ts（新）、bangumi.ts、index.ts、apps/web/src/lib/bangumi-image-host.ts（新）、stores/settings.ts、pages/SettingsPage.tsx、pages/HomePage.tsx、pages/HistoryPage.tsx、vite.config.ts、vite-env.d.ts、index.html、.env、.env.example、Dockerfile、docker-compose.yml、docs/CONTEXT.md
+- 备注：web/server typecheck + web build 通过；两个源的原图与缩放路径均已验证可用；切源后浏览器需重新下载图片（不同域名缓存不共享）
+
 ## [2026-07-28] 轻量页取消路由 lazy
 
 - 状态：已完成
@@ -45,8 +74,8 @@
 
 - 状态：已完成
 - 优先级：P0
-- 描述：对照 Cloudflare Web Analytics 报告，LCP Poor 主因是 `img.h-full.object-cover` + `lain.bgm.tv` 封面晚到/过大。
-  1. `index.html` preconnect + dns-prefetch `lain.bgm.tv`
+- 描述：对照 Cloudflare Web Analytics 报告，LCP Poor 主因是封面加载较晚且原图过大。
+  1. `index.html` 添加图片源 preconnect + dns-prefetch
   2. `BangumiGrid` 前 12 张 eager，第 1 张 `fetchPriority=high`，其余 lazy 用 low
   3. `coverOf` 经 `preferResizedCover`：无 `/r/N/` 的 bgm `/pic/` 补 `/r/400`（thumb）或 `/r/800`（large）
   4. WatchMeta 桌面/移动简介图改 thumb，不再 large
@@ -275,7 +304,7 @@
 
 - 状态：已完成
 - 优先级：P1
-- 描述：任务 1 — 首页/番剧/时间表列表缓存。服务端进程内 TTL Map（calendar 24h / trending 12h / browse 2h）；客户端 RQ staleTime（12h / 2h / 30m）。`?refresh=1` 或 Cache-Control: no-cache 绕过。封面直连 lain.bgm.tv，CDN 已有长 max-age，不做图片代理。
+- 描述：任务 1 — 首页/番剧/时间表列表缓存。服务端进程内 TTL Map（calendar 24h / trending 12h / browse 2h）；客户端 RQ staleTime（12h / 2h / 30m）。`?refresh=1` 或 Cache-Control: no-cache 绕过。封面直连图片源 CDN，已有长 max-age，不做图片代理。
 - 涉及文件：
   - apps/server/src/lib/ttl-cache.ts（新）
   - apps/server/src/routes/bangumi.ts

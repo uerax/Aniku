@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { bangumiImageUrl } from '@animaku/shared'
 import { bangumiApi } from '../lib/bangumi'
 import {
   BangumiGrid,
@@ -56,7 +57,7 @@ export function HomePage() {
               >
                 {h.cover ? (
                   <img
-                    src={h.cover}
+                    src={bangumiImageUrl(h.cover)}
                     alt=""
                     loading="lazy"
                     decoding="async"

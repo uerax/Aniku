@@ -14,6 +14,7 @@ services:
       dockerfile: Dockerfile
       args:
         # Build-time only (Vite). Runtime .env changes will not update the footer / client SEO origin.
+        VITE_BANGUMI_IMAGE_HOST: ${VITE_BANGUMI_IMAGE_HOST:-}
         VITE_SITE_URL: ${VITE_SITE_URL:-}
         VITE_GITHUB_URL: ${VITE_GITHUB_URL:-}
         VITE_GITHUB_LABEL: ${VITE_GITHUB_LABEL:-}

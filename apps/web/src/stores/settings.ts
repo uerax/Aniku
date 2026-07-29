@@ -7,8 +7,13 @@ import {
   type DanmakuSettings,
   type PlayerSettings,
 } from '@animaku/shared'
+import { setBangumiImageHost } from '@animaku/shared'
 import { createDebouncedStorage } from '../lib/debounced-storage'
 import { migrateLocalStorageKey } from '../lib/storage'
+import {
+  DEFAULT_BANGUMI_IMAGE_HOST,
+  resolveBangumiImageHost,
+} from '../lib/bangumi-image-host'
 
 /** Debounce settings disk writes (volume scrub / slider spam). */
 const SETTINGS_PERSIST_DEBOUNCE_MS = 800
@@ -22,9 +27,12 @@ export type AppTheme = 'dark' | 'light'
 interface SettingsState {
   bangumiToken: string
   theme: AppTheme
+  /** 封面图片源 host（默认取 .env 的 VITE_BANGUMI_IMAGE_HOST） */
+  bangumiImageHost: string
   danmaku: DanmakuSettings
   player: PlayerSettings
   setBangumiToken: (token: string) => void
+  setBangumiImageHost: (host: string) => void
   setTheme: (theme: AppTheme) => void
   toggleTheme: () => void
   setDanmaku: (partial: Partial<DanmakuSettings>) => void
@@ -88,9 +96,16 @@ export const useSettingsStore = create<SettingsState>()(
     (set) => ({
       bangumiToken: '',
       theme: 'dark',
+      bangumiImageHost: DEFAULT_BANGUMI_IMAGE_HOST,
       danmaku: { ...defaultDanmakuSettings },
       player: { ...defaultPlayerSettings },
       setBangumiToken: (bangumiToken) => set({ bangumiToken }),
+      setBangumiImageHost: (raw) => {
+        const bangumiImageHost = resolveBangumiImageHost(raw)
+        // shared 状态先更新，再 set 触发重渲染 → 新 URL 立即生效
+        setBangumiImageHost(bangumiImageHost)
+        set({ bangumiImageHost })
+      },
       setTheme: (theme) => {
         applyDocumentTheme(theme)
         set({ theme })
@@ -118,6 +133,7 @@ export const useSettingsStore = create<SettingsState>()(
       partialize: (s) => ({
         bangumiToken: s.bangumiToken,
         theme: s.theme,
+        bangumiImageHost: s.bangumiImageHost,
         danmaku: s.danmaku,
         player: s.player,
       }),
@@ -131,6 +147,7 @@ export const useSettingsStore = create<SettingsState>()(
               : current.bangumiToken,
           theme:
             p.theme === 'light' || p.theme === 'dark' ? p.theme : current.theme,
+          bangumiImageHost: resolveBangumiImageHost(p.bangumiImageHost),
           danmaku: {
             ...defaultDanmakuSettings,
             ...(p.danmaku && typeof p.danmaku === 'object' ? p.danmaku : {}),
@@ -142,6 +159,8 @@ export const useSettingsStore = create<SettingsState>()(
       },
       onRehydrateStorage: () => (state) => {
         if (state?.theme) applyDocumentTheme(state.theme)
+        // 水合后同步 shared 模块状态（此前用的是 .env 默认）
+        setBangumiImageHost(resolveBangumiImageHost(state?.bangumiImageHost))
       },
     },
   ),

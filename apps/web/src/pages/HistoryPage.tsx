@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { bangumiImageUrl } from '@animaku/shared'
 import { useHistoryStore } from '../stores/history'
 import { EmptyState, PageHeader } from '../components/ui'
 import { EMPTY_ARRAY } from '../lib/stable'
@@ -63,7 +64,7 @@ export function HistoryPage() {
               >
                 {h.cover ? (
                   <img
-                    src={h.cover}
+                    src={bangumiImageUrl(h.cover)}
                     alt=""
                     className="h-16 w-12 rounded object-cover"
                   />

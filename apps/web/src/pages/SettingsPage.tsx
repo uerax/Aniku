@@ -15,6 +15,10 @@ import {
   mediaFullProxyEnabled,
   type ServerHealth,
 } from '../lib/server-capabilities'
+import {
+  BANGUMI_IMAGE_HOST_OPTIONS,
+  DEFAULT_BANGUMI_IMAGE_HOST,
+} from '../lib/bangumi-image-host'
 import { useSettingsStore } from '../stores/settings'
 import { usePluginStore } from '../stores/plugins'
 import { PageHeader } from '../components/ui'
@@ -25,6 +29,10 @@ type CatalogSort = 'lastUpdate' | 'name'
 export function SettingsPage() {
   const bangumiToken = useSettingsStore((s) => s.bangumiToken)
   const setBangumiToken = useSettingsStore((s) => s.setBangumiToken)
+  const bangumiImageHost = useSettingsStore(
+    (s) => s.bangumiImageHost || DEFAULT_BANGUMI_IMAGE_HOST,
+  )
+  const setBangumiImageHost = useSettingsStore((s) => s.setBangumiImageHost)
   const danmaku = useSettingsStore((s) => s.danmaku ?? FALLBACK_DANMAKU)
   const setDanmaku = useSettingsStore((s) => s.setDanmaku)
   const resetDanmaku = useSettingsStore((s) => s.resetDanmaku)
@@ -312,6 +320,33 @@ export function SettingsPage() {
             </span>
           )}
         </div>
+      </section>
+
+      <section className="space-y-3 rounded-2xl border border-[var(--kz-border)] bg-[var(--kz-bg-elevated)] p-5">
+        <h2 className="text-lg font-bold tracking-tight text-[var(--kz-fg)]">封面图片源</h2>
+        <p className="text-sm text-[var(--kz-fg-muted)]">
+          封面/人物图的来源。默认值由{' '}
+          <code className="text-[var(--kz-fg-muted)]">.env</code> 的{' '}
+          <code className="text-[var(--kz-fg-muted)]">VITE_BANGUMI_IMAGE_HOST</code> 决定，此处选择仅存本机。
+        </p>
+        <label className="flex flex-wrap items-center justify-between gap-3 text-sm text-[var(--kz-fg)]">
+          <span>图片源</span>
+          <select
+            value={bangumiImageHost}
+            onChange={(e) => setBangumiImageHost(e.target.value)}
+            className="rounded-lg border border-[var(--kz-border)] bg-[var(--kz-bg)] px-2 py-1.5 text-sm"
+          >
+            {BANGUMI_IMAGE_HOST_OPTIONS.map((o) => (
+              <option key={o.host} value={o.host}>
+                {o.label}
+                {o.host === DEFAULT_BANGUMI_IMAGE_HOST ? ' · 默认' : ''}
+              </option>
+            ))}
+          </select>
+        </label>
+        <p className="text-xs text-[var(--kz-fg-dim)]">
+          切换后立即生效；新域名的图需重新下载（浏览器缓存按域名隔离）。
+        </p>
       </section>
 
       <section className="space-y-3 rounded-2xl border border-[var(--kz-border)] bg-[var(--kz-bg-elevated)] p-5">

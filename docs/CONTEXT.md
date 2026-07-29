@@ -112,7 +112,9 @@ Browser (WEB_DEV_PORT，默认 5173)
 - 进程重启清空；`maxEntries≈200` 淘汰最旧 key  
 - 失效策略：**TTL 为主 + 手动 refresh 为辅**（Bangumi 无 webhook）
 
-**封面图不走本机代理。** 卡片 `<img src>` 直连 `lain.bgm.tv`（`coverOf`）。CDN 已带长 `Cache-Control`（约 8–30 天，部分 `immutable`）+ Cloudflare HIT；浏览器 HTTP 缓存即可。列表 JSON 缓存命中后 URL 不变，刷新通常 **disk/memory cache**，无需 Service Worker / 图片代理。若 DevTools 里像「每次都请求」，先看是否 Disable cache 或仅 304/from disk。
+**封面图源可切换。** `coverOf` → `preferResizedCover` → `bangumiImageUrl`（`packages/shared/src/bangumi-image.ts`，模块级 host 状态）。默认 host 来自构建期 `VITE_BANGUMI_IMAGE_HOST`，设置页可在「镜像」与「Bangumi」之间切换，选择存在 `animaku-settings` localStorage。两个源使用相同 path（含 `/r/{edge}/pic/`）；`index.html` 的 preconnect 由 Vite 按构建期默认源注入。
+
+**封面图不走本机代理。** 卡片 `<img src>` 直连图片源 CDN（`coverOf`）。CDN 已带长 `Cache-Control`（约 8–30 天，部分 `immutable`）+ Cloudflare HIT；浏览器 HTTP 缓存即可。列表 JSON 缓存命中后 URL 不变，刷新通常 **disk/memory cache**，无需 Service Worker / 图片代理。若 DevTools 里像「每次都请求」，先看是否 Disable cache 或仅 304/from disk。
 
 ### 插件执行结果缓存（search / chapters / resolve）
 
