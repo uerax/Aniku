@@ -1,5 +1,7 @@
 <div align="center">
 
+  <p><a href="README.md">简体中文</a> · <a href="README.en.md">English</a></p>
+
   <h1>Animaku</h1>
 
   <img src="apps/web/public/android-chrome-512x512.png" width="160" alt="Animaku logo" />
