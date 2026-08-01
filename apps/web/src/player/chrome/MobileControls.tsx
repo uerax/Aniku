@@ -3,6 +3,7 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type PointerEvent,
   type SyntheticEvent,
 } from 'react'
 import type { SuperResolutionMode } from '@animaku/shared'
@@ -112,6 +113,17 @@ export function MobileControls(props: PlayerControlsProps) {
   const volPct = Math.round(Math.min(1, Math.max(0, vol)) * 100)
 
   const barRef = useRef<HTMLDivElement>(null)
+
+  /**
+   * Range inputs keep keyboard focus after pointer drag; player key handling
+   * (onKey) ignores events targeted at INPUT. Release focus on pointer-up so
+   * Space/arrows/f/etc. resume working immediately. Do NOT hook onBlur here:
+   * blur fires when focus moved elsewhere (e.g. danmaku filter input), and
+   * blurring that target would steal focus from it.
+   */
+  const releaseSliderFocus = (e: PointerEvent<HTMLInputElement>) => {
+    e.currentTarget.blur()
+  }
   const speedBtnRef = useRef<HTMLButtonElement>(null)
   const srBtnRef = useRef<HTMLButtonElement>(null)
   const volBtnRef = useRef<HTMLButtonElement>(null)
@@ -151,6 +163,7 @@ export function MobileControls(props: PlayerControlsProps) {
         max={1000}
         value={Math.round(progress * 10)}
         onChange={(e) => onSeekRatio(Number(e.target.value) / 1000)}
+        onPointerUp={releaseSliderFocus}
         style={{ ['--kz-progress' as string]: `${progress}%` }}
         aria-label="进度"
       />
@@ -272,14 +285,14 @@ export function MobileControls(props: PlayerControlsProps) {
           <button
             type="button"
             className="kz-ctrl kz-ctrl-icon kz-ctrl-fs"
-            data-active={playerFs || webFs}
+            data-active={playerFs}
             onClick={onTogglePlayerFs}
             title="全屏"
-            aria-label={playerFs || webFs ? '退出全屏' : '全屏'}
+            aria-label={playerFs ? '退出全屏' : '全屏'}
           >
-            {playerFs || webFs ? <IconFullscreenExit /> : <IconFullscreen />}
+            {playerFs ? <IconFullscreenExit /> : <IconFullscreen />}
             <span className="kz-ctrl-label">
-              {playerFs || webFs ? '退出' : '全屏'}
+              {playerFs ? '退出' : '全屏'}
             </span>
           </button>
           <button
@@ -382,6 +395,7 @@ export function MobileControls(props: PlayerControlsProps) {
               step={1}
               value={volPct}
               onChange={(e) => onVolume(Number(e.target.value) / 100)}
+              onPointerUp={releaseSliderFocus}
               aria-label="音量"
               aria-valuemin={0}
               aria-valuemax={100}

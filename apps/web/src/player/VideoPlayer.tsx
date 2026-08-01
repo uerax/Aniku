@@ -1536,12 +1536,24 @@ export function VideoPlayer({
   }
 
   /** Expand player to viewport via CSS (no Fullscreen API) */
-  function toggleWebFs() {
+  async function toggleWebFs() {
+    // From true fullscreen → switch to CSS webpage fullscreen (dual with 「全屏」)
     if (isShellFullscreen(shellRef.current) || isIosVideoFullscreen(videoRef.current)) {
-      void exitAnyFs()
+      try {
+        await exitDomFullscreen()
+      } catch {
+        /* ignore */
+      }
+      exitIosVideoFullscreen(videoRef.current)
+      setPlayerFs(false)
+      setWebFs(true)
       return
     }
-    void exitDomFullscreen()
+    try {
+      await exitDomFullscreen()
+    } catch {
+      /* ignore */
+    }
     exitIosVideoFullscreen(videoRef.current)
     setWebFs((v) => !v)
   }

@@ -1,3 +1,4 @@
+import type { PointerEvent } from 'react'
 import type { SuperResolutionMode } from '@animaku/shared'
 import type { PlayerControlsProps } from './types'
 import {
@@ -60,6 +61,17 @@ export function DesktopControls(props: PlayerControlsProps) {
   const vol = player.volume ?? 0.7
   const isMuted = vol <= 0.001
 
+  /**
+   * Range inputs keep keyboard focus after pointer drag; player key handling
+   * (onKey) ignores events targeted at INPUT. Release focus on pointer-up so
+   * Space/arrows/f/etc. resume working immediately. Do NOT hook onBlur here:
+   * blur fires when focus moved elsewhere (e.g. danmaku filter input), and
+   * blurring that target would steal focus from it.
+   */
+  const releaseSliderFocus = (e: PointerEvent<HTMLInputElement>) => {
+    e.currentTarget.blur()
+  }
+
   return (
     <div
       className={`kz-bar ${pinBar ? 'kz-bar--show' : ''}`}
@@ -73,6 +85,7 @@ export function DesktopControls(props: PlayerControlsProps) {
         max={1000}
         value={Math.round(progress * 10)}
         onChange={(e) => onSeekRatio(Number(e.target.value) / 1000)}
+        onPointerUp={releaseSliderFocus}
         style={{ ['--kz-progress' as string]: `${progress}%` }}
         aria-label="进度"
       />
@@ -218,6 +231,7 @@ export function DesktopControls(props: PlayerControlsProps) {
                 max={100}
                 value={Math.round(vol * 100)}
                 onChange={(e) => onVolume(Number(e.target.value) / 100)}
+                onPointerUp={releaseSliderFocus}
                 aria-label="音量"
               />
             </div>
@@ -225,14 +239,14 @@ export function DesktopControls(props: PlayerControlsProps) {
           <button
             type="button"
             className="kz-ctrl kz-ctrl-icon kz-ctrl-fs"
-            data-active={playerFs || webFs}
+            data-active={playerFs}
             onClick={onTogglePlayerFs}
             title="全屏（iPhone 为系统视频全屏；其它环境为播放器/网页全屏）"
-            aria-label={playerFs || webFs ? '退出全屏' : '全屏'}
+            aria-label={playerFs ? '退出全屏' : '全屏'}
           >
-            {playerFs || webFs ? <IconFullscreenExit /> : <IconFullscreen />}
+            {playerFs ? <IconFullscreenExit /> : <IconFullscreen />}
             <span className="kz-ctrl-label">
-              {playerFs || webFs ? '退出' : '全屏'}
+              {playerFs ? '退出' : '全屏'}
             </span>
           </button>
           <button

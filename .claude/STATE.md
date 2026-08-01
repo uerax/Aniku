@@ -1,6 +1,37 @@
 # Animaku 项目状态
 
-## [2026-07-29] 精简封面源命名与域名展示
+## [2026-08-01] review 修复 slider onBlur 抢焦点回归
+
+- 状态：已完成
+- 优先级：P1
+- 描述：`releaseSliderFocus` 用 `document.activeElement` + `onBlur`，但 React 17+ 合成 blur 触发时 activeElement 已是新焦点元素（如弹幕面板筛选输入框）→ 会把它 blur 掉，点输入框/Tab 导航都被抢焦点。且 onBlur 对"焦点仍留滑块"场景本无修复作用（焦点一离开 onKey 即恢复）。改为：删掉全部 4 处 onBlur；releaseSliderFocus 只认 `e.currentTarget`（滑块自身）并只挂 onPointerUp。
+- 涉及文件：apps/web/src/player/chrome/DesktopControls.tsx、apps/web/src/player/chrome/MobileControls.tsx
+- 备注：web typecheck 通过；上一版 onBlur 实现已移除，勿再引入 activeElement 全局判断
+
+## [2026-08-01] review 修复 toggleWebFs unhandled rejection
+
+- 状态：已完成
+- 优先级：P2
+- 描述：`toggleWebFs` 改 async 后非全屏分支的 `exitDomFullscreen()` 未包 try/catch，DOM 已非全屏时 reject → unhandled promise rejection。已对齐 `togglePlayerFs`/`exitAnyFs` 的写法包上 try/catch。其余按钮状态改动与 slider 失焦改动核对无其它回归。
+- 涉及文件：apps/web/src/player/VideoPlayer.tsx
+- 备注：web typecheck 通过
+
+## [2026-08-01] 拖进度条/音量后快捷键失效
+
+- 状态：已完成
+- 优先级：P1
+- 描述：进度条、音量条为 `<input type=range>`，`onKey` 忽略 INPUT/TEXTAREA/SELECT 上的按键。拖动后焦点留在滑块，Space/方向键/f 等快捷键被吞，需点外部失焦才恢复。修复：4 处 range 控件加 `onPointerUp` + `onBlur` → `releaseSliderFocus()`（主动 blur 当前 INPUT/TEXTAREA），拖动结束立即恢复快捷键。
+- 涉及文件：apps/web/src/player/chrome/DesktopControls.tsx、apps/web/src/player/chrome/MobileControls.tsx
+- 备注：web typecheck 通过；建议手测桌面/移动拖动进度条、音量后按空格/左右键是否立即生效
+
+## [2026-08-01] 修复全屏/网页全屏按钮状态互污染
+
+- 状态：已完成
+- 优先级：P1
+- 描述：两个全屏按钮状态用 `playerFs || webFs` 判断 → 任意一种全屏生效时，「全屏」按钮误显示为「退出」（反之亦然）。改为全屏按钮只认 `playerFs`（DOM Fullscreen / iOS 原生），网页全屏按钮只认 `webFs`；`toggleWebFs` 在真全屏下点击时退出真全屏并进入网页全屏，两按钮成为可切换的对偶。
+- 涉及文件：apps/web/src/player/VideoPlayer.tsx、apps/web/src/player/chrome/DesktopControls.tsx、apps/web/src/player/chrome/MobileControls.tsx
+- 备注：web typecheck 通过；建议手测桌面/移动全屏按钮文案随状态正确切换、F 键与双击全屏正常
+
 
 - 状态：已完成
 - 优先级：P2
