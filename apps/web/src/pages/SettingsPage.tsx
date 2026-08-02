@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import type { PluginCatalogItem, PluginMeta } from '@animaku/shared'
 import { catalogItemStatus, PLAYER_SPEEDS } from '@animaku/shared'
@@ -23,6 +23,28 @@ import { useSettingsStore } from '../stores/settings'
 import { usePluginStore } from '../stores/plugins'
 import { PageHeader } from '../components/ui'
 import { EMPTY_ARRAY, FALLBACK_DANMAKU, FALLBACK_PLAYER } from '../lib/stable'
+
+/** Sort plugins by user-defined order, falling back to alphabetical. */
+function sortPluginsByOrder(
+  plugins: PluginMeta[],
+  order: string[],
+): PluginMeta[] {
+  if (!order.length) {
+    return [...plugins].sort((a, b) =>
+      a.name.toLowerCase().localeCompare(b.name.toLowerCase()),
+    )
+  }
+  const rank = new Map<string, number>()
+  for (let i = 0; i < order.length; i++) {
+    rank.set(order[i].toLowerCase(), i)
+  }
+  return [...plugins].sort((a, b) => {
+    const ra = rank.get(a.name.toLowerCase()) ?? order.length
+    const rb = rank.get(b.name.toLowerCase()) ?? order.length
+    if (ra !== rb) return ra - rb
+    return a.name.toLowerCase().localeCompare(b.name.toLowerCase())
+  })
+}
 
 type CatalogSort = 'lastUpdate' | 'name'
 
@@ -49,6 +71,34 @@ export function SettingsPage() {
   const setPluginAdBlocker = usePluginStore((s) => s.setPluginAdBlocker)
   const ensureDefaults = usePluginStore((s) => s.ensureDefaults)
   const resetToDefaults = usePluginStore((s) => s.resetToDefaults)
+  const pluginOrder = usePluginStore((s) =>
+    Array.isArray(s.pluginOrder) ? s.pluginOrder : [],
+  )
+  const setPluginOrder = usePluginStore((s) => s.setPluginOrder)
+  /** Sorted plugins for display (user order → alphabetical fallback) */
+  const sortedPlugins = useMemo(
+    () => sortPluginsByOrder(plugins, pluginOrder),
+    [plugins, pluginOrder],
+  )
+
+  /**
+   * Move a plugin up/down in the user sort order.
+   * Reads current live `sortedPlugins` names to build the new order list.
+   */
+  const movePlugin = useCallback(
+    (name: string, dir: -1 | 1) => {
+      const names = sortedPlugins.map((p) => p.name)
+      const idx = names.findIndex(
+        (n) => n.toLowerCase() === name.toLowerCase(),
+      )
+      if (idx < 0) return
+      const target = idx + dir
+      if (target < 0 || target >= names.length) return
+      ;[names[idx], names[target]] = [names[target], names[idx]]
+      setPluginOrder(names)
+    },
+    [sortedPlugins, setPluginOrder],
+  )
 
   const [tokenInput, setTokenInput] = useState(bangumiToken)
   const [tokenMsg, setTokenMsg] = useState('')
@@ -352,7 +402,7 @@ export function SettingsPage() {
       <section className="space-y-3 rounded-2xl border border-[var(--kz-border)] bg-[var(--kz-bg-elevated)] p-5">
         <h2 className="text-lg font-bold tracking-tight text-[var(--kz-fg)]">已安装规则</h2>
         <p className="text-sm text-[var(--kz-fg-muted)]">
-          默认内置 HLS 源优先（otage / xifan / MXdm / omofun），Anime1 排最后且依赖服务器全量媒体代理。
+          列表首位为播放时的默认源。可拖拽或按 ▲▼ 调整顺序。
           导入 JSON 仅在本机校验与保存，不会上传到服务器。也可从下方规则仓库安装。仓库：{' '}
           <a
             href="https://github.com/Predidit/KazumiRules"
@@ -407,8 +457,13 @@ export function SettingsPage() {
         {!plugins.length && (
           <div className="text-sm text-[var(--kz-fg-muted)]">暂无插件，可恢复默认或从仓库安装</div>
         )}
+        {plugins.length > 1 && (
+          <p className="text-xs text-[var(--kz-fg-dim)]">
+            拖拽或按 ▲▼ 调整顺序，首位为播放默认源
+          </p>
+        )}
         <ul className="space-y-2">
-          {plugins.map((p) => {
+          {sortedPlugins.map((p, idx) => {
             const smoke = smokeById[p.id]
             const running = smoke && 'running' in smoke && smoke.running
             const report =
@@ -416,6 +471,8 @@ export function SettingsPage() {
             const needsFull = pluginNeedsFullMediaProxy(p)
             const blockedByServer = needsFull && !mediaFullProxy
             const effectivelyOn = p.enabled !== false && !blockedByServer
+            const isFirst = idx === 0
+            const isLast = idx === sortedPlugins.length - 1
             return (
               <li
                 key={p.id}
@@ -424,12 +481,43 @@ export function SettingsPage() {
                 }`}
               >
                 <div className="flex flex-wrap items-center gap-2">
+                  {/* Drag handle / order buttons */}
+                  <div className="mr-0.5 flex flex-col items-center gap-0.5 text-[var(--kz-fg-dim)]">
+                    <button
+                      type="button"
+                      disabled={isFirst}
+                      onClick={() => movePlugin(p.name, -1)}
+                      title="上移（首位为默认源）"
+                      className="text-[10px] leading-none disabled:opacity-20 hover:text-[var(--kz-accent)]"
+                      aria-label="上移"
+                    >
+                      ▲
+                    </button>
+                    <span className="text-[7px] leading-none text-[var(--kz-fg-dim)] select-none" aria-hidden>
+                      ⋮⋮
+                    </span>
+                    <button
+                      type="button"
+                      disabled={isLast}
+                      onClick={() => movePlugin(p.name, 1)}
+                      title="下移"
+                      className="text-[10px] leading-none disabled:opacity-20 hover:text-[var(--kz-accent)]"
+                      aria-label="下移"
+                    >
+                      ▼
+                    </button>
+                  </div>
                   <div className="min-w-0 flex-1">
                     <div className="font-medium">
                       {p.name}{' '}
                       <span className="text-xs text-[var(--kz-fg-muted)]">
                         v{p.version || '?'}
                       </span>
+                      {isFirst && (
+                        <span className="ml-1 text-xs text-[var(--kz-accent)]">
+                          默认源
+                        </span>
+                      )}
                       {p.source && (
                         <span className="ml-2 text-xs text-[var(--kz-fg-dim)]">
                           {p.source === 'builtin'

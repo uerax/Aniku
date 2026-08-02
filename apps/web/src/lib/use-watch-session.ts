@@ -63,9 +63,6 @@ export type EpisodePlay = {
   road: number
 }
 
-/** Preferred first-touch source so new users aren't staring at an empty rail. */
-export const DEFAULT_SOURCE_PLUGIN = 'MXdm'
-
 /**
  * Min title similarity before auto-picking the first ranked search hit.
  * Below this, show the list and let the user choose (avoids MacCMS wrong-show).
@@ -113,29 +110,43 @@ function lookupHistorySourceUrl(
   return (hit?.sourceUrl || '').trim()
 }
 
-function findDefaultSourcePlugin(list: PluginMeta[]): PluginMeta | undefined {
-  const want = DEFAULT_SOURCE_PLUGIN.toLowerCase()
-  return (
-    list.find((p) => p.name.toLowerCase() === want) ||
-    list.find((p) => p.name.toLowerCase().includes(want))
-  )
+/**
+ * First enabled plugin based on user order, falling back to alphabetical.
+ * This is the default source auto-searched on first visit.
+ */
+function findDefaultSourcePlugin(list: PluginMeta[], order: string[]): PluginMeta | undefined {
+  if (!list.length) return undefined
+  if (order.length) {
+    // Find first plugin whose name appears in the user's order
+    for (const name of order) {
+      const hit = list.find(
+        (p) => p.name.toLowerCase() === name.toLowerCase(),
+      )
+      if (hit) return hit
+    }
+  }
+  // Fallback: alphabetical (Anime1 last)
+  return [...list].sort((a, b) =>
+    a.name.toLowerCase().localeCompare(b.name.toLowerCase()),
+  )[0]
 }
 
-/** Put preferred source first so the default is obvious in the rail. */
-function orderSearchRows(rows: SearchRow[]): SearchRow[] {
-  const want = DEFAULT_SOURCE_PLUGIN.toLowerCase()
+/** Sort search rows by stored order (first = top), falling back to alphabetical. */
+function orderSearchRows(rows: SearchRow[], order: string[]): SearchRow[] {
+  if (!order.length) {
+    return [...rows].sort((a, b) =>
+      a.plugin.name.toLowerCase().localeCompare(b.plugin.name.toLowerCase()),
+    )
+  }
+  const rank = new Map<string, number>()
+  for (let i = 0; i < order.length; i++) {
+    rank.set(order[i].toLowerCase(), i)
+  }
   return [...rows].sort((a, b) => {
-    const aHit =
-      a.plugin.name.toLowerCase() === want ||
-      a.plugin.name.toLowerCase().includes(want)
-        ? 0
-        : 1
-    const bHit =
-      b.plugin.name.toLowerCase() === want ||
-      b.plugin.name.toLowerCase().includes(want)
-        ? 0
-        : 1
-    return aHit - bHit
+    const ra = rank.get(a.plugin.name.toLowerCase()) ?? order.length
+    const rb = rank.get(b.plugin.name.toLowerCase()) ?? order.length
+    if (ra !== rb) return ra - rb
+    return a.plugin.name.toLowerCase().localeCompare(b.plugin.name.toLowerCase())
   })
 }
 
@@ -220,6 +231,9 @@ export function useWatchSession(bangumiId: number): WatchSession {
   const ensureDefaults = usePluginStore((s) => s.ensureDefaults)
   const allPlugins = usePluginStore((s) =>
     Array.isArray(s.plugins) ? s.plugins : EMPTY_ARRAY,
+  )
+  const pluginOrder = usePluginStore((s) =>
+    Array.isArray(s.pluginOrder) ? s.pluginOrder : EMPTY_ARRAY as string[],
   )
   const serverCaps = useQuery({
     queryKey: ['health'],
@@ -385,9 +399,9 @@ export function useWatchSession(bangumiId: number): WatchSession {
           searched: false,
         }
       })
-      return orderSearchRows(rows)
+      return orderSearchRows(rows, pluginOrder)
     })
-  }, [plugins, bangumiId])
+  }, [plugins, bangumiId, pluginOrder])
 
   // Keep default keyword in state for UI once subject loads
   useEffect(() => {
@@ -400,9 +414,9 @@ export function useWatchSession(bangumiId: number): WatchSession {
   useEffect(() => {
     if (!plugins.length) return
     if (keywordTargetPlugin || selection) return
-    const preferred = findDefaultSourcePlugin(plugins)
+    const preferred = findDefaultSourcePlugin(plugins, pluginOrder)
     if (preferred) setKeywordTargetPlugin(preferred)
-  }, [plugins, keywordTargetPlugin, selection])
+  }, [plugins, pluginOrder, keywordTargetPlugin, selection])
 
   const titleRefsStable = titleRefs
   const keywordCandidatesStable = keywordCandidates
@@ -529,7 +543,7 @@ export function useWatchSession(bangumiId: number): WatchSession {
               searched: true,
               keyword,
             },
-          ])
+          ], pluginOrder)
         }
         return prev.map((row) =>
           row.plugin.name === plugin.name
@@ -620,8 +634,7 @@ export function useWatchSession(bangumiId: number): WatchSession {
       // Auto-select first ranked hit only when title is close enough.
       // Prevents MacCMS “first card” wrong-show on weak keyword matches.
       const isDefault =
-        plugin.name.toLowerCase() === DEFAULT_SOURCE_PLUGIN.toLowerCase() ||
-        plugin.name.toLowerCase().includes(DEFAULT_SOURCE_PLUGIN.toLowerCase())
+        plugin.name.toLowerCase() === (findDefaultSourcePlugin(plugins, pluginOrder)?.name || '').toLowerCase()
       const shouldAutoPick =
         Boolean(items[0]) &&
         (opts?.autoPickFirst ||
@@ -655,6 +668,8 @@ export function useWatchSession(bangumiId: number): WatchSession {
       keywordCandidatesStable,
       rememberSessionKeyword,
       pickSource,
+      plugins,
+      pluginOrder,
     ],
   )
 
@@ -690,7 +705,7 @@ export function useWatchSession(bangumiId: number): WatchSession {
     ).trim()
     if (!kw || /^番剧\s*\d+$/.test(kw)) return
 
-    const preferred = findDefaultSourcePlugin(plugins)
+    const preferred = findDefaultSourcePlugin(plugins, pluginOrder)
     if (!preferred) return
 
     defaultSearchDoneFor.current = bangumiId
@@ -702,6 +717,7 @@ export function useWatchSession(bangumiId: number): WatchSession {
     qPlugin,
     qPageUrl,
     plugins,
+    pluginOrder,
     item?.nameCn,
     item?.name,
     qTitle,
@@ -1028,7 +1044,7 @@ export function useWatchSession(bangumiId: number): WatchSession {
     searchResults,
     searchKeyword,
     defaultKeyword,
-    defaultSourceName: DEFAULT_SOURCE_PLUGIN,
+    defaultSourceName: findDefaultSourcePlugin(plugins, pluginOrder)?.name || plugins[0]?.name || '',
     selection,
     episode,
     visibleRoad,

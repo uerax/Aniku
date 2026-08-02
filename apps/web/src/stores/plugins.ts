@@ -14,12 +14,15 @@ migrateLocalStorageKey('animaku-plugins', [
 /** v8: default adBlocker only on MXdm; Anime1/otage/xifan off */
 /** v9: add omofun (211dm/omofuns) built-in */
 /** v10: Anime1 last (needs MEDIA_FULL_PROXY); HLS sources first */
-export const PLUGIN_DEFAULTS_VERSION = 10
+/** v11: add pluginOrder for user-custom sorting */
+export const PLUGIN_DEFAULTS_VERSION = 11
 
 interface PluginState {
   plugins: PluginMeta[]
   /** version of built-in defaults last applied (0 = never / legacy empty) */
   defaultsVersion: number
+  /** User-defined display order of plugin names (first = default source). */
+  pluginOrder: string[]
   importRule: (
     raw: unknown,
     opts?: { source?: PluginMeta['source']; enabled?: boolean },
@@ -28,6 +31,9 @@ interface PluginState {
   togglePlugin: (id: string, enabled?: boolean) => void
   /** Per-rule HLS ad filter */
   setPluginAdBlocker: (id: string, adBlocker: boolean) => void
+  /** Reorder plugins by name list (first = top, becomes default). */
+  setPluginOrder: (order: string[]) => void
+  /** Get enabled plugins sorted by user order (or alphabetical fallback). */
   getEnabled: () => PluginMeta[]
   getByName: (name: string) => PluginMeta | undefined
   /** If store is empty, write built-in rules (safe to call often) */
@@ -68,6 +74,25 @@ export function seedFromDefaults(): PluginMeta[] {
   return preferAnime1Last(list)
 }
 
+/**
+ * Default plugin order: alphabetical by name, Anime1 always at the end.
+ * Used as fallback when user has no custom `pluginOrder`.
+ */
+export function defaultPluginOrder(plugins: PluginMeta[]): string[] {
+  const names = new Set(plugins.map((p) => p.name))
+  const sorted = [...names].sort((a, b) =>
+    a.toLowerCase().localeCompare(b.toLowerCase()),
+  )
+  // Anime1 always last (needs MEDIA_FULL_PROXY)
+  const idx = sorted.findIndex(
+    (n) => n.toLowerCase() === 'anime1',
+  )
+  if (idx >= 0) {
+    sorted.push(sorted.splice(idx, 1)[0])
+  }
+  return sorted
+}
+
 function normalizePlugins(raw: unknown): PluginMeta[] {
   if (!Array.isArray(raw)) return []
   return raw.filter(
@@ -88,11 +113,42 @@ function preferAnime1Last(list: PluginMeta[]): PluginMeta[] {
   return [...rest, ...anime1]
 }
 
+/**
+ * Sort plugins by stored order, falling back to alphabetical.
+ * Plugins not in the order list appear at the end, sorted alphabetically.
+ */
+function sortByOrder(plugins: PluginMeta[], order: string[]): PluginMeta[] {
+  if (!order.length) {
+    // Fall back to alphabetical (Anime1 last)
+    return preferAnime1Last(
+      [...plugins].sort((a, b) =>
+        a.name.toLowerCase().localeCompare(b.name.toLowerCase()),
+      ),
+    )
+  }
+  const rank = new Map<string, number>()
+  for (let i = 0; i < order.length; i++) {
+    rank.set(order[i].toLowerCase(), i)
+  }
+  const withFallback = plugins.map((p, idx) => ({
+    p,
+    rank: rank.get(p.name.toLowerCase()) ?? order.length,
+    idx,
+  }))
+  withFallback.sort((a, b) => {
+    if (a.rank !== b.rank) return a.rank - b.rank
+    // Same rank → alphabetical
+    return a.p.name.toLowerCase().localeCompare(b.p.name.toLowerCase())
+  })
+  return withFallback.map((w) => w.p)
+}
+
 export const usePluginStore = create<PluginState>()(
   persist(
     (set, get) => ({
       plugins: seedFromDefaults(),
       defaultsVersion: PLUGIN_DEFAULTS_VERSION,
+      pluginOrder: [],
       importRule: (raw, opts) => {
         const rule = parsePluginRule(raw)
         const meta = toMeta(
@@ -111,17 +167,31 @@ export const usePluginStore = create<PluginState>()(
           const rest = prev.filter(
             (p) => p.name.toLowerCase() !== meta.name.toLowerCase(),
           )
+          // Add new plugin to front of sort order
+          const newOrder = s.pluginOrder.slice()
+          if (!newOrder.some((n) => n.toLowerCase() === meta.name.toLowerCase())) {
+            newOrder.unshift(meta.name)
+          }
           return {
             plugins: [meta, ...rest],
             defaultsVersion: PLUGIN_DEFAULTS_VERSION,
+            pluginOrder: newOrder,
           }
         })
         return meta
       },
       removePlugin: (id) =>
-        set((s) => ({
-          plugins: normalizePlugins(s.plugins).filter((p) => p.id !== id),
-        })),
+        set((s) => {
+          const plugin = normalizePlugins(s.plugins).find((p) => p.id === id)
+          return {
+            plugins: normalizePlugins(s.plugins).filter((p) => p.id !== id),
+            pluginOrder: plugin
+              ? s.pluginOrder.filter(
+                  (n) => n.toLowerCase() !== plugin.name.toLowerCase(),
+                )
+              : s.pluginOrder,
+          }
+        }),
       togglePlugin: (id, enabled) =>
         set((s) => ({
           plugins: normalizePlugins(s.plugins).map((p) =>
@@ -134,10 +204,14 @@ export const usePluginStore = create<PluginState>()(
             p.id === id ? { ...p, adBlocker } : p,
           ),
         })),
-      getEnabled: () =>
-        preferAnime1Last(
-          normalizePlugins(get().plugins).filter((p) => p.enabled !== false),
-        ),
+      setPluginOrder: (order) => set({ pluginOrder: order.filter(Boolean) }),
+      getEnabled: () => {
+        const enabled = normalizePlugins(get().plugins).filter(
+          (p) => p.enabled !== false,
+        )
+        const order = get().pluginOrder || []
+        return sortByOrder(enabled, order)
+      },
       getByName: (name) => {
         const key = name.toLowerCase()
         return normalizePlugins(get().plugins).find(
@@ -157,40 +231,29 @@ export const usePluginStore = create<PluginState>()(
           return
         }
         // Already on current defaults version: still merge any *new* built-ins
-        // without touching user/catalog rules; keep Anime1 last.
+        // without touching user/catalog rules; apply new ordering strategy.
         if (ver >= PLUGIN_DEFAULTS_VERSION) {
           const have = new Set(plugins.map((p) => p.name.toLowerCase()))
           const missing = seedFromDefaults().filter(
             (p) => !have.has(p.name.toLowerCase()),
           )
-          let next = plugins
-          if (missing.length) next = [...next, ...missing]
-          next = preferAnime1Last(next)
-          if (
-            missing.length ||
-            next[next.length - 1] !== plugins[plugins.length - 1] ||
-            next.length !== plugins.length
-          ) {
-            // Only write if order/content actually changed
-            const same =
-              next.length === plugins.length &&
-              next.every((p, i) => p.id === plugins[i]?.id)
-            if (!same || missing.length) {
-              set({
-                plugins: next,
-                defaultsVersion: PLUGIN_DEFAULTS_VERSION,
-              })
-            }
+          if (missing.length) {
+            const next = preferAnime1Last([...plugins, ...missing])
+            set({
+              plugins: next,
+              defaultsVersion: PLUGIN_DEFAULTS_VERSION,
+            })
           }
           return
         }
 
         // Replace legacy default-only stores with current defaults.
-        // v6: drop 7sefun from defaults, add otage (MacCMS / plaintext m3u8).
+        // v6: drop 7sefun from defaults, add ose (MacCMS / plaintext m3u8).
         // v7: add xifan (稀饭 MacCMS; suggest API search + player_aaaa).
         // v8: adBlocker defaults — only MXdm on among built-ins.
         // v9: add omofun (211dm / omofuns).
         // v10: Anime1 last (MEDIA_FULL_PROXY).
+        // v11: pluginOrder for user sort.
         const legacyBuiltinNames = new Set(
           [
             '7sefun',
@@ -218,8 +281,8 @@ export const usePluginStore = create<PluginState>()(
           return
         }
         // Mixed store: add any new built-ins; drop retired default 7sefun
-        // only when it was still marked builtin (user re-import keeps source=import).
-        // Also align *builtin* adBlocker flags to current DEFAULT_PLUGIN_RULES
+        // only when it was backend marked builtin (user re-import keeps source=import).
+        // Also align *builtin* adBlocker to current DEFAULT_PLUGIN_RULES
         // without overwriting user/catalog rules.
         const seedByName = new Map(
           seedFromDefaults().map((p) => [p.name.toLowerCase(), p]),
@@ -252,22 +315,25 @@ export const usePluginStore = create<PluginState>()(
         set({
           plugins: seedFromDefaults(),
           defaultsVersion: PLUGIN_DEFAULTS_VERSION,
+          pluginOrder: [],
         })
       },
     }),
     {
       name: 'animaku-plugins',
-      version: 1,
+      version: 2,
       storage: createJSONStorage(() => localStorage),
       partialize: (s) => ({
         plugins: s.plugins,
         defaultsVersion: s.defaultsVersion,
+        pluginOrder: s.pluginOrder,
       }),
       migrate: (persisted, fromVersion) => {
         const p = (persisted || {}) as {
           plugins?: unknown
           defaultsVersion?: number
           _seeded?: boolean
+          pluginOrder?: string[]
         }
         let plugins = normalizePlugins(p.plugins)
         const wasEmpty = plugins.length === 0
@@ -279,7 +345,7 @@ export const usePluginStore = create<PluginState>()(
           typeof p.defaultsVersion === 'number' && Number.isFinite(p.defaultsVersion)
             ? p.defaultsVersion
             : 0
-        // Preserve version so ensureDefaults can migrate builtins; only stamp
+        // Preserve version so ensureDefaults can migrate builtins; only stomp
         // current when we just seeded an empty store.
         return {
           plugins,
@@ -292,6 +358,7 @@ export const usePluginStore = create<PluginState>()(
             ...current,
             plugins: seedFromDefaults(),
             defaultsVersion: PLUGIN_DEFAULTS_VERSION,
+            pluginOrder: [],
           }
         }
         const p = persisted as Partial<PluginState> & { _seeded?: boolean }
@@ -301,8 +368,6 @@ export const usePluginStore = create<PluginState>()(
         if (wasEmpty) {
           plugins = seedFromDefaults()
         }
-        // Keep stored version so ensureDefaults() can apply versioned migrations.
-        // Only stamp current version when we just seeded an empty store.
         const persistedVer =
           typeof p.defaultsVersion === 'number' && Number.isFinite(p.defaultsVersion)
             ? p.defaultsVersion
@@ -311,6 +376,7 @@ export const usePluginStore = create<PluginState>()(
           ...current,
           plugins,
           defaultsVersion: wasEmpty ? PLUGIN_DEFAULTS_VERSION : persistedVer,
+          pluginOrder: Array.isArray(p.pluginOrder) ? p.pluginOrder : [],
         }
       },
       onRehydrateStorage: () => (state, error) => {
