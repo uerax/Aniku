@@ -1020,10 +1020,11 @@ export function useWatchSession(bangumiId: number): WatchSession {
     if (!plugin) return
     const kw = keyword.trim()
     if (!kw) return
-    // Re-search replaces hits — auto-pick first so episodes stay usable.
+    // Custom keyword search: keep manual selection, do NOT auto-pick first.
+    // Dropdown keyword select uses searchOnePlugin directly with autoPickFirst.
     await searchOnePlugin(plugin, kw, {
       clearSelection: true,
-      autoPickFirst: true,
+      autoPickFirst: false,
       refresh: true,
     })
   }

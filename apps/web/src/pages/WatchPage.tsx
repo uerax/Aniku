@@ -382,7 +382,12 @@ export function WatchPage() {
                       const v = e.target.value
                       if (!v) return
                       setKwInput(v)
-                      void w.reSearchCurrentSource(v)
+                      const plugin = w.keywordTargetPlugin || w.selection?.plugin
+                      if (!plugin) return
+                      void w.searchOnePlugin(plugin, v, {
+                        clearSelection: true,
+                        autoPickFirst: true,
+                      })
                     }}
                     className="kz-kw-select kz-bili-kw-select w-full appearance-none truncate py-0 pl-2 pr-5 text-[var(--kz-fg)] outline-none disabled:opacity-40"
                     title={
@@ -494,7 +499,9 @@ export function WatchPage() {
                     onClick={() => {
                       w.setKeywordTargetPlugin(r.plugin)
                       if (!r.pending) {
-                        void w.openPluginSearch(r.plugin)
+                        void w.openPluginSearch(r.plugin, undefined, {
+                          autoPickFirst: true,
+                        })
                       }
                     }}
                     title={
