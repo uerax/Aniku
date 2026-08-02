@@ -1,5 +1,52 @@
 # Animaku 项目状态
 
+## [2026-08-02] auto-next 倒计时覆盖层
+
+- 状态：已完成
+- 优先级：P2
+- 描述：
+  - 自动下一集不再立即跳转，改为 5 秒倒计时覆盖层（"下一集 N"）
+  - 覆盖层有"立即播放"（立即跳转）和"取消"（停止倒计时）按钮
+  - 用户拖动进度条自动取消倒计时（onSeeking 时 cancelCountdown）
+  - 纯 VideoPlayer 内部实现，无需改动 WatchPage / use-watch-session
+- 涉及文件：
+  - apps/web/src/player/VideoPlayer.tsx — countdown state/ref、cancelCountdown/doNext 辅助函数、onEndedHandler 改倒计时、onSeeking 取消、覆盖层 JSX
+  - apps/web/src/player/plyr-overrides.css — kz-countdown-layer/overlay/info/btn 样式（z-index: 7，半透明黑底）
+- 备注：web typecheck 通过
+
+## [2026-08-02] bangumi-oped 片头片尾跳过：默认关闭 + 面板开关 + 时长校验
+
+- 状态：已完成
+- 优先级：P2
+- 描述：
+  - `preferBangumiOped` 默认值从 `true` 改为 `false`
+  - 弹幕面板新增「其他」tab，提供播放器内开关
+  - Bangumi episodes API 接入 `duration_seconds` 字段校验集数时长
+  - OP/ED 时间戳超过实际时长 4 秒以上时回退到手动设置
+- 涉及文件：
+  - packages/shared/src/player.ts — preferBangumiOped 默认 false
+  - packages/shared/src/bangumi.ts — BangumiEpisode 加 duration_seconds
+  - apps/server/src/routes/bangumi.ts — episodes 端点透传 duration_seconds
+  - apps/web/src/lib/bangumi-oped.ts — useBangumiEpisodesDuration hook + 4s 校验阈值
+  - apps/web/src/lib/use-watch-session.ts — 接入 episodes duration + useResolvedOpedSkip 传参
+  - apps/web/src/player/DanmakuPanel.tsx — 新增「其他」tab + OtherSettingsTab 组件
+  - apps/web/src/player/VideoPlayer.tsx — 透传 preferBangumiOped 给面板
+  - apps/web/src/pages/SettingsPage.tsx — 文案「默认开启」→「默认关闭」
+- 备注：web/server/shared typecheck 全通过；弹幕面板「设置」tab 改名弹幕以区分；开关与设置页同步
+
+## [2026-08-02] bangumi-oped 片头片尾自动跳过接入
+
+- 状态：已完成
+- 优先级：P2
+- 描述：接入 bangumi-oped 项目数据，按 Bangumi Subject ID + 集数获取精确 OP/ED 时间戳，覆盖手动 skipOp/skipEd 设置。纯客户端实现，通过 jsDelivr CDN 获取 GitHub 原始文件。默认开启（`preferBangumiOped: true`），无数据时静默回退到手动设置。
+- 涉及文件：
+  - apps/web/src/lib/bangumi-oped.ts（新）— 解析/获取/hooks
+  - packages/shared/src/player.ts — PlayerSettings 加 preferBangumiOped 字段
+  - apps/web/src/lib/use-watch-session.ts — 集成 useBangumiOpedData + useResolvedOpedSkip
+  - apps/web/src/pages/SettingsPage.tsx — 设置页 toggle
+  - apps/web/src/stores/settings.ts — mergePlayer 补 preferBangumiOped
+- 备注：web/server/shared typecheck 全通过；CDN URL 已切换为 jsdelivr.net（国内友好）；VideoPlayer 未改（playerRef sync 驱动）
+
 ## [2026-08-01] review 修复 slider onBlur 抢焦点回归
 
 - 状态：已完成

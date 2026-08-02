@@ -140,6 +140,10 @@ export function VideoPlayer({
   const [offsetHint, setOffsetHint] = useState('')
   const offsetHintTimer = useRef(0)
 
+  // Auto-next countdown overlay
+  const [countdown, setCountdown] = useState<number | null>(null)
+  const countdownIntervalRef = useRef(0)
+
   const [panelOpen, setPanelOpen] = useState(false)
   const [panelTab, setPanelTab] = useState<DanmakuPanelTab>('search')
   const [filterDraft, setFilterDraft] = useState('')
@@ -757,19 +761,25 @@ export function VideoPlayer({
       lastSkipTRef.current = t
       if (isSeekingRef.current || skipBusyRef.current || t >= d - 3) return
       const safeMax = d - 0.1
-      // Boundary cross (prev < mark <= t) — reliable at 2× where 0.4s windows miss
+      // Boundary cross (pre as mark <= t) — reliable at 2× where 0.4s windows miss
       const crossed = (mark: number) => prevT < mark && t >= mark
+
+      // OP skip (independent from ED – both can trigger in the same episode)
       if (p.skipOp.enabled && p.skipOp.duration > 0) {
         const start = p.skipOp.start || 0
         const diff = Math.abs(p.skipOp.duration)
         if (crossed(start)) {
           skipBusyRef.current = true
           video.currentTime = Math.min(start + diff, safeMax)
+          flashSkipHint('已跳过片头')
           setTimeout(() => {
             skipBusyRef.current = false
           }, 1500)
         }
-      } else if (p.skipEd.enabled && p.skipEd.duration > 0) {
+      }
+
+      // ED skip (independent from OP)
+      if (p.skipEd.enabled && p.skipEd.duration > 0) {
         const start = p.skipEd.start || 0
         const diff = Math.abs(p.skipEd.duration)
         if (start <= 0) {
@@ -777,6 +787,9 @@ export function VideoPlayer({
           if (crossed(mark)) {
             skipBusyRef.current = true
             video.currentTime = Math.min(d, safeMax)
+            setOffsetHint('即将结束')
+            window.clearTimeout(offsetHintTimer.current)
+            offsetHintTimer.current = window.setTimeout(() => setOffsetHint(''), 2000)
             setTimeout(() => {
               skipBusyRef.current = false
             }, 1500)
@@ -784,6 +797,7 @@ export function VideoPlayer({
         } else if (crossed(start)) {
           skipBusyRef.current = true
           video.currentTime = Math.min(start + diff, safeMax)
+          flashSkipHint('已跳过片尾')
           setTimeout(() => {
             skipBusyRef.current = false
           }, 1500)
@@ -814,8 +828,24 @@ export function VideoPlayer({
       bufferGatePausedRef.current = false
       hideBufferingUi()
       onPause()
-      if (playerRef.current.autoNext && onNextRef.current) onNextRef.current()
-      else onEndedRef.current?.()
+      if (playerRef.current.autoNext && onNextRef.current) {
+        // Bilibili-style countdown before advancing to the next episode
+        cancelCountdown()
+        setCountdown(4)
+        countdownIntervalRef.current = window.setInterval(() => {
+          setCountdown((prev) => {
+            if (prev === null || prev <= 1) {
+              window.clearInterval(countdownIntervalRef.current)
+              countdownIntervalRef.current = 0
+              onNextRef.current?.()
+              return null
+            }
+            return prev - 1
+          })
+        }, 1000)
+      } else {
+        onEndedRef.current?.()
+      }
     }
     const onVol = () => {
       if (ignoreVolumePersistRef.current) return
@@ -831,6 +861,8 @@ export function VideoPlayer({
     // and would clobber the saved default. Speed only saves via onPickSpeed / Settings.
     const onSeeking = () => {
       isSeekingRef.current = true
+      // If user seeks during auto-next countdown, cancel it
+      cancelCountdown()
       // Spinner only if seek lands outside buffered ranges (nothing to paint)
       try {
         const t = video.currentTime
@@ -1252,6 +1284,26 @@ export function VideoPlayer({
     setOffsetHint(msg)
     window.clearTimeout(offsetHintTimer.current)
     offsetHintTimer.current = window.setTimeout(() => setOffsetHint(''), ms)
+  }
+
+  /** Bilibili-style skip hint — brief toast when OP/ED is auto-skipped */
+  function flashSkipHint(msg: string, ms = 1500) {
+    setOffsetHint(msg)
+    window.clearTimeout(offsetHintTimer.current)
+    offsetHintTimer.current = window.setTimeout(() => setOffsetHint(''), ms)
+  }
+
+  /** Cancel any active auto-next countdown and hide the overlay */
+  function cancelCountdown() {
+    window.clearInterval(countdownIntervalRef.current)
+    countdownIntervalRef.current = 0
+    setCountdown(null)
+  }
+
+  /** Immediately jump to the next episode (countdown reached 0 or user clicked "play now") */
+  function doNext() {
+    cancelCountdown()
+    onNextRef.current?.()
   }
 
   /**
@@ -1866,6 +1918,34 @@ export function VideoPlayer({
         </button>
       )}
 
+      {/* Auto-next countdown overlay — Bilibili-style */}
+      {countdown !== null && !mediaError && (
+        <div className="kz-countdown-layer">
+          <div className="kz-countdown-overlay">
+            <div className="kz-countdown-info">
+              <span className="kz-countdown-label">下一集</span>
+              <span className="kz-countdown-number">{countdown}</span>
+            </div>
+            <div className="kz-countdown-actions">
+              <button
+                type="button"
+                className="kz-countdown-btn kz-countdown-btn--primary"
+                onClick={(e) => { e.stopPropagation(); doNext() }}
+              >
+                立即播放
+              </button>
+              <button
+                type="button"
+                className="kz-countdown-btn kz-countdown-btn--secondary"
+                onClick={(e) => { e.stopPropagation(); cancelCountdown() }}
+              >
+                取消
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Control bar — desktop vs mobile chrome isolated under ./chrome/ */}
       {pointerMode === 'desktop' ? (
         <DesktopControls key="desktop" {...controlsProps} />
@@ -1915,6 +1995,14 @@ export function VideoPlayer({
             }
             sources={danmakuPanel.sources}
             onToggleSource={danmakuPanel.onToggleSource}
+            preferBangumiOped={Boolean(player.preferBangumiOped)}
+            onToggleOpedSkip={() =>
+              onPlayerChange?.({ preferBangumiOped: !player.preferBangumiOped })
+            }
+            autoNext={Boolean(player.autoNext)}
+            onToggleAutoNext={() =>
+              onPlayerChange?.({ autoNext: !player.autoNext })
+            }
             /* Desktop: clear the control bar. Mobile uses bottom-sheet layout. */
             bottomOffset={56}
             layout={pointerMode}
