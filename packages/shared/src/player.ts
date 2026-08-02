@@ -50,6 +50,12 @@ export interface PlayerSettings {
    * Search/chapters/resolve already go through the API; this only affects media.
    */
   forceMediaProxy: boolean
+  /**
+   * Prefer bangumi-oped data for OP/ED skip timing.
+   * When true (default), fetch per-show timestamps from the bangumi-oped repo
+   * and override manual skipOp / skipEd settings.
+   */
+  preferBangumiOped: boolean
 }
 
 export const PLAYER_SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2] as const
@@ -63,7 +69,7 @@ export const SUPER_RESOLUTION_MODES: readonly SuperResolutionMode[] = [
 export const defaultPlayerSettings: PlayerSettings = {
   speed: 1,
   autoplay: true,
-  autoNext: true,
+  autoNext: false,
   continuePlay: true,
   customSeekTime: 85,
   volume: 1,
@@ -72,4 +78,5 @@ export const defaultPlayerSettings: PlayerSettings = {
   superResolution: 'off',
   forceAdBlocker: false,
   forceMediaProxy: false,
+  preferBangumiOped: false,
 }

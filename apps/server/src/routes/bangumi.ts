@@ -305,6 +305,7 @@ bangumiRoutes.get('/subjects/:id/episodes', async (c) => {
     nameCn: String(e.name_cn ?? ''),
     airdate: String(e.airdate ?? ''),
     ep: e.ep != null ? Number(e.ep) : undefined,
+    duration_seconds: Number(e.duration_seconds ?? 0),
   }))
   return c.json({ data: episodes, total: json.total })
 })

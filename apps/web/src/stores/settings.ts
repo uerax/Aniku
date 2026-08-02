@@ -80,6 +80,9 @@ function mergePlayer(partial?: Partial<PlayerSettings>): PlayerSettings {
     forceMediaProxy: Boolean(
       p.forceMediaProxy ?? defaultPlayerSettings.forceMediaProxy,
     ),
+    preferBangumiOped: Boolean(
+      p.preferBangumiOped ?? defaultPlayerSettings.preferBangumiOped,
+    ),
     skipOp: {
       ...defaultPlayerSettings.skipOp,
       ...(p.skipOp && typeof p.skipOp === 'object' ? p.skipOp : {}),
@@ -127,6 +130,23 @@ export const useSettingsStore = create<SettingsState>()(
     }),
     {
       name: 'animaku-settings',
+      version: 1,
+      migrate: (persisted, version) => {
+        if (version < 1) {
+          // v0→v1: preferBangumiOped + autoNext defaults changed from true to false.
+          const p = (persisted || {}) as Record<string, unknown>
+          const player =
+            p.player && typeof p.player === 'object'
+              ? (p.player as Record<string, unknown>)
+              : null
+          if (player) {
+            player.preferBangumiOped = false
+            player.autoNext = false
+          }
+          return persisted as Record<string, unknown>
+        }
+        return persisted as Record<string, unknown>
+      },
       storage: createJSONStorage(() =>
         createDebouncedStorage(SETTINGS_PERSIST_DEBOUNCE_MS),
       ),

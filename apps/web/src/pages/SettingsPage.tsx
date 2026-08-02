@@ -873,95 +873,23 @@ export function SettingsPage() {
           />
         </label>
         <Toggle
-          label="跳过片头"
-          checked={player.skipOp.enabled}
-          onChange={(enabled) =>
-            setPlayer({ skipOp: { ...player.skipOp, enabled } })
-          }
+          label="使用 bangumi-oped 片头片尾跳过"
+          checked={Boolean(player.preferBangumiOped)}
+          onChange={(preferBangumiOped) => setPlayer({ preferBangumiOped })}
         />
-        {player.skipOp.enabled && (
-          <div className="flex flex-wrap gap-4 text-sm text-[var(--kz-fg-muted)]">
-            <label className="flex items-center gap-2">
-              起始（秒）
-              <input
-                type="number"
-                min={0}
-                value={player.skipOp.start}
-                onChange={(e) =>
-                  setPlayer({
-                    skipOp: {
-                      ...player.skipOp,
-                      start: Number(e.target.value) || 0,
-                    },
-                  })
-                }
-                className="w-20 rounded-lg border border-[var(--kz-border)] bg-[var(--kz-bg)] px-2 py-1"
-              />
-            </label>
-            <label className="flex items-center gap-2">
-              时长（秒）
-              <input
-                type="number"
-                min={1}
-                value={player.skipOp.duration}
-                onChange={(e) =>
-                  setPlayer({
-                    skipOp: {
-                      ...player.skipOp,
-                      duration: Number(e.target.value) || 90,
-                    },
-                  })
-                }
-                className="w-20 rounded-lg border border-[var(--kz-border)] bg-[var(--kz-bg)] px-2 py-1"
-              />
-            </label>
-          </div>
-        )}
-        <Toggle
-          label="跳过片尾（起=0 表示最后 N 秒）"
-          checked={player.skipEd.enabled}
-          onChange={(enabled) =>
-            setPlayer({ skipEd: { ...player.skipEd, enabled } })
-          }
-        />
-        {player.skipEd.enabled && (
-          <div className="flex flex-wrap gap-4 text-sm text-[var(--kz-fg-muted)]">
-            <label className="flex items-center gap-2">
-              起始（秒）
-              <input
-                type="number"
-                min={0}
-                value={player.skipEd.start}
-                onChange={(e) =>
-                  setPlayer({
-                    skipEd: {
-                      ...player.skipEd,
-                      start: Number(e.target.value) || 0,
-                    },
-                  })
-                }
-                className="w-20 rounded-lg border border-[var(--kz-border)] bg-[var(--kz-bg)] px-2 py-1"
-              />
-            </label>
-            <label className="flex items-center gap-2">
-              时长（秒）
-              <input
-                type="number"
-                min={1}
-                value={player.skipEd.duration}
-                onChange={(e) =>
-                  setPlayer({
-                    skipEd: {
-                      ...player.skipEd,
-                      duration: Number(e.target.value) || 90,
-                    },
-                  })
-                }
-                className="w-20 rounded-lg border border-[var(--kz-border)] bg-[var(--kz-bg)] px-2 py-1"
-              />
-            </label>
-          </div>
-        )}
+        <p className="text-xs text-[var(--kz-fg-dim)]">
+          默认关闭。从{' '}
+          <a
+            href="https://github.com/uerax/bangumi-oped"
+            className="kz-link"
+            target="_blank"
+            rel="noreferrer"
+          >
+            bangumi-oped
+          </a>{' '}
+          获取每部番剧每集的实际 OP/ED 时间，自动跳过片头片尾。
+          无数据或集数时长差距超过 4 秒时静默不跳过。
+        </p>
       </section>
 
       <section className="space-y-4 rounded-2xl border border-[var(--kz-border)] bg-[var(--kz-bg-elevated)] p-5">

@@ -40,6 +40,7 @@ import { usePluginStore } from '../stores/plugins'
 import { useHistoryStore } from '../stores/history'
 import { useSettingsStore } from '../stores/settings'
 import { EMPTY_ARRAY, FALLBACK_DANMAKU, FALLBACK_PLAYER } from './stable'
+import { useBangumiOpedData, useResolvedOpedSkip, useBangumiEpisodesDuration } from './bangumi-oped'
 
 export type SearchRow = {
   plugin: PluginMeta
@@ -1031,6 +1032,26 @@ export function useWatchSession(bangumiId: number): WatchSession {
     if (selection?.plugin) setKeywordTargetPlugin(selection.plugin)
   }, [selection?.plugin])
 
+  // ── bangumi-oped: per-show OP/ED timestamps ──────────────────────────
+  const preferBangumiOped = Boolean(playerSettings.preferBangumiOped)
+  const bgmOpedQuery = useBangumiOpedData(bangumiId, preferBangumiOped)
+  const episodeDurationMap = useBangumiEpisodesDuration(bangumiId, preferBangumiOped)
+  const currentEp = episode?.episode ?? 0
+  const episodeDurationSeconds = useMemo(() => {
+    if (!episodeDurationMap || currentEp <= 0) return undefined
+    return episodeDurationMap.get(currentEp)
+  }, [episodeDurationMap, currentEp])
+  const resolvedPlayerSettings = {
+    ...playerSettings,
+    ...useResolvedOpedSkip(
+      preferBangumiOped ? bgmOpedQuery.data : null,
+      currentEp,
+      playerSettings.skipOp,
+      playerSettings.skipEd,
+      episodeDurationSeconds,
+    ),
+  }
+
   return {
     bangumiId,
     title,
@@ -1065,7 +1086,7 @@ export function useWatchSession(bangumiId: number): WatchSession {
     resolveError: resolve.error,
     diagnostics: resolve.data?.data.diagnostics,
     danmakuSettings,
-    playerSettings,
+    playerSettings: resolvedPlayerSettings,
     setDanmaku,
     setPlayer,
     dm,

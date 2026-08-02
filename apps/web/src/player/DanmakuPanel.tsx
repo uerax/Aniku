@@ -7,7 +7,7 @@ import type { DanmakuSourceChip } from '../lib/danmaku-pools'
 import type { DanmakuPoolId } from '../lib/danmaku-pools'
 import type { PointerMode } from './chrome/usePointerMode'
 
-export type DanmakuPanelTab = 'search' | 'settings' | 'import'
+export type DanmakuPanelTab = 'search' | 'settings' | 'import' | 'other'
 
 interface Props {
   open: boolean
@@ -52,12 +52,21 @@ interface Props {
    * desktop keeps the floating side card. Defaults to desktop.
    */
   layout?: PointerMode
+  /** Player setting: prefer bangumi-oped OP/ED skip */
+  preferBangumiOped?: boolean
+  /** Toggle preferBangumiOped on/off from the panel */
+  onToggleOpedSkip?: () => void
+  /** Player setting: auto-play next episode */
+  autoNext?: boolean
+  /** Toggle autoNext on/off from the panel */
+  onToggleAutoNext?: () => void
 }
 
 const TABS = [
   ['search', '搜索'],
-  ['settings', '设置'],
+  ['settings', '弹幕'],
   ['import', '导入'],
+  ['other', '播放'],
 ] as const
 
 export function DanmakuPanel(props: Props) {
@@ -148,6 +157,15 @@ function DesktopCard(props: Props) {
             />
           )}
           {tab === 'import' && <ImportTab {...props} compact={false} />}
+          {tab === 'other' && (
+            <OtherSettingsTab
+              preferBangumiOped={props.preferBangumiOped}
+              onToggleOped={props.onToggleOpedSkip}
+              autoNext={props.autoNext}
+              onToggleAutoNext={props.onToggleAutoNext}
+              compact={false}
+            />
+          )}
         </div>
       </div>
 
@@ -223,6 +241,15 @@ function MobileSheet(props: Props) {
             />
           )}
           {tab === 'import' && <ImportTab {...props} compact />}
+          {tab === 'other' && (
+            <OtherSettingsTab
+              preferBangumiOped={props.preferBangumiOped}
+              onToggleOped={props.onToggleOpedSkip}
+              autoNext={props.autoNext}
+              onToggleAutoNext={props.onToggleAutoNext}
+              compact
+            />
+          )}
         </div>
       </div>
     </>
@@ -806,6 +833,78 @@ function ImportTab({ compact, ...props }: Props & { compact: boolean }) {
           </ul>
         )}
       </div>
+    </div>
+  )
+}
+
+/* ─── Playback settings tab ─── */
+
+function OtherSettingsTab({
+  preferBangumiOped,
+  onToggleOped,
+  autoNext,
+  onToggleAutoNext,
+  compact,
+}: {
+  preferBangumiOped?: boolean
+  onToggleOped?: () => void
+  autoNext?: boolean
+  onToggleAutoNext?: () => void
+  compact: boolean
+}) {
+  if (compact) {
+    return (
+      <div className="kz-dm-form">
+        <button
+          type="button"
+          className="kz-dm-toggle-row"
+          onClick={onToggleOped}
+          aria-pressed={preferBangumiOped}
+        >
+          <span>跳过片头片尾</span>
+          <span
+            className={
+              preferBangumiOped ? 'kz-dm-switch kz-dm-switch--on' : 'kz-dm-switch'
+            }
+            aria-hidden
+          />
+        </button>
+        <button
+          type="button"
+          className="kz-dm-toggle-row"
+          onClick={onToggleAutoNext}
+          aria-pressed={autoNext}
+        >
+          <span>自动下一集</span>
+          <span
+            className={
+              autoNext ? 'kz-dm-switch kz-dm-switch--on' : 'kz-dm-switch'
+            }
+            aria-hidden
+          />
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-3">
+      <label className="flex items-center justify-between gap-2">
+        <span>跳过片头片尾</span>
+        <input
+          type="checkbox"
+          checked={preferBangumiOped === true}
+          onChange={onToggleOped}
+        />
+      </label>
+      <label className="flex items-center justify-between gap-2">
+        <span>自动下一集</span>
+        <input
+          type="checkbox"
+          checked={autoNext === true}
+          onChange={onToggleAutoNext}
+        />
+      </label>
     </div>
   )
 }

@@ -107,6 +107,8 @@ export interface BangumiEpisode {
   nameCn: string
   airdate: string
   ep?: number
+  /** Server-parsed duration in seconds; 0 when unparseable */
+  duration_seconds: number
 }
 
 export interface BangumiUser {
