@@ -1,5 +1,36 @@
 # Animaku 项目状态
 
+## [2026-08-03] M3U8 去广告算法分析
+
+- 状态：分析完成，待实现
+- 优先级：P1
+- 描述：对 tmp/ 下 9 个 m3u8 采样文件做了完整分析，发现两个源有两种截然不同的 playlist 结构：
+
+### 数据源
+| 文件 | 来源 | Groups | Segs | 总时长 |
+|------|------|--------|------|--------|
+| omofun-1.txt | bfikuncdn.com（实时拉取） | 4 | 485 | ~24min |
+| omofuns.txt | OMOFUN（旧） | 57 | 359 | ~24min |
+| mxdm.txt | MXDM（旧） | 4 | 485 | ~24min |
+| mxdm-1.txt | jimxtc.com（实时拉取） | 57 | 359 | ~24min |
+
+### 类型 A：明朗模式（4-group）
+- 结构：正片(host A) → 广告(host B 或相对路径) → 正片(host A) → 广告(host B)
+- 广告 group 特征：不同 host，时长短（~17.6s），出现两次（G1==G3 重复）
+- 实例：omofun-1.txt（G0/G2 在 bfikuncdn.com，G1/G3 用相对路径 /10128kb/hls）、mxdm.txt（G0/G2 在 kkzycdn.com，G1/G3 用相对路径 /FxLgovfH）
+- ✅ 可通过 host 变化 + 重复检测精确过滤
+
+### 类型 B — 深度隐藏模式（57-group）
+- 结构：57 个 group，45 个为 5-seg 固定分块，少数 10/15/20-seg group
+- 所有 segment 在同一 host，相同 duration 范围（4–7s），无 host 差异
+- 广告 < 80s 隐藏在 24min 全长中，无法通过 m3u8 静态分析区分
+- ❌ 当前无法识别。5 次独立拉取（间隔数分钟）diff 全部一致，广告无轮换
+
+### 关键结论
+1. 同一个视频在不同时间请求可能返回不同结构（4-group vs 57-group）
+2. 不能按平台区分 → 需要自适应检测（host 差异 / 无差异二选一）
+3. 类型 B（广告和第到 5-seg 块中）需要外部数据（多次轮换 diff、base-media、编码器识别等）才能真正解决
+
 ## [2026-08-02] auto-next 倒计时覆盖层
 
 - 状态：已完成
