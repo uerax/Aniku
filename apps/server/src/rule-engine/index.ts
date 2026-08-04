@@ -937,7 +937,12 @@ export async function searchWithRule(
 
   for (let i = 0; i < candidates.length; i++) {
     const kw = candidates[i]
-    const queryUrl = rule.searchURL.replace('@keyword', encodeURIComponent(kw))
+    // Expand @baseURL (safe replacer, mirrors api.ts) before keyword encode so the
+    // protocol/host stay literal. xpath/html search previously did NOT expand it,
+    // so a rule using @baseURL in searchURL died in assertPublicHttpUrl as "源站 无效".
+    const base = rule.baseURL?.replace(/\/+$/, '')
+    const withBase = base ? rule.searchURL.replace(/@baseURL\b/g, () => base) : rule.searchURL
+    const queryUrl = withBase.replace('@keyword', encodeURIComponent(kw))
     // First keyword: allow one retry + full timeout. Later variants: no retry,
     // shorter timeout — worst-case 4×12s×2 was hanging the subject UI.
     const isFirst = i === 0
