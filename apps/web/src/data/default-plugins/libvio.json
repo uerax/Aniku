@@ -12,7 +12,7 @@
   "adBlocker": false,
   "userAgent": "",
   "baseURL": "https://www.libvio.in/",
-  "searchURL": "https://www.libvio.in/search/-------------.html?wd=@keyword",
+  "searchURL": "@baseURL/search/-------------.html?wd=@keyword",
   "searchList": "//div[contains(@class,'stui-vodlist__box')]",
   "searchName": ".//h4/a",
   "searchResult": ".//h4/a",

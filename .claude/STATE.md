@@ -13,6 +13,7 @@
   - baseURL 已由库主手动改为 www.libvio.in（release 未删，但搜索走静态走后端完整代理，watched）
   - 遗留：VARNAME="sites" 配错、release 无换线遍历 —— 未做，避免破坏当前可用状态
   - 【2026-08-05 修复】"源站 无效"：xpath/html 搜索的 searchURL 不做 @baseURL 展开（只有 api 模式的 executeApiRequest 会展开），之前写的 @baseURL/search/... 会保留字面量导致 assertPublicHttpUrl 抛"源站 URL 无效"。已改为字面量 https://www.libvio.in/... 全链路复现验证通过
+  - 【2026-08-05 修复2】统一 xpath/html 搜索的 @baseURL 展开：index.ts searchWithRule 的 xpath 分支新增安全 replacer（rule.baseURL 去尾斜杠），与 api.ts 行为一致。此后 xpath 搜索的 searchURL 可用 @baseURL，libvio.json 的 searchURL 已改回 @baseURL 形态。验证：展开→校验→解析 6 条全通；server tsc 通过
 
 ## [2026-08-03] M3U8 去广告算法分析
 
