@@ -11,36 +11,14 @@
   "useLegacyParser": false,
   "adBlocker": false,
   "userAgent": "",
-  "baseURL": "https://libvio.host/",
-  "searchURL": "",
-  "searchList": "",
-  "searchName": "",
-  "searchResult": "",
+  "baseURL": "https://www.libvio.in/",
+  "searchURL": "https://www.libvio.in/search/-------------.html?wd=@keyword",
+  "searchList": "//div[contains(@class,'stui-vodlist__box')]",
+  "searchName": ".//h4/a",
+  "searchResult": ".//h4/a",
   "chapterRoads": "//div[contains(@class,'stui-content__playlist')]",
   "chapterResult": ".//a[contains(@href,'/w/')]",
-  "referer": "https://libvio.host/",
-  "searchMode": "api",
-  "chapterMode": "xpath",
-  "searchApiConfig": {
-    "request": {
-      "method": "GET",
-      "url": "@baseURL/index.php/ajax/suggest",
-      "query": {
-        "mid": "1",
-        "wd": "@keyword",
-        "limit": "10"
-      }
-    },
-    "listPath": "$.list[*]",
-    "namePath": "$.name",
-    "sourcePath": "$.id",
-    "sourceTemplate": "/detail/@source.html"
-  },
-  "release": {
-    "pageUrl": "https://libviogroup.github.io/",
-    "fetchHour": 2,
-    "domainIndex": 0,
-    "xorKey": "lv2025",
-    "varName": "sites"
-  }
+  "referer": "https://www.libvio.in/",
+  "searchMode": "xpath",
+  "chapterMode": "xpath"
 }

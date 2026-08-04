@@ -1,5 +1,19 @@
 # Animaku 项目状态
 
+## [2026-08-05] LIBVIO 搜索：api(suggest) → 静态 html 搜索
+
+- 状态：已完成
+- 优先级：P1
+- 描述：`www.libvio.in` 的 `searchApiConfig` 接口 `/index.php/ajax/suggest` 被站点 WAF 拦截（所有姿态返回 `Blocked by WAF rule`，响应 403，x-frame-options: DENY）。改为走 MacCMS/stui 静态搜索页 `/search/-------------.html?wd=@keyword`，XPath 解析 `div.stui-vodlist__box > h4 > a`。实测可解析 6 条结果。
+- 涉及文件：apps/web/src/data/default-plugins/libvio.json
+- 备注：
+  - 改：searchURL/searchList/searchName/searchResult 填实；searchMode api→xpath（删 searchApiConfig）；referer 改 @baseURL
+  - searchMode 只有 'xpath' | 'api' 两种值（为 'html' 时 plugin.ts 解析为 xpath，兜底同义，已直接写 xpath）
+  - 验证：curl 抓 libvio.in 搜索页 + cheerio→xml→xpath 全链路解析出 6 条；server tsc 通过
+  - baseURL 已由库主手动改为 www.libvio.in（release 未删，但搜索走静态走后端完整代理，watched）
+  - 遗留：VARNAME="sites" 配错、release 无换线遍历 —— 未做，避免破坏当前可用状态
+  - 【2026-08-05 修复】"源站 无效"：xpath/html 搜索的 searchURL 不做 @baseURL 展开（只有 api 模式的 executeApiRequest 会展开），之前写的 @baseURL/search/... 会保留字面量导致 assertPublicHttpUrl 抛"源站 URL 无效"。已改为字面量 https://www.libvio.in/... 全链路复现验证通过
+
 ## [2026-08-03] M3U8 去广告算法分析
 
 - 状态：分析完成，待实现
