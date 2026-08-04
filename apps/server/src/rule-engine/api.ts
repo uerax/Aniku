@@ -261,7 +261,13 @@ export async function executeApiRequest(
   }
   if (!req.url?.trim()) throw new ApiRuleError('API 请求 URL 不能为空')
 
-  const urlStr = renderTemplate(req.url.trim(), variables, true)
+  const urlRaw = req.url.trim()
+  // Expand @baseURL before the encode pass so the protocol/host stay literal
+  const baseURL = String(variables.baseURL ?? rule.baseURL ?? '')
+  const urlPre = baseURL
+    ? urlRaw.replace(/@baseURL\b/g, () => baseURL.replace(/\/+$/, ''))
+    : urlRaw
+  const urlStr = renderTemplate(urlPre, variables, true)
   let uri: URL
   try {
     uri = assertPublicHttpUrl(urlStr, 'API 请求 URL')
@@ -623,7 +629,7 @@ export async function searchWithApiRule(
 ): Promise<{ items: SearchItem[]; diagnostics: string[] }> {
   const cfg = rule.searchApiConfig
   if (!cfg) throw new ApiRuleError('缺少 searchApiConfig')
-  const document = await executeApiRequest(cfg.request, { keyword }, rule)
+  const document = await executeApiRequest(cfg.request, { keyword, baseURL: rule.baseURL || '' }, rule)
   const res = parseApiSearch(document, cfg)
   // Absolute-ize detail URLs (sourceTemplate may be path-only, e.g. /bangumi/1.html)
   const base = rule.baseURL || ''
@@ -642,6 +648,10 @@ export async function chaptersWithApiRule(
 ): Promise<{ roads: Road[]; diagnostics: string[] }> {
   const cfg = rule.chapterApiConfig
   if (!cfg) throw new ApiRuleError('缺少 chapterApiConfig')
-  const document = await executeApiRequest(cfg.request, { source }, rule)
+  const document = await executeApiRequest(
+    cfg.request,
+    { source, baseURL: rule.baseURL || '' },
+    rule,
+  )
   return parseApiChapters(document, cfg, source, rule.baseURL)
 }

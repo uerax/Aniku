@@ -12,6 +12,7 @@ import { DOMParser } from '@xmldom/xmldom'
 import xpath from 'xpath'
 import { config } from '../config'
 import { assertPublicHttpUrl, fetchPublic } from '../lib/private-host'
+import { isReleaseRule, resolveReleaseBaseUrl, invalidateReleaseCache } from '../lib/release'
 
 const MEDIA_RE =
   /(https?:\/\/[^\s"'<>\\]+?\.(?:m3u8|mp4)(?:\?[^\s"'<>\\]*)?)/gi
@@ -787,11 +788,37 @@ function expandKeywordCandidates(keyword: string): string[] {
   return out.sort((a, b) => a.length - b.length || a.localeCompare(b)).slice(0, 4)
 }
 
+/**
+ * Resolve the effective baseURL for a release-page rule.
+ * Falls back to the rule's static baseURL on failure.
+ */
+async function resolveEffectiveBaseUrl(rule: PluginRule): Promise<string> {
+  if (!isReleaseRule(rule)) return rule.baseURL
+  try {
+    const resolved = await resolveReleaseBaseUrl(rule)
+    if (resolved) {
+      // Release mirrors replace the rule's static host, including its referer.
+      rule.referer = resolved
+      return resolved
+    }
+  } catch {
+    /* release page fetch failed — stick to static baseURL */
+  }
+  return rule.baseURL
+}
+
 export async function searchWithRule(
   ruleInput: unknown,
   keyword: string,
 ): Promise<PluginSearchResult> {
   const rule = parsePluginRule(ruleInput)
+
+  // Resolve release-page domain
+  if (isReleaseRule(rule)) {
+    const resolved = await resolveEffectiveBaseUrl(rule)
+    rule.baseURL = resolved
+  }
+
   const diagnostics: string[] = []
 
   // Anime1.me — dedicated adapter (s2t search + category grouping)
@@ -1003,6 +1030,12 @@ export async function chaptersWithRule(
   source: string,
 ): Promise<PluginChapterResult> {
   const rule = parsePluginRule(ruleInput)
+
+  if (isReleaseRule(rule)) {
+    const resolved = await resolveEffectiveBaseUrl(rule)
+    rule.baseURL = resolved
+  }
+
   const diagnostics: string[] = []
 
   {
@@ -1387,6 +1420,11 @@ export async function resolvePlay(
   pageUrl: string,
 ): Promise<ResolvePlayResult> {
   const rule = parsePluginRule(ruleInput)
+
+  if (isReleaseRule(rule)) {
+    const resolved = await resolveEffectiveBaseUrl(rule)
+    rule.baseURL = resolved
+  }
 
   // Anime1: API + cookie-gated progressive mp4 (not static HTML media)
   {

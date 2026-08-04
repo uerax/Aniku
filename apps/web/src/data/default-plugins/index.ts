@@ -4,6 +4,7 @@ import otage from './otage.json'
 import xifan from './xifan.json'
 import mxdm from './MXdm.json'
 import omofun from './omofun.json'
+import libvio from './libvio.json'
 
 /**
  * Built-in rules — keep lean.
@@ -12,13 +13,15 @@ import omofun from './omofun.json'
  * - xifan: 稀饭 anime.xifanacg.com — suggest API search + HTML chapters + player_aaaa
  * - MXdm: MacCMS-style third party
  * - omofun: 211dm/omofuns — server search adapter (verify gate) + XPath chapters + player_aaaa
+ * - LIBVIO: release-page 类型 (libviogroup.github.io) — API search + XPath chapters + player_aaaa (encrypt=3)
  * - Anime1: progressive + cookie adapter (client disables when mediaFullProxy=0)
- * More sources: Settings → catalog / import (7sefun, AGE, gugu3 still folder-only).
+ * More sources: Settings, catalog / import (7sefun, AGE, gugu3 still folder-only).
  */
 export const DEFAULT_PLUGIN_RULES: PluginRule[] = [
   mxdm as PluginRule,
   omofun as PluginRule,
   otage as PluginRule,
+  libvio as PluginRule,
   xifan as PluginRule,
   anime1 as PluginRule,
 ]

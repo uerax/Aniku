@@ -45,7 +45,21 @@ export interface ApiChapterConfig {
   episodePage?: ApiEpisodePageConfig
 }
 
-/** plugin rule (subset used by web) */
+/** Release-page config: fetch a hub page, XOR-decode the latest domain list. */
+export interface ReleaseConfig {
+  /** Release / hub page URL that lists current mirrors. */
+  pageUrl: string
+  /** Hours between re‑fetches (default 2). */
+  fetchHour?: number
+  /** Index into the decoded domain array (0 = first). */
+  domainIndex?: number
+  /** XOR key for domain obfuscation. */
+  xorKey?: string
+  /** JS variable name that holds the encoded domain array (default "sites"). */
+  varName?: string
+}
+
+/** Plugin rule (subset used by web). */
 export interface PluginRule {
   api: string
   type: string
@@ -66,12 +80,16 @@ export interface PluginRule {
   chapterRoads: string
   chapterResult: string
   referer?: string
+  /** True when playback requires server-side full media proxy plus client opt-in. */
+  requiresFullMediaProxy?: boolean
   searchMode?: 'xpath' | 'api'
   chapterMode?: 'xpath' | 'api'
   /** Required when searchMode === 'api' (e.g. sorani / TvTFun) */
   searchApiConfig?: ApiSearchConfig
   /** Required when chapterMode === 'api' */
   chapterApiConfig?: ApiChapterConfig
+  /** Release-page config: dynamic domain resolution from a hub page. */
+  release?: ReleaseConfig
 }
 
 export interface PluginMeta extends PluginRule {
@@ -368,6 +386,31 @@ export function parsePluginRule(raw: unknown): PluginRule {
     throw new Error('插件缺少 name / baseURL / searchURL')
   }
 
+  // release-page config (optional)
+  let release: ReleaseConfig | undefined
+  const r = asObject(j.release)
+  if (r) {
+    const pageUrl = String(r.pageUrl ?? '').trim()
+    if (!pageUrl) {
+      throw new Error('release.pageUrl 不能为空')
+    }
+    const fetchHourRaw = Number(r.fetchHour ?? 2)
+    const domainIndexRaw = Number(r.domainIndex ?? 0)
+    const fetchHour = Number.isFinite(fetchHourRaw)
+      ? Math.max(1, Math.floor(fetchHourRaw))
+      : 2
+    const domainIndex = Number.isFinite(domainIndexRaw)
+      ? Math.max(0, Math.floor(domainIndexRaw))
+      : 0
+    release = {
+      pageUrl,
+      fetchHour,
+      domainIndex,
+      xorKey: String(r.xorKey ?? ''),
+      varName: String(r.varName ?? 'sites'),
+    }
+  }
+
   if (chapterMode === 'api') {
     if (!j.chapterApiConfig) {
       throw new Error('API 章节规则缺少 chapterApiConfig')
@@ -395,9 +438,14 @@ export function parsePluginRule(raw: unknown): PluginRule {
     chapterRoads: String(j.chapterRoads ?? ''),
     chapterResult: String(j.chapterResult ?? ''),
     referer: String(j.referer ?? ''),
+    requiresFullMediaProxy:
+      typeof j.requiresFullMediaProxy === 'boolean'
+        ? j.requiresFullMediaProxy
+        : undefined,
     searchMode,
     chapterMode,
     searchApiConfig,
     chapterApiConfig,
+    release,
   }
 }

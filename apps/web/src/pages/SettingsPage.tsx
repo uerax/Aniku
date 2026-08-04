@@ -28,21 +28,27 @@ import { EMPTY_ARRAY, FALLBACK_DANMAKU, FALLBACK_PLAYER } from '../lib/stable'
 function sortPluginsByOrder(
   plugins: PluginMeta[],
   order: string[],
+  isBlocked: (plugin: PluginMeta) => boolean,
 ): PluginMeta[] {
+  const byName = (a: PluginMeta, b: PluginMeta) =>
+    a.name.toLowerCase().localeCompare(b.name.toLowerCase())
   if (!order.length) {
-    return [...plugins].sort((a, b) =>
-      a.name.toLowerCase().localeCompare(b.name.toLowerCase()),
-    )
+    return [...plugins].sort((a, b) => {
+      const blocked = Number(isBlocked(a)) - Number(isBlocked(b))
+      return blocked !== 0 ? blocked : byName(a, b)
+    })
   }
   const rank = new Map<string, number>()
   for (let i = 0; i < order.length; i++) {
     rank.set(order[i].toLowerCase(), i)
   }
   return [...plugins].sort((a, b) => {
+    const blocked = Number(isBlocked(a)) - Number(isBlocked(b))
+    if (blocked !== 0) return blocked
     const ra = rank.get(a.name.toLowerCase()) ?? order.length
     const rb = rank.get(b.name.toLowerCase()) ?? order.length
     if (ra !== rb) return ra - rb
-    return a.name.toLowerCase().localeCompare(b.name.toLowerCase())
+    return byName(a, b)
   })
 }
 
@@ -75,30 +81,6 @@ export function SettingsPage() {
     Array.isArray(s.pluginOrder) ? s.pluginOrder : [],
   )
   const setPluginOrder = usePluginStore((s) => s.setPluginOrder)
-  /** Sorted plugins for display (user order → alphabetical fallback) */
-  const sortedPlugins = useMemo(
-    () => sortPluginsByOrder(plugins, pluginOrder),
-    [plugins, pluginOrder],
-  )
-
-  /**
-   * Move a plugin up/down in the user sort order.
-   * Reads current live `sortedPlugins` names to build the new order list.
-   */
-  const movePlugin = useCallback(
-    (name: string, dir: -1 | 1) => {
-      const names = sortedPlugins.map((p) => p.name)
-      const idx = names.findIndex(
-        (n) => n.toLowerCase() === name.toLowerCase(),
-      )
-      if (idx < 0) return
-      const target = idx + dir
-      if (target < 0 || target >= names.length) return
-      ;[names[idx], names[target]] = [names[target], names[idx]]
-      setPluginOrder(names)
-    },
-    [sortedPlugins, setPluginOrder],
-  )
 
   const [tokenInput, setTokenInput] = useState(bangumiToken)
   const [tokenMsg, setTokenMsg] = useState('')
@@ -130,6 +112,36 @@ export function SettingsPage() {
     staleTime: 60_000,
   })
   const mediaFullProxy = mediaFullProxyEnabled(health.data as ServerHealth | undefined)
+  const canUseFullProxySource = mediaFullProxy && Boolean(player.forceMediaProxy)
+  /** User order within available/blocked groups; blocked sources stay at the end. */
+  const sortedPlugins = useMemo(
+    () =>
+      sortPluginsByOrder(
+        plugins,
+        pluginOrder,
+        (p) => pluginNeedsFullMediaProxy(p) && !canUseFullProxySource,
+      ),
+    [plugins, pluginOrder, canUseFullProxySource],
+  )
+
+  /**
+   * Move a plugin up/down in the user sort order.
+   * Reads current live `sortedPlugins` names to build the new order list.
+   */
+  const movePlugin = useCallback(
+    (name: string, dir: -1 | 1) => {
+      const names = sortedPlugins.map((p) => p.name)
+      const idx = names.findIndex(
+        (n) => n.toLowerCase() === name.toLowerCase(),
+      )
+      if (idx < 0) return
+      const target = idx + dir
+      if (target < 0 || target >= names.length) return
+      ;[names[idx], names[target]] = [names[target], names[idx]]
+      setPluginOrder(names)
+    },
+    [sortedPlugins, setPluginOrder],
+  )
 
   const me = useQuery({
     queryKey: ['me-settings', bangumiToken],
@@ -469,7 +481,7 @@ export function SettingsPage() {
             const report =
               smoke && !('running' in smoke) ? (smoke as SmokeReport) : null
             const needsFull = pluginNeedsFullMediaProxy(p)
-            const blockedByServer = needsFull && !mediaFullProxy
+            const blockedByServer = needsFull && !canUseFullProxySource
             const effectivelyOn = p.enabled !== false && !blockedByServer
             const isFirst = idx === 0
             const isLast = idx === sortedPlugins.length - 1

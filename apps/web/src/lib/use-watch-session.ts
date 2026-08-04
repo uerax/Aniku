@@ -26,7 +26,7 @@ import {
   getCachedPluginSearch,
   setCachedPluginSearch,
 } from './plugin-result-cache'
-import { pluginNeedsFullMediaProxy } from './plugin-capabilities'
+import { isFullProxySourceUsable } from './plugin-capabilities'
 import {
   findRoadsForPlay,
   writeRoadsForSource,
@@ -112,7 +112,7 @@ function lookupHistorySourceUrl(
 }
 
 /**
- * First enabled plugin based on user order, falling back to alphabetical.
+ * First enabled plugin based on user order, falling back to alphabetical name order.
  * This is the default source auto-searched on first visit.
  */
 function findDefaultSourcePlugin(list: PluginMeta[], order: string[]): PluginMeta | undefined {
@@ -126,7 +126,7 @@ function findDefaultSourcePlugin(list: PluginMeta[], order: string[]): PluginMet
       if (hit) return hit
     }
   }
-  // Fallback: alphabetical (Anime1 last)
+  // Fallback: alphabetical name order.
   return [...list].sort((a, b) =>
     a.name.toLowerCase().localeCompare(b.name.toLowerCase()),
   )[0]
@@ -164,7 +164,7 @@ export type WatchSession = {
   searchResults: SearchRow[]
   searchKeyword: string
   defaultKeyword: string
-  /** Preferred / auto-started rule name (MXdm when available). */
+  /** Default / auto-started rule name based on user order and capability. */
   defaultSourceName: string
   selection: SourceSelection | null
   episode: EpisodePlay | null
@@ -242,20 +242,22 @@ export function useWatchSession(bangumiId: number): WatchSession {
     staleTime: 60_000,
   })
   const mediaFullProxy = mediaFullProxyEnabled(serverCaps.data)
+  const playerSettings = useSettingsStore((s) => s.player ?? FALLBACK_PLAYER)
+  const setPlayer = useSettingsStore((s) => s.setPlayer)
   const plugins = useMemo(
     () =>
       allPlugins.filter((p) => {
         if (!p || p.enabled === false) return false
-        if (!mediaFullProxy && pluginNeedsFullMediaProxy(p)) return false
+        if (!isFullProxySourceUsable(p, mediaFullProxy, Boolean(playerSettings.forceMediaProxy))) {
+          return false
+        }
         return true
       }),
-    [allPlugins, mediaFullProxy],
+    [allPlugins, mediaFullProxy, playerSettings.forceMediaProxy],
   )
   const upsertHistory = useHistoryStore((s) => s.upsert)
   const danmakuSettings = useSettingsStore((s) => s.danmaku ?? FALLBACK_DANMAKU)
   const setDanmaku = useSettingsStore((s) => s.setDanmaku)
-  const playerSettings = useSettingsStore((s) => s.player ?? FALLBACK_PLAYER)
-  const setPlayer = useSettingsStore((s) => s.setPlayer)
 
   const subject = useQuery({
     queryKey: ['subject', bangumiId],
@@ -386,7 +388,7 @@ export function useWatchSession(bangumiId: number): WatchSession {
   }, [bangumiId])
 
   // Seed / refresh idle plugin rows without wiping in-progress selection.
-  // Preferred default source (MXdm) is sorted first for discoverability.
+  // Keep the row order aligned with the user's configured source order.
   useEffect(() => {
     setSearchResults((prev) => {
       const byName = new Map(prev.map((r) => [r.plugin.name, r]))
@@ -411,7 +413,7 @@ export function useWatchSession(bangumiId: number): WatchSession {
     }
   }, [defaultKeyword, searchKeyword])
 
-  // Pre-select preferred source (MXdm) so the rail is not a blank wall.
+  // Pre-select the first source so the rail is not a blank wall.
   useEffect(() => {
     if (!plugins.length) return
     if (keywordTargetPlugin || selection) return
@@ -687,7 +689,7 @@ export function useWatchSession(bangumiId: number): WatchSession {
     [searchOnePlugin, searchKeyword, defaultKeyword],
   )
 
-  // First visit (not history resume): auto-search MXdm with the show title,
+  // First visit (not history resume): search the first enabled source with the show title,
   // then auto-pick the first hit so episodes are ready immediately.
   useEffect(() => {
     if (!Number.isFinite(bangumiId) || bangumiId <= 0) return

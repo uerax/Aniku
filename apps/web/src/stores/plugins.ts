@@ -119,11 +119,8 @@ function preferAnime1Last(list: PluginMeta[]): PluginMeta[] {
  */
 function sortByOrder(plugins: PluginMeta[], order: string[]): PluginMeta[] {
   if (!order.length) {
-    // Fall back to alphabetical (Anime1 last)
-    return preferAnime1Last(
-      [...plugins].sort((a, b) =>
-        a.name.toLowerCase().localeCompare(b.name.toLowerCase()),
-      ),
+    return [...plugins].sort((a, b) =>
+      a.name.toLowerCase().localeCompare(b.name.toLowerCase()),
     )
   }
   const rank = new Map<string, number>()
@@ -137,7 +134,6 @@ function sortByOrder(plugins: PluginMeta[], order: string[]): PluginMeta[] {
   }))
   withFallback.sort((a, b) => {
     if (a.rank !== b.rank) return a.rank - b.rank
-    // Same rank → alphabetical
     return a.p.name.toLowerCase().localeCompare(b.p.name.toLowerCase())
   })
   return withFallback.map((w) => w.p)

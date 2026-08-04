@@ -637,3 +637,10 @@
 - cookie 不下 query / 会话化
 - soft-fail 契约统一
 - DNS-safe fetchPublic
+
+## [2026-08-04] 修复 release 动态域名回归问题
+- 状态：已完成
+- 优先级：P1
+- 描述：API 章节请求补齐 baseURL 模板变量；@baseURL 使用安全 replacer；动态 release 域名同步更新 referer；release 数值配置非法值回退默认并整数化；release 页面检查非 2xx，解码域名经过公网 HTTP(S) 校验。
+- 涉及文件：apps/server/src/rule-engine/api.ts、apps/server/src/rule-engine/index.ts、apps/server/src/lib/release.ts、packages/shared/src/plugin.ts
+- 备注：typecheck 通过；git diff --check 仅提示文件末尾多余空行，待清理
