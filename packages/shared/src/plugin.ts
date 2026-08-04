@@ -95,6 +95,8 @@ export interface PluginRule {
 export interface PluginMeta extends PluginRule {
   /** client-only */
   enabled: boolean
+  /** per-source media proxy toggle */
+  proxy?: boolean
   id: string
   importedAt: number
   /** how the rule entered the client store */

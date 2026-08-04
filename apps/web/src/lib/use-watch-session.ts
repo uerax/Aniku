@@ -26,7 +26,10 @@ import {
   getCachedPluginSearch,
   setCachedPluginSearch,
 } from './plugin-result-cache'
-import { isFullProxySourceUsable } from './plugin-capabilities'
+import {
+  isFullProxySourceUsable,
+  pluginShouldUseProxy,
+} from './plugin-capabilities'
 import {
   findRoadsForPlay,
   writeRoadsForSource,
@@ -244,16 +247,17 @@ export function useWatchSession(bangumiId: number): WatchSession {
   const mediaFullProxy = mediaFullProxyEnabled(serverCaps.data)
   const playerSettings = useSettingsStore((s) => s.player ?? FALLBACK_PLAYER)
   const setPlayer = useSettingsStore((s) => s.setPlayer)
+  const serverProxyEnabled = Boolean(playerSettings.serverProxy)
   const plugins = useMemo(
     () =>
       allPlugins.filter((p) => {
         if (!p || p.enabled === false) return false
-        if (!isFullProxySourceUsable(p, mediaFullProxy, Boolean(playerSettings.forceMediaProxy))) {
+        if (!isFullProxySourceUsable(p, mediaFullProxy, serverProxyEnabled)) {
           return false
         }
         return true
       }),
-    [allPlugins, mediaFullProxy, playerSettings.forceMediaProxy],
+    [allPlugins, mediaFullProxy, serverProxyEnabled],
   )
   const upsertHistory = useHistoryStore((s) => s.upsert)
   const danmakuSettings = useSettingsStore((s) => s.danmaku ?? FALLBACK_DANMAKU)
@@ -602,9 +606,15 @@ export function useWatchSession(bangumiId: number): WatchSession {
           ...keywordCandidatesStable,
         ])
         if (!items.length) {
-          error =
-            res.data.diagnostics?.filter(Boolean).slice(0, 1).join('；') ||
-            '无结果 — 可换关键词'
+          // Show first non-meta diagnostic (skip "关键词变体" style prefatory lines)
+          // so users see actionable error info: timeout, 403, no results, etc.
+          const diag = (res.data.diagnostics || []).filter(Boolean)
+          const useful = diag.find(
+            (d) =>
+              !d.startsWith('关键词变体') &&
+              !d.startsWith('关键词回退'),
+          )
+          error = useful || diag[0] || '无结果 — 可换关键词'
         }
       } catch (e) {
         if (pluginSearchGen.current[plugin.name] !== gen) return
@@ -975,9 +985,11 @@ export function useWatchSession(bangumiId: number): WatchSession {
   const proxyUrl = episode ? resolve.data?.data.proxyUrl : undefined
   const playUrl = episode ? resolve.data?.data.playUrl : undefined
   const forceAdFilter = Boolean(playerSettings.forceAdBlocker)
-  // Client forceMediaProxy cannot escalate past MEDIA_FULL_PROXY=0
-  const preferMediaProxy =
-    mediaFullProxy && Boolean(playerSettings.forceMediaProxy)
+  // Per-source proxy decision: plugin's own toggle, gated by master switches.
+  const currentPluginForProxy = selection?.plugin ?? null
+  const preferMediaProxy = currentPluginForProxy
+    ? pluginShouldUseProxy(currentPluginForProxy, mediaFullProxy, serverProxyEnabled)
+    : false
   const sessionForceProxy = mediaFullProxy && forceProxy
   const playback = useMemo(
     () =>

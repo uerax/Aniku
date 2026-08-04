@@ -31,6 +31,8 @@ interface PluginState {
   togglePlugin: (id: string, enabled?: boolean) => void
   /** Per-rule HLS ad filter */
   setPluginAdBlocker: (id: string, adBlocker: boolean) => void
+  /** Per-rule media proxy toggle */
+  setPluginProxy: (id: string, proxy: boolean) => void
   /** Reorder plugins by name list (first = top, becomes default). */
   setPluginOrder: (order: string[]) => void
   /** Get enabled plugins sorted by user order (or alphabetical fallback). */
@@ -50,6 +52,7 @@ function toMeta(
     ...rule,
     id: `${rule.name}-${rule.version || '0'}`,
     enabled,
+    proxy: rule.requiresFullMediaProxy === true ? true : undefined,
     importedAt: Date.now(),
     source,
   }
@@ -200,6 +203,12 @@ export const usePluginStore = create<PluginState>()(
             p.id === id ? { ...p, adBlocker } : p,
           ),
         })),
+      setPluginProxy: (id, proxy) =>
+        set((s) => ({
+          plugins: normalizePlugins(s.plugins).map((p) =>
+            p.id === id ? { ...p, proxy } : p,
+          ),
+        })),
       setPluginOrder: (order) => set({ pluginOrder: order.filter(Boolean) }),
       getEnabled: () => {
         const enabled = normalizePlugins(get().plugins).filter(
@@ -298,7 +307,11 @@ export const usePluginStore = create<PluginState>()(
           if (p.source !== 'builtin' && p.source !== undefined) return p
           const seed = seedByName.get(p.name.toLowerCase())
           if (!seed) return p
-          return { ...p, adBlocker: Boolean(seed.adBlocker) }
+          return {
+            ...p,
+            adBlocker: Boolean(seed.adBlocker),
+            proxy: p.proxy ?? (seed.requiresFullMediaProxy === true ? true : undefined),
+          }
         })
         if (missing.length) next = [...next, ...missing]
         next = preferAnime1Last(next)
@@ -364,6 +377,12 @@ export const usePluginStore = create<PluginState>()(
         if (wasEmpty) {
           plugins = seedFromDefaults()
         }
+        // One-time default: full-proxy sources get proxy=true when unset.
+        plugins = plugins.map((pl) =>
+          pl.proxy === undefined && pl.requiresFullMediaProxy === true
+            ? { ...pl, proxy: true }
+            : pl,
+        )
         const persistedVer =
           typeof p.defaultsVersion === 'number' && Number.isFinite(p.defaultsVersion)
             ? p.defaultsVersion

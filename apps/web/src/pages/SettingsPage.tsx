@@ -75,6 +75,7 @@ export function SettingsPage() {
   const removePlugin = usePluginStore((s) => s.removePlugin)
   const togglePlugin = usePluginStore((s) => s.togglePlugin)
   const setPluginAdBlocker = usePluginStore((s) => s.setPluginAdBlocker)
+  const setPluginProxy = usePluginStore((s) => s.setPluginProxy)
   const ensureDefaults = usePluginStore((s) => s.ensureDefaults)
   const resetToDefaults = usePluginStore((s) => s.resetToDefaults)
   const pluginOrder = usePluginStore((s) =>
@@ -112,7 +113,7 @@ export function SettingsPage() {
     staleTime: 60_000,
   })
   const mediaFullProxy = mediaFullProxyEnabled(health.data as ServerHealth | undefined)
-  const canUseFullProxySource = mediaFullProxy && Boolean(player.forceMediaProxy)
+  const canUseFullProxySource = mediaFullProxy && Boolean(player.serverProxy)
   /** User order within available/blocked groups; blocked sources stay at the end. */
   const sortedPlugins = useMemo(
     () =>
@@ -483,15 +484,19 @@ export function SettingsPage() {
             const needsFull = pluginNeedsFullMediaProxy(p)
             const blockedByServer = needsFull && !canUseFullProxySource
             const effectivelyOn = p.enabled !== false && !blockedByServer
+            const proxyLocked = needsFull && canUseFullProxySource
+            const proxyDisabled = !canUseFullProxySource || !player.serverProxy
+            const proxyChecked = p.proxy ?? false
             const isFirst = idx === 0
             const isLast = idx === sortedPlugins.length - 1
             return (
               <li
                 key={p.id}
-                className={`space-y-2 rounded-xl border border-[var(--kz-border)] px-3 py-2 ${
+                className={`flex flex-wrap items-center gap-2 rounded-xl border border-[var(--kz-border)] px-3 py-2 ${
                   blockedByServer ? 'opacity-70' : ''
                 }`}
               >
+                {/* Row 1: plugin info + order buttons */}
                 <div className="flex flex-wrap items-center gap-2">
                   {/* Drag handle / order buttons */}
                   <div className="mr-0.5 flex flex-col items-center gap-0.5 text-[var(--kz-fg-dim)]">
@@ -558,6 +563,9 @@ export function SettingsPage() {
                       </div>
                     )}
                   </div>
+                </div>
+                {/* Row 2: options + actions */}
+                <div className="flex flex-wrap items-center gap-3 lg:flex-1 lg:justify-end">
                   <label
                     className={`flex items-center gap-1 text-xs text-[var(--kz-fg-muted)] ${
                       blockedByServer ? 'cursor-not-allowed' : ''
@@ -584,6 +592,28 @@ export function SettingsPage() {
                     />
                     广告过滤
                   </label>
+                  <label
+                    className={`flex items-center gap-1 text-xs text-[var(--kz-fg-muted)] ${
+                      proxyDisabled || proxyLocked ? 'cursor-not-allowed' : ''
+                    }`}
+                    title={
+                      proxyLocked
+                        ? '此源需要服务器代理才能播放，不可关闭'
+                        : proxyDisabled
+                          ? '需开启上方「服务器代理」'
+                          : '媒体经服务器代理'
+                    }
+                  >
+                    <input
+                      type="checkbox"
+                      checked={proxyChecked}
+                      disabled={proxyDisabled || proxyLocked}
+                      onChange={(e) =>
+                        setPluginProxy(p.id, e.target.checked)
+                      }
+                    />
+                    代理
+                  </label>
                   <button
                     type="button"
                     disabled={Boolean(running) || blockedByServer}
@@ -606,13 +636,13 @@ export function SettingsPage() {
                   </button>
                 </div>
                 {running && (
-                  <div className="text-xs text-[var(--kz-fg-muted)]">
+                  <div className="w-full text-xs text-[var(--kz-fg-muted)]">
                     后台自动测试中（搜索 → 分集 → 解析）…
                   </div>
                 )}
                 {report && (
                   <div
-                    className={`rounded-lg px-2.5 py-2 text-xs ${
+                    className={`w-full rounded-lg px-2.5 py-2 text-xs ${
                       report.ok
                         ? 'bg-emerald-950/40 text-emerald-300/90'
                         : 'bg-amber-950/30 text-amber-200/90'
@@ -786,15 +816,15 @@ export function SettingsPage() {
           HLS 广告过滤：按 discontinuity 短段启发式剔除，非域名拦截。
         </p>
         <Toggle
-          label="媒体走服务器代理"
-          checked={mediaFullProxy && Boolean(player.forceMediaProxy)}
+          label="服务器代理"
+          checked={mediaFullProxy && Boolean(player.serverProxy)}
           disabled={!mediaFullProxy}
-          onChange={(forceMediaProxy) => setPlayer({ forceMediaProxy })}
+          onChange={(v) => setPlayer({ serverProxy: v })}
         />
         <p className="text-xs text-[var(--kz-fg-dim)]">
           {mediaFullProxy ? (
             <>
-              默认优先浏览器直连 CDN（省服务器流量）。弱网或源站限流时，勾选后 m3u8/分片经本机
+              总开关。关闭后下方所有源的「代理」不可勾选，全部直连 CDN。开启后可单独为每个源设置是否走
               <code className="mx-0.5 text-[var(--kz-fg-muted)]">/api/media/proxy</code>
               。只影响播放媒体，会增加服务器出站。此项仅存本机，不能改服务器 env。
             </>

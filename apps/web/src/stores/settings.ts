@@ -77,8 +77,12 @@ function mergePlayer(partial?: Partial<PlayerSettings>): PlayerSettings {
     forceAdBlocker: Boolean(
       p.forceAdBlocker ?? defaultPlayerSettings.forceAdBlocker,
     ),
-    forceMediaProxy: Boolean(
-      p.forceMediaProxy ?? defaultPlayerSettings.forceMediaProxy,
+    // serverProxy is the new master switch; fall back to legacy forceMediaProxy
+    // value so users upgrading don't silently lose their old preference.
+    serverProxy: Boolean(
+      (p as Record<string, unknown>).serverProxy ??
+        (p as Record<string, unknown>).forceMediaProxy ??
+        defaultPlayerSettings.serverProxy,
     ),
     preferBangumiOped: Boolean(
       p.preferBangumiOped ?? defaultPlayerSettings.preferBangumiOped,
@@ -130,20 +134,26 @@ export const useSettingsStore = create<SettingsState>()(
     }),
     {
       name: 'animaku-settings',
-      version: 1,
+      version: 2,
       migrate: (persisted, version) => {
+        const p = (persisted || {}) as Record<string, unknown>
+        const player =
+          p.player && typeof p.player === 'object'
+            ? (p.player as Record<string, unknown>)
+            : null
         if (version < 1) {
           // v0→v1: preferBangumiOped + autoNext defaults changed from true to false.
-          const p = (persisted || {}) as Record<string, unknown>
-          const player =
-            p.player && typeof p.player === 'object'
-              ? (p.player as Record<string, unknown>)
-              : null
           if (player) {
             player.preferBangumiOped = false
             player.autoNext = false
           }
-          return persisted as Record<string, unknown>
+        }
+        if (version < 2) {
+          // v1→v2: forceMediaProxy renamed to serverProxy.
+          if (player && 'forceMediaProxy' in player && !('serverProxy' in player)) {
+            player.serverProxy = player.forceMediaProxy
+            delete player.forceMediaProxy
+          }
         }
         return persisted as Record<string, unknown>
       },

@@ -44,19 +44,49 @@ async function fetchText(
   url: string,
   opts: { referer?: string; timeoutMs?: number } = {},
 ): Promise<string> {
-  const res = await fetch(url, {
-    headers: {
+  function h(referer?: string): Record<string, string> {
+    const h: Record<string, string> = {
       'User-Agent': UA,
-      Accept:
-        'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
       'Accept-Language': 'zh-TW,zh;q=0.9,en;q=0.8',
-      ...(opts.referer ? { Referer: opts.referer } : {}),
-    },
-    redirect: 'follow',
-    signal: AbortSignal.timeout(opts.timeoutMs ?? 15_000),
-  })
-  if (!res.ok) throw new Error(`Anime1 源站 ${res.status}: ${url}`)
-  return res.text()
+    }
+    if (referer) h.Referer = referer
+    return h
+  }
+
+  // Primary uses referer; fallback (only on 403) drops it — some WAF blocks
+  // referer mismatches and responds 403. Won't help if the egress IP itself is
+  // blocked, but costs one extra request only on the failure path.
+  let lastErr: Error | null = null
+  for (const headers of [h(opts.referer), h()]) {
+    let res: Response
+    try {
+      res = await fetch(url, {
+        headers,
+        redirect: 'follow',
+        signal: AbortSignal.timeout(opts.timeoutMs ?? 15_000),
+      })
+    } catch (e) {
+      // Network-level failure — different headers won't change routing, stop.
+      throw e instanceof Error ? e : new Error(String(e))
+    }
+    if (res.ok) return await res.text()
+
+    // Snapshot a small body slice so diagnostics can distinguish WAF/Cloudflare
+    // challenges from plain HTTP errors.
+    let snippet = ''
+    try {
+      snippet = (await res.text()).slice(0, 120).replace(/\s+/g, ' ').trim()
+    } catch {
+      /* body may be unreadable — keep snippet empty */
+    }
+    const detail = snippet ? ` — ${snippet}` : ''
+    lastErr = new Error(`Anime1 源站 ${res.status}: ${url}${detail}`)
+
+    // Only retry once with the stripped header set on 403.
+    if (res.status !== 403) break
+  }
+  throw lastErr || new Error(`Anime1 源站请求失败: ${url}`)
 }
 
 /** Parse episode title like "葬送的芙莉蓮 第二季 [38]" */

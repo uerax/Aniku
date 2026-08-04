@@ -22,27 +22,31 @@ export function pluginNeedsFullMediaProxy(p: {
 
 
 
+/**
+ * Can a plugin appear in the watch session at all?
+ * Normal sources always qualify; full-proxy sources (Anime1 / LIBVIO) need the
+ * server MEDIA_FULL_PROXY=1 AND the client master "服务器代理" toggle ON.
+ */
 export function isFullProxySourceUsable(
   plugin: { requiresFullMediaProxy?: boolean; name?: string; baseURL?: string },
   mediaFullProxy: boolean,
-  forceMediaProxy: boolean,
+  serverProxyEnabled: boolean,
 ): boolean {
-  return !pluginNeedsFullMediaProxy(plugin) || (mediaFullProxy && forceMediaProxy)
+  return (
+    !pluginNeedsFullMediaProxy(plugin) || (mediaFullProxy && serverProxyEnabled)
+  )
 }
 
-/** Backward-compatible alias for older callers. */
-export function isAnime1LikePlugin(p: {
-  name?: string
-  baseURL?: string
-  requiresFullMediaProxy?: boolean
-}): boolean {
-  return pluginNeedsFullMediaProxy(p)
-}
-
-/** True if this rule cannot work when the server only proxies m3u8. */
-export function pluginNeedsFullMediaProxyLegacy(p: {
-  name?: string
-  baseURL?: string
-}): boolean {
-  return pluginNeedsFullMediaProxy(p)
+/**
+ * Should this plugin's media actually flow through the server proxy?
+ * Master switch OFF (either client toggle or server config) → never proxy.
+ * Otherwise use the per-source `proxy` preference.
+ */
+export function pluginShouldUseProxy(
+  plugin: { proxy?: boolean },
+  mediaFullProxy: boolean,
+  serverProxyEnabled: boolean,
+): boolean {
+  if (!mediaFullProxy || !serverProxyEnabled) return false
+  return Boolean(plugin.proxy)
 }

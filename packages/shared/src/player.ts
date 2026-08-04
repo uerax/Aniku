@@ -45,11 +45,11 @@ export interface PlayerSettings {
    */
   forceAdBlocker: boolean
   /**
-   * Always play via `/api/media/proxy` instead of direct CDN.
-   * Helps when the browser cannot reach source CDNs (poor network / geo / hotlink).
-   * Search/chapters/resolve already go through the API; this only affects media.
+   * Master switch: per-source "代理" toggles take effect only when this is ON.
+   * Requires server MEDIA_FULL_PROXY=1 (checked separately via /health).
+   * When OFF, no source uses the media proxy.
    */
-  forceMediaProxy: boolean
+  serverProxy: boolean
   /**
    * Prefer bangumi-oped data for OP/ED skip timing.
    * When true (default), fetch per-show timestamps from the bangumi-oped repo
@@ -77,6 +77,6 @@ export const defaultPlayerSettings: PlayerSettings = {
   skipEd: { enabled: false, start: 0, duration: 90 },
   superResolution: 'off',
   forceAdBlocker: false,
-  forceMediaProxy: false,
+  serverProxy: false,
   preferBangumiOped: false,
 }
